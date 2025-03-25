@@ -34,7 +34,6 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { evaluarFormula } from "@/lib/formula-evaluator"
 import type { Instructor, PagoInstructor } from "@/types/schema"
-import { motion } from "framer-motion"
 import { toast } from "@/components/ui/use-toast"
 
 export default function InstructorDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -268,7 +267,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <motion.div className="container mx-auto py-6" {...fadeIn}>
+    <div className="container mx-auto py-6">
       {/* Header con selector de periodo e información principal */}
       <div className="bg-card rounded-lg p-6 mb-6 border shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -770,7 +769,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
           </div>
         </TabsContent>
       </Tabs>
-    </motion.div>
+    </div>
   )
 }
 

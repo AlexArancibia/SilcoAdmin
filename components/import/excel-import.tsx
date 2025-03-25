@@ -506,7 +506,7 @@ export function ExcelImport() {
             },
           }
 
-          await  actualizarPago(instructorId, pagoActualizado)
+          await  actualizarPago(pagoExistente.id, pagoActualizado)
           console.log(`Pago actualizado para instructor ID ${instructorId} con monto ${montoTotal}`)
         }
       } else {
