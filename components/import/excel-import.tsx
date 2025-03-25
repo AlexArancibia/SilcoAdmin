@@ -274,9 +274,9 @@ export function ExcelImport() {
   }
 
   const analyzeInstructors = (data: DatosExcelClase[]) => {
-    // Obtener todos los instructores únicos del archivo
-    const instructorCounts: Record<string, number> = {}
+    // Obtener todos los instructores únicos del archivo y sus disciplinas
     const instructorInfo: Record<string, { count: number; disciplines: Set<string> }> = {}
+
     data.forEach((row) => {
       const instructor = row.Instructor
       const discipline = row.Disciplina
@@ -298,14 +298,14 @@ export function ExcelImport() {
     )
 
     // Crear el análisis
-    const instructorsAnalysis = Object.keys(instructorCounts).map((name) => {
+    const instructorsAnalysis = Object.keys(instructorInfo).map((name) => {
       // Buscar si existe un instructor con este nombre
       const matchedInstructor = activeInstructores.find((i) => i.nombre.toLowerCase() === name.toLowerCase())
 
       return {
         name,
         exists: !!matchedInstructor,
-        count: instructorCounts[name],
+        count: instructorInfo[name].count,
         disciplines: instructorInfo[name].disciplines,
         matchedInstructor,
       }
@@ -393,35 +393,56 @@ export function ExcelImport() {
     return JSON.stringify(obj, null, 2)
   }
 
+  const asignarDisciplinaAInstructor = async (instructor: Instructor, disciplina: Disciplina): Promise<void> => {
+    console.log(`Verificando asignación: Instructor ${instructor.nombre}, Disciplina ${disciplina.nombre}`)
 
+    try {
+      // Verificar si el instructor ya tiene la disciplina asignada
+      const tieneDisciplina = instructor.disciplinas?.some((d) => d.id === disciplina.id)
 
-const createInstructor = async (nombre: string): Promise<number> => {
-  console.log(`Intentando crear instructor: ${nombre}`)
-  try {
-    // Generar una contraseña basada en el nombre y su longitud
-    const rawPassword = `${nombre}@${nombre.length * 3}`
+      if (tieneDisciplina) {
+        console.log(`El instructor ${instructor.nombre} ya tiene asignada la disciplina ${disciplina.nombre}`)
+        return
+      }
 
-    // Hashear la contraseña antes de enviarla
-    const hashedPassword = await hash(rawPassword, 10)
+      // Crear un array con los IDs de las disciplinas actuales más la nueva
+      const disciplinaIds = [...(instructor.disciplinas?.map((d) => d.id) || []), disciplina.id]
 
-    // Crear el instructor directamente usando la API
-    const nuevoInstructor = await instructoresApi.crearInstructor({
-      nombre,
-      extrainfo: {
-        estado: "ACTIVO",
-        activo: true,
-        especialidad: "",
-        password: hashedPassword, // Guardar la contraseña hasheada
-      },
-    })
+      // Actualizar el instructor con las nuevas disciplinas
+      await instructoresApi.actualizarInstructor(instructor.id, {
+        disciplinaIds,
+      })
 
-    console.log(`Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}`)
-    return nuevoInstructor.id
-  } catch (error) {
-    console.error(`Error al crear instructor ${nombre}:`, error)
-    throw error
+      console.log(`Disciplina ${disciplina.nombre} asignada al instructor ${instructor.nombre}`)
+    } catch (error) {
+      console.error(`Error al asignar disciplina:`, error)
+      throw error
+    }
   }
-}
+
+  const createInstructor = async (nombre: string, disciplinaIds?: number[]): Promise<number> => {
+    console.log(
+      `Intentando crear instructor: ${nombre}${disciplinaIds ? ` con disciplinas: ${disciplinaIds.join(", ")}` : ""}`,
+    )
+    try {
+      // Crear el instructor usando la nueva API con disciplinaIds si están disponibles
+      const nuevoInstructor = await instructoresApi.crearInstructor({
+        nombre,
+        extrainfo: {
+          estado: "ACTIVO",
+          activo: true,
+          especialidad: "",
+        },
+        disciplinaIds: disciplinaIds || [], // Agregar disciplinaIds al crear el instructor
+      })
+
+      console.log(`Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}`)
+      return nuevoInstructor.id
+    } catch (error) {
+      console.error(`Error al crear instructor ${nombre}:`, error)
+      throw error
+    }
+  }
 
   // Función para crear un pago para un instructor en un periodo
   // Modificar la función crearPagoParaInstructor para calcular el monto basado en las clases
