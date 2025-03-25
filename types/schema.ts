@@ -143,22 +143,4 @@ export interface PagoInstructor {
   instructor?: Instructor
   periodo?: Periodo
 }
-
-export interface ConfiguracionSistema {
-  id: number
-  clave: string
-  valor: string
-  descripcion?: string
-  fechaActualizacion?: Date
-}
-
-export interface DetallePago {
-  id: number
-  pagoInstructorId: number
-  claseId: number
-  montoBase: number
-  montoBonoReservaciones: number
-  descuentos: number
-  total: number
-}
-
+ 

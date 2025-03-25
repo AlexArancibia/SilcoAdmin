@@ -35,7 +35,7 @@ import * as XLSX from "xlsx"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Badge } from "@/components/ui/badge"
-import { Instructor, Disciplina, Periodo, Clase, EstadoPago } from "@/types/schema"
+import { type Instructor, type Disciplina, type Periodo, type Clase, EstadoPago } from "@/types/schema"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { clasesApi } from "@/lib/api/clases-api"
@@ -398,7 +398,8 @@ export function ExcelImport() {
 
     try {
       // Verificar si el instructor ya tiene la disciplina asignada
-      const tieneDisciplina = instructor.disciplinas?.some((d) => d.id === disciplina.id)
+      const disciplinasActuales = instructor.disciplinas || []
+      const tieneDisciplina = disciplinasActuales.some((d) => d.id === disciplina.id)
 
       if (tieneDisciplina) {
         console.log(`El instructor ${instructor.nombre} ya tiene asignada la disciplina ${disciplina.nombre}`)
@@ -406,7 +407,7 @@ export function ExcelImport() {
       }
 
       // Crear un array con los IDs de las disciplinas actuales más la nueva
-      const disciplinaIds = [...(instructor.disciplinas?.map((d) => d.id) || []), disciplina.id]
+      const disciplinaIds = [...disciplinasActuales.map((d) => d.id), disciplina.id]
 
       // Actualizar el instructor con las nuevas disciplinas
       await instructoresApi.actualizarInstructor(instructor.id, {
@@ -425,18 +426,26 @@ export function ExcelImport() {
       `Intentando crear instructor: ${nombre}${disciplinaIds ? ` con disciplinas: ${disciplinaIds.join(", ")}` : ""}`,
     )
     try {
-      // Crear el instructor usando la nueva API con disciplinaIds si están disponibles
+      // Generar una contraseña aleatoria segura
+      const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).toUpperCase().slice(-4)
+      const hashedPassword = await hash(randomPassword, 10)
+
+      // Crear el instructor usando la nueva API con disciplinaIds y contraseña
       const nuevoInstructor = await instructoresApi.crearInstructor({
         nombre,
+        password: hashedPassword, // Agregar la contraseña hasheada
         extrainfo: {
           estado: "ACTIVO",
           activo: true,
           especialidad: "",
+          passwordTemporal: randomPassword, // Guardar la contraseña temporal en extrainfo
         },
         disciplinaIds: disciplinaIds || [], // Agregar disciplinaIds al crear el instructor
       })
 
-      console.log(`Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}`)
+      console.log(
+        `Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}, contraseña temporal: ${randomPassword}`,
+      )
       return nuevoInstructor.id
     } catch (error) {
       console.error(`Error al crear instructor ${nombre}:`, error)
@@ -444,94 +453,93 @@ export function ExcelImport() {
     }
   }
 
-  // Función para crear un pago para un instructor en un periodo
   // Modificar la función crearPagoParaInstructor para calcular el monto basado en las clases
   // Modify the crearPagoParaInstructor function to add more console logs
   // Corregir template literals en toda la función y ajustar lógica de actualización
-const crearPagoParaInstructor = async (
-  instructorId: number,
-  periodoId: number,
-  pagosExistentes: Record<string, boolean>,
-): Promise<boolean> => {
-  const pagoKey = `${instructorId}-${periodoId}`; // Usar backticks
+  const crearPagoParaInstructor = async (
+    instructorId: number,
+    periodoId: number,
+    pagosExistentes: Record<string, boolean>,
+  ): Promise<boolean> => {
+    const pagoKey = `${instructorId}-${periodoId}` // Usar backticks
 
-  console.log(`=== INICIANDO CREACIÓN/ACTUALIZACIÓN DE PAGO PARA INSTRUCTOR ID ${instructorId} ===`);
-  console.log(`Periodo ID: ${periodoId}, Clave de pago: ${pagoKey}`);
-  console.log(`Pago existente: ${pagosExistentes[pagoKey] ? "Sí" : "No"}`);
+    console.log(`=== INICIANDO CREACIÓN/ACTUALIZACIÓN DE PAGO PARA INSTRUCTOR ID ${instructorId} ===`)
+    console.log(`Periodo ID: ${periodoId}, Clave de pago: ${pagoKey}`)
+    console.log(`Pago existente: ${pagosExistentes[pagoKey] ? "Sí" : "No"}`)
 
-  try {
-    const clasesInstructor = await clasesApi.getClases({ instructorId, periodoId });
-    console.log(`Encontradas ${clasesInstructor.length} clases para el instructor ID ${instructorId}`);
+    try {
+      const clasesInstructor = await clasesApi.getClases({ instructorId, periodoId })
+      console.log(`Encontradas ${clasesInstructor.length} clases para el instructor ID ${instructorId}`)
 
-    if (clasesInstructor.length === 0) {
-      console.log(`No hay clases para el instructor ID ${instructorId}`);
-      return false;
-    }
-
-    let montoTotal = 0;
-    const detallesClases = [];
-
-    for (const clase of clasesInstructor) {
-      const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId);
-      if (!disciplina) continue;
-
-      const formula = disciplina?.parametros?.formula;
-      if (!formula) continue;
-
-      try {
-        const resultado = evaluarFormula(formula, {
-          reservaciones: clase.reservasTotales,
-          listaEspera: clase.listasEspera,
-          cortesias: clase.cortesias,
-          capacidad: clase.lugares,
-          reservasPagadas: clase.reservasPagadas,
-          lugares: clase.lugares,
-        });
-        
-        montoTotal += resultado.valor || 0;
-        detallesClases.push({
-          claseId: clase.id,
-          fecha: clase.fecha,
-          disciplina: disciplina.nombre,
-          montoCalculado: resultado.valor,
-          detalleCalculo: resultado,
-        });
-      } catch (error) {
-        console.error(`Error en clase ${clase.id}:`, error);
+      if (clasesInstructor.length === 0) {
+        console.log(`No hay clases para el instructor ID ${instructorId}`)
+        return false
       }
-    }
 
-    // Si no hay montos válidos, no crear pago
-    if (montoTotal <= 0 && detallesClases.length === 0) {
-      console.log(`No hay montos válidos para crear pago (Instructor ${instructorId})`);
-      return false;
-    }
+      let montoTotal = 0
+      const detallesClases = []
 
-    // Lógica simplificada de creación/actualización
-    if (pagosExistentes[pagoKey]) {
-      const pagoExistente = pagos.find(p => p.instructorId === instructorId && p.periodoId === periodoId);
-      if (pagoExistente) {
-        await actualizarPago(instructorId, { ...pagoExistente, monto: montoTotal });
-        console.log(`Pago actualizado para instructor ${instructorId}`);
+      for (const clase of clasesInstructor) {
+        const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
+        if (!disciplina) continue
+
+        const formula = disciplina?.parametros?.formula
+        if (!formula) continue
+
+        try {
+          const resultado = evaluarFormula(formula, {
+            reservaciones: clase.reservasTotales,
+            listaEspera: clase.listasEspera,
+            cortesias: clase.cortesias,
+            capacidad: clase.lugares,
+            reservasPagadas: clase.reservasPagadas,
+            lugares: clase.lugares,
+          })
+
+          montoTotal += resultado.valor || 0
+          detallesClases.push({
+            claseId: clase.id,
+            fecha: clase.fecha,
+            disciplina: disciplina.nombre,
+            montoCalculado: resultado.valor,
+            detalleCalculo: resultado,
+          })
+        } catch (error) {
+          console.error(`Error en clase ${clase.id}:`, error)
+        }
       }
-    } else {
-      await crearPago({
-        instructorId,
-        periodoId,
-        monto: montoTotal,
-        estado: EstadoPago.PENDIENTE,
-        detalles: { clases: detallesClases }
-      });
-      pagosExistentes[pagoKey] = true;
-      console.log(`Pago creado para instructor ${instructorId}`);
-    }
 
-    return true;
-  } catch (error) {
-    console.error(`Error procesando pago instructor ${instructorId}:`, error);
-    return false;
+      // Si no hay montos válidos, no crear pago
+      if (montoTotal <= 0 && detallesClases.length === 0) {
+        console.log(`No hay montos válidos para crear pago (Instructor ${instructorId})`)
+        return false
+      }
+
+      // Lógica simplificada de creación/actualización
+      if (pagosExistentes[pagoKey]) {
+        const pagoExistente = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoId)
+        if (pagoExistente) {
+          await actualizarPago(instructorId, { ...pagoExistente, monto: montoTotal })
+          console.log(`Pago actualizado para instructor ${instructorId}`)
+        }
+      } else {
+        await crearPago({
+          instructorId,
+          periodoId,
+          monto: montoTotal,
+          estado: EstadoPago.PENDIENTE,
+          detalles: { clases: detallesClases },
+        })
+        pagosExistentes[pagoKey] = true
+        console.log(`Pago creado para instructor ${instructorId}`)
+      }
+
+      return true
+    } catch (error) {
+      console.error(`Error procesando pago instructor ${instructorId}:`, error)
+      return false
+    }
   }
-};
 
   // Modificar la función handleSubmit para mejorar la depuración y adaptarla al nuevo schema
   const handleSubmit = async (e: React.FormEvent) => {
@@ -632,8 +640,16 @@ const crearPagoParaInstructor = async (
       let registrosConError = 0
       let instructoresCreados = 0
 
+      // Modificar la función handleSubmit para manejar correctamente múltiples disciplinas por instructor
+      // Específicamente, vamos a modificar la parte donde se procesan los instructores y disciplinas
+
+      // Dentro de la función handleSubmit, reemplazar la sección de procesamiento de instructores y disciplinas with this code:
+
       // Caché de instructores para evitar búsquedas repetidas
       const instructoresCache: Record<string, number> = {}
+
+      // Mapa para rastrear las disciplinas que necesita cada instructor
+      const instructorDisciplinas: Record<string, Set<number>> = {}
 
       // Conjunto para rastrear instructores únicos en esta importación
       const instructoresUnicos: Set<number> = new Set()
@@ -643,6 +659,25 @@ const crearPagoParaInstructor = async (
       instructores.forEach((instructor) => {
         instructoresCache[instructor.nombre.toLowerCase()] = instructor.id
         console.log(`Instructor en caché: ${instructor.nombre} (ID: ${instructor.id})`)
+      })
+
+      // Primera pasada: recopilar todas las disciplinas necesarias para cada instructor
+      console.log("Primera pasada: recopilando disciplinas por instructor...")
+      processedData.forEach((row) => {
+        const instructorNombre = row.Instructor.toLowerCase()
+        const disciplina = disciplinas.find((d) => d.nombre.toLowerCase() === row.Disciplina.toLowerCase())
+
+        if (disciplina) {
+          if (!instructorDisciplinas[instructorNombre]) {
+            instructorDisciplinas[instructorNombre] = new Set<number>()
+          }
+          instructorDisciplinas[instructorNombre].add(disciplina.id)
+        }
+      })
+
+      // Mostrar las disciplinas recopiladas por instructor
+      Object.entries(instructorDisciplinas).forEach(([instructor, disciplinaIds]) => {
+        console.log(`Instructor ${instructor} necesita las disciplinas: ${Array.from(disciplinaIds).join(", ")}`)
       })
 
       console.log(`Total de registros a procesar: ${processedData.length}`)
@@ -677,17 +712,61 @@ const crearPagoParaInstructor = async (
           const instructorNombreLower = instructorNombre.toLowerCase()
 
           console.log(`Buscando instructor: ${instructorNombre}`)
+
           // Verificar si ya tenemos el ID en caché
           if (instructoresCache[instructorNombreLower]) {
             instructorId = instructoresCache[instructorNombreLower]
             console.log(`Instructor encontrado en caché: ${instructorNombre} (ID: ${instructorId})`)
+
+            // Si el instructor existe, asignarle todas las disciplinas recopiladas
+            if (!instructoresUnicos.has(instructorId)) {
+              // Solo hacemos esto la primera vez que encontramos este instructor
+              const instructorExistente = instructores.find((i) => i.id === instructorId)
+              if (instructorExistente) {
+                const disciplinaIdsArray = Array.from(instructorDisciplinas[instructorNombreLower] || [])
+                if (disciplinaIdsArray.length > 0) {
+                  try {
+                    // Obtener las disciplinas actuales del instructor
+                    const disciplinasActuales = instructorExistente.disciplinas?.map((d) => d.id) || []
+
+                    // Filtrar solo las disciplinas que no tiene asignadas
+                    const nuevasDisciplinas = disciplinaIdsArray.filter((id) => !disciplinasActuales.includes(id))
+
+                    if (nuevasDisciplinas.length > 0) {
+                      // Actualizar el instructor con todas sus disciplinas (actuales + nuevas)
+                      await instructoresApi.actualizarInstructor(instructorId, {
+                        disciplinaIds: [...disciplinasActuales, ...nuevasDisciplinas],
+                      })
+                      console.log(
+                        `Disciplinas asignadas al instructor existente ${instructorNombre}: ${nuevasDisciplinas.join(", ")}`,
+                      )
+                    } else {
+                      console.log(`El instructor ${instructorNombre} ya tiene todas las disciplinas necesarias`)
+                    }
+                  } catch (error) {
+                    console.error(`Error al asignar disciplinas al instructor existente:`, error)
+                    // Continuamos con la importación aunque falle la asignación
+                  }
+                }
+              }
+              instructoresUnicos.add(instructorId)
+            }
           } else {
-            // Si no está en caché, intentar crearlo
+            // Si no está en caché, intentar crearlo con todas las disciplinas recopiladas
             console.log(`Instructor no encontrado en caché, intentando crear: ${instructorNombre}`)
             try {
-              instructorId = await createInstructor(instructorNombre)
+              // Obtener todas las disciplinas para este instructor
+              const disciplinaIdsArray = Array.from(instructorDisciplinas[instructorNombreLower] || [])
+              console.log(`Creando instructor con disciplinas: ${disciplinaIdsArray.join(", ")}`)
+
+              // Crear el instructor con todas sus disciplinas
+              instructorId = await createInstructor(
+                instructorNombre,
+                disciplinaIdsArray.length > 0 ? disciplinaIdsArray : undefined,
+              )
               instructoresCache[instructorNombreLower] = instructorId
               instructoresCreados++
+              instructoresUnicos.add(instructorId)
               console.log(`Instructor creado y agregado a caché: ${instructorNombre} (ID: ${instructorId})`)
             } catch (error) {
               console.error(`Error al crear instructor, intentando buscar de nuevo: ${instructorNombre}`, error)
@@ -699,6 +778,36 @@ const crearPagoParaInstructor = async (
                 instructorId = instructorCreado.id
                 instructoresCache[instructorNombreLower] = instructorId
                 console.log(`Instructor encontrado después de recargar: ${instructorNombre} (ID: ${instructorId})`)
+
+                // Si encontramos el instructor, asignarle todas las disciplinas recopiladas
+                if (!instructoresUnicos.has(instructorId)) {
+                  const disciplinaIdsArray = Array.from(instructorDisciplinas[instructorNombreLower] || [])
+                  if (disciplinaIdsArray.length > 0) {
+                    try {
+                      // Obtener las disciplinas actuales del instructor
+                      const disciplinasActuales = instructorCreado.disciplinas?.map((d) => d.id) || []
+
+                      // Filtrar solo las disciplinas que no tiene asignadas
+                      const nuevasDisciplinas = disciplinaIdsArray.filter((id) => !disciplinasActuales.includes(id))
+
+                      if (nuevasDisciplinas.length > 0) {
+                        // Actualizar el instructor con todas sus disciplinas (actuales + nuevas)
+                        await instructoresApi.actualizarInstructor(instructorId, {
+                          disciplinaIds: [...disciplinasActuales, ...nuevasDisciplinas],
+                        })
+                        console.log(
+                          `Disciplinas asignadas al instructor encontrado ${instructorNombre}: ${nuevasDisciplinas.join(", ")}`,
+                        )
+                      } else {
+                        console.log(`El instructor ${instructorNombre} ya tiene todas las disciplinas necesarias`)
+                      }
+                    } catch (error) {
+                      console.error(`Error al asignar disciplinas al instructor encontrado:`, error)
+                      // Continuamos con la importación aunque falle la asignación
+                    }
+                  }
+                  instructoresUnicos.add(instructorId)
+                }
               } else {
                 console.error(`No se pudo encontrar ni crear el instructor: ${instructorNombre}`)
                 errores.push({
@@ -715,8 +824,6 @@ const crearPagoParaInstructor = async (
           if (instructorId) {
             instructoresUnicos.add(instructorId)
           }
-
-          // IMPORTANTE: Ya no creamos pagos aquí, solo registramos los instructores únicos
 
           // Convertir fecha
           let fecha: Date
