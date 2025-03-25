@@ -1,5 +1,5 @@
 "use client"
-
+import { hash } from "bcrypt"
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -53,6 +53,7 @@ interface InstructorAnalysis {
     exists: boolean
     count: number
     matchedInstructor?: Instructor
+    disciplines: Set<string>
   }>
 }
 
@@ -275,9 +276,20 @@ export function ExcelImport() {
   const analyzeInstructors = (data: DatosExcelClase[]) => {
     // Obtener todos los instructores únicos del archivo
     const instructorCounts: Record<string, number> = {}
+    const instructorInfo: Record<string, { count: number; disciplines: Set<string> }> = {}
     data.forEach((row) => {
       const instructor = row.Instructor
-      instructorCounts[instructor] = (instructorCounts[instructor] || 0) + 1
+      const discipline = row.Disciplina
+
+      if (!instructorInfo[instructor]) {
+        instructorInfo[instructor] = {
+          count: 0,
+          disciplines: new Set<string>(),
+        }
+      }
+
+      instructorInfo[instructor].count += 1
+      instructorInfo[instructor].disciplines.add(discipline)
     })
 
     // Filtrar solo instructores activos
@@ -294,6 +306,7 @@ export function ExcelImport() {
         name,
         exists: !!matchedInstructor,
         count: instructorCounts[name],
+        disciplines: instructorInfo[name].disciplines,
         matchedInstructor,
       }
     })
@@ -380,26 +393,35 @@ export function ExcelImport() {
     return JSON.stringify(obj, null, 2)
   }
 
-  const createInstructor = async (nombre: string): Promise<number> => {
-    console.log(`Intentando crear instructor: ${nombre}`)
-    try {
-      // Crear el instructor directamente usando la API
-      const nuevoInstructor = await instructoresApi.crearInstructor({
-        nombre,
-        extrainfo: {
-          estado: "ACTIVO",
-          activo: true,
-          especialidad: "",
-        },
-      })
 
-      console.log(`Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}`)
-      return nuevoInstructor.id
-    } catch (error) {
-      console.error(`Error al crear instructor ${nombre}:`, error)
-      throw error
-    }
+
+const createInstructor = async (nombre: string): Promise<number> => {
+  console.log(`Intentando crear instructor: ${nombre}`)
+  try {
+    // Generar una contraseña basada en el nombre y su longitud
+    const rawPassword = `${nombre}@${nombre.length * 3}`
+
+    // Hashear la contraseña antes de enviarla
+    const hashedPassword = await hash(rawPassword, 10)
+
+    // Crear el instructor directamente usando la API
+    const nuevoInstructor = await instructoresApi.crearInstructor({
+      nombre,
+      extrainfo: {
+        estado: "ACTIVO",
+        activo: true,
+        especialidad: "",
+        password: hashedPassword, // Guardar la contraseña hasheada
+      },
+    })
+
+    console.log(`Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}`)
+    return nuevoInstructor.id
+  } catch (error) {
+    console.error(`Error al crear instructor ${nombre}:`, error)
+    throw error
   }
+}
 
   // Función para crear un pago para un instructor en un periodo
   // Modificar la función crearPagoParaInstructor para calcular el monto basado en las clases

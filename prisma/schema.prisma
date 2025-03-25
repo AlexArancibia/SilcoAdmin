@@ -26,6 +26,7 @@ model Usuario {
 model Instructor {
   id                Int      @id @default(autoincrement())
   nombre            String   @unique
+  email             String?   @unique
   password          String?
   extrainfo          Json?
   createdAt         DateTime @default(now())
