@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,15 +44,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { EstadoPago } from "@/types/schema"
 import { PagoDetalleStats } from "@/components/payments/pago-detalle-stats"
 
-interface PagoDetallePageProps {
-  params: {
-    id: string
-  }
-}
+ 
 
-export default function PagoDetallePage({ params }: PagoDetallePageProps) {
+export default function PagoDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
-  const pagoId = Number.parseInt(params.id)
+  const resolvedParams = use(params)
+  const pagoId = Number.parseInt(resolvedParams.id)
 
   const { pagos, fetchPagos, actualizarPago, isLoading: isLoadingPagos } = usePagosStore()
   const { instructores, fetchInstructores } = useInstructoresStore()
