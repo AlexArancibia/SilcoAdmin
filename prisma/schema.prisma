@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Definición de modelos
+
+model Usuario {
+  id                Int      @id @default(autoincrement())
+  nombre            String
+  email             String   @unique
+  password          String
+  rol               String   // SUPER_ADMIN, ADMIN, USUARIO
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Instructor {
+  id                Int      @id @default(autoincrement())
+  nombre            String   @unique
+  password          String?
+  extrainfo          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+
+  // Relaciones
+  clases            Clase[]
+  pagos             PagoInstructor[]
+  disciplinas       Disciplina[]
+}
+
+model Disciplina {
+  id                Int      @id @default(autoincrement())
+  nombre            String   @unique
+  
+  descripcion       String?
+  color             String?
+  parametros        Json?    // Incluye parámetros y fórmula de la disciplina
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  clases            Clase[]
+
+  Instructor Instructor[]
+}
+
+model Periodo {
+  id                Int      @id @default(autoincrement())
+  numero            Int
+  año               Int
+  fechaInicio       DateTime
+  fechaFin          DateTime
+  fechaPago         DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  clases            Clase[]
+  pagos             PagoInstructor[]
+}
+
+model Clase {
+  id                Int      @id @default(autoincrement())
+  pais              String
+  ciudad            String
+  disciplinaId      Int
+  semana            Int
+  estudio           String
+  instructorId      Int
+  periodoId         Int      // Catorcena
+  salon             String
+  reservasTotales   Int      @default(0)
+  listasEspera      Int      @default(0)
+  cortesias         Int      @default(0)
+  lugares           Int      // Capacidad total
+  reservasPagadas   Int      @default(0)
+  textoEspecial     String?
+  fecha             DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  instructor        Instructor @relation(fields: [instructorId], references: [id])
+  disciplina        Disciplina @relation(fields: [disciplinaId], references: [id])
+  periodo           Periodo    @relation(fields: [periodoId], references: [id])
+}
+
+model PagoInstructor {
+  id                Int      @id @default(autoincrement())
+  monto             Float
+  estado            String   @default("PENDIENTE")
+  instructorId      Int
+  periodoId         Int
+  detalles          Json?    // Detalles del cálculo del pago
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relaciones
+  instructor        Instructor @relation(fields: [instructorId], references: [id])
+  periodo           Periodo    @relation(fields: [periodoId], references: [id])
+}
+
+ 
