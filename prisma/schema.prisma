@@ -106,6 +106,7 @@ model PagoInstructor {
   detalles          Json?    // Detalles del cálculo del pago
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  reajuste          Float?
 
   // Relaciones
   instructor        Instructor @relation(fields: [instructorId], references: [id])

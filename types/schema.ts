@@ -136,6 +136,7 @@ export interface PagoInstructor {
   instructorId: number
   periodoId: number
   detalles?: any // Detalles del cálculo del pago como JSON
+  reajuste?:number
   createdAt: Date
   updatedAt: Date
 
