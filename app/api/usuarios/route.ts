@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { hash } from "bcrypt"
+import { hash } from "bcryptjs"
 
 export async function GET(request: NextRequest) {
   try {
