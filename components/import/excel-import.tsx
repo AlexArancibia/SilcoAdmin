@@ -35,7 +35,7 @@ import * as XLSX from "xlsx"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Badge } from "@/components/ui/badge"
-import type { Instructor, Disciplina, Periodo, Clase, EstadoPago } from "@/types/schema"
+import { Instructor, Disciplina, Periodo, Clase, EstadoPago } from "@/types/schema"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { clasesApi } from "@/lib/api/clases-api"
@@ -403,143 +403,92 @@ export function ExcelImport() {
 
   // Función para crear un pago para un instructor en un periodo
   // Modificar la función crearPagoParaInstructor para calcular el monto basado en las clases
-  const crearPagoParaInstructor = async (
-    instructorId: number,
-    periodoId: number,
-    pagosExistentes: Record<string, boolean>,
-  ): Promise<boolean> => {
-    // Crear una clave única para este instructor y periodo
-    const pagoKey = `${instructorId}-${periodoId}`
+  // Modify the crearPagoParaInstructor function to add more console logs
+  // Corregir template literals en toda la función y ajustar lógica de actualización
+const crearPagoParaInstructor = async (
+  instructorId: number,
+  periodoId: number,
+  pagosExistentes: Record<string, boolean>,
+): Promise<boolean> => {
+  const pagoKey = `${instructorId}-${periodoId}`; // Usar backticks
 
-    try {
-      // Obtener todas las clases del instructor en este periodo
-      const clasesInstructor = await clasesApi.getClases({
-        instructorId,
-        periodoId,
-      })
+  console.log(`=== INICIANDO CREACIÓN/ACTUALIZACIÓN DE PAGO PARA INSTRUCTOR ID ${instructorId} ===`);
+  console.log(`Periodo ID: ${periodoId}, Clave de pago: ${pagoKey}`);
+  console.log(`Pago existente: ${pagosExistentes[pagoKey] ? "Sí" : "No"}`);
 
-      console.log(
-        `Encontradas ${clasesInstructor.length} clases para el instructor ID ${instructorId} en periodo ${periodoId}`,
-      )
+  try {
+    const clasesInstructor = await clasesApi.getClases({ instructorId, periodoId });
+    console.log(`Encontradas ${clasesInstructor.length} clases para el instructor ID ${instructorId}`);
 
-      if (clasesInstructor.length === 0) {
-        console.log(`No hay clases para el instructor ID ${instructorId} en el periodo ${periodoId}, no se creará pago`)
-        return false
-      }
+    if (clasesInstructor.length === 0) {
+      console.log(`No hay clases para el instructor ID ${instructorId}`);
+      return false;
+    }
 
-      // Calcular el monto total basado en las clases
-      let montoTotal = 0
-      const detallesClases = []
+    let montoTotal = 0;
+    const detallesClases = [];
 
-      for (const clase of clasesInstructor) {
-        // Obtener la disciplina de la clase
-        const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
+    for (const clase of clasesInstructor) {
+      const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId);
+      if (!disciplina) continue;
 
-        if (!disciplina) {
-          console.warn(`No se encontró la disciplina ID ${clase.disciplinaId} para la clase ID ${clase.id}`)
-          continue
-        }
+      const formula = disciplina?.parametros?.formula;
+      if (!formula) continue;
 
-        // Obtener la fórmula de la disciplina
-        const formula = disciplina?.parametros?.formula || null
-        console.log("GAAAAAAAAAAAAAAAAAAAAAAA LA FORMULA:", formula)
-
-        if (!formula) {
-          console.warn(`La disciplina ${disciplina.nombre} no tiene fórmula definida`)
-          continue
-        }
-
-        // Datos para evaluar la fórmula
-        const datosClase = {
+      try {
+        const resultado = evaluarFormula(formula, {
           reservaciones: clase.reservasTotales,
           listaEspera: clase.listasEspera,
           cortesias: clase.cortesias,
           capacidad: clase.lugares,
           reservasPagadas: clase.reservasPagadas,
           lugares: clase.lugares,
-        }
-
-        try {
-          // Evaluar la fórmula para esta clase
-          const resultado = evaluarFormula(formula, datosClase)
-          const montoClase = resultado.valor || 0
-
-          // Sumar al monto total
-          montoTotal += montoClase
-
-          // Guardar detalles para el registro
-          detallesClases.push({
-            claseId: clase.id,
-            fecha: clase.fecha,
-            disciplina: disciplina.nombre,
-            montoCalculado: montoClase,
-            detalleCalculo: resultado,
-          })
-
-          console.log(`Clase ID ${clase.id}: Monto calculado ${montoClase}`)
-        } catch (error) {
-          console.error(`Error al evaluar fórmula para clase ID ${clase.id}:`, error)
-        }
+        });
+        
+        montoTotal += resultado.valor || 0;
+        detallesClases.push({
+          claseId: clase.id,
+          fecha: clase.fecha,
+          disciplina: disciplina.nombre,
+          montoCalculado: resultado.valor,
+          detalleCalculo: resultado,
+        });
+      } catch (error) {
+        console.error(`Error en clase ${clase.id}:`, error);
       }
-
-      // Verificar si ya existe un pago para este instructor en este periodo
-      if (pagosExistentes[pagoKey]) {
-        console.log(`Actualizando pago existente para instructor ID ${instructorId} en periodo ${periodoId}`)
-
-        // Obtener el pago existente
-        const pagoExistente = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoId)
-
-        if (pagoExistente) {
-          // Actualizar el pago existente con el nuevo monto
-          const pagoActualizado = {
-            ...pagoExistente,
-            monto: montoTotal,
-            detalles: {
-              ...pagoExistente.detalles,
-              clases: detallesClases,
-              resumen: {
-                totalClases: clasesInstructor.length,
-                totalMonto: montoTotal,
-                comentarios: `Pago actualizado automáticamente durante importación el ${new Date().toLocaleDateString()}`,
-                moneda: "PEN",
-              },
-            },
-          }
-
-          await  actualizarPago(pagoExistente.id, pagoActualizado)
-          console.log(`Pago actualizado para instructor ID ${instructorId} con monto ${montoTotal}`)
-        }
-      } else {
-        // Crear un nuevo pago con el monto calculado
-        const nuevoPago = {
-          instructorId,
-          periodoId,
-          monto: montoTotal,
-          estado: "PENDIENTE" as EstadoPago,
-          detalles: {
-            clases: detallesClases,
-            resumen: {
-              totalClases: clasesInstructor.length,
-              totalMonto: montoTotal,
-              comentarios: `Pago creado automáticamente durante importación el ${new Date().toLocaleDateString()}`,
-              moneda: "PEN",
-            },
-          },
-        }
-
-        await crearPago(nuevoPago)
-        console.log(`Pago creado para instructor ID ${instructorId} en periodo ${periodoId} con monto ${montoTotal}`)
-
-        // Marcar este pago como creado
-        pagosExistentes[pagoKey] = true
-      }
-
-      return true
-    } catch (error) {
-      console.error(`Error al crear/actualizar pago para instructor ID ${instructorId}:`, error)
-      return false
     }
+
+    // Si no hay montos válidos, no crear pago
+    if (montoTotal <= 0 && detallesClases.length === 0) {
+      console.log(`No hay montos válidos para crear pago (Instructor ${instructorId})`);
+      return false;
+    }
+
+    // Lógica simplificada de creación/actualización
+    if (pagosExistentes[pagoKey]) {
+      const pagoExistente = pagos.find(p => p.instructorId === instructorId && p.periodoId === periodoId);
+      if (pagoExistente) {
+        await actualizarPago(instructorId, { ...pagoExistente, monto: montoTotal });
+        console.log(`Pago actualizado para instructor ${instructorId}`);
+      }
+    } else {
+      await crearPago({
+        instructorId,
+        periodoId,
+        monto: montoTotal,
+        estado: EstadoPago.PENDIENTE,
+        detalles: { clases: detallesClases }
+      });
+      pagosExistentes[pagoKey] = true;
+      console.log(`Pago creado para instructor ${instructorId}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error(`Error procesando pago instructor ${instructorId}:`, error);
+    return false;
   }
+};
 
   // Modificar la función handleSubmit para mejorar la depuración y adaptarla al nuevo schema
   const handleSubmit = async (e: React.FormEvent) => {
@@ -639,10 +588,12 @@ export function ExcelImport() {
       let clasesCreadas = 0
       let registrosConError = 0
       let instructoresCreados = 0
-      let pagosNuevosCreados = 0
 
       // Caché de instructores para evitar búsquedas repetidas
       const instructoresCache: Record<string, number> = {}
+
+      // Conjunto para rastrear instructores únicos en esta importación
+      const instructoresUnicos: Set<number> = new Set()
 
       // Llenar el caché con los instructores existentes
       console.log("Inicializando caché de instructores existentes...")
@@ -661,7 +612,7 @@ export function ExcelImport() {
           )
 
           // Actualizar progreso
-          setProgress(30 + Math.floor((i / processedData.length) * 70))
+          setProgress(30 + Math.floor((i / processedData.length) * 50)) // Ajustado para dejar espacio para el procesamiento de pagos
 
           // Buscar disciplina
           const disciplina = disciplinas.find((d) => d.nombre.toLowerCase() === row.Disciplina.toLowerCase())
@@ -717,18 +668,12 @@ export function ExcelImport() {
             }
           }
 
-          // Crear pago para el instructor si no existe
-          if (instructorId && periodoSeleccionadoId) {
-            const pagoCreado = await crearPagoParaInstructor(instructorId, periodoSeleccionadoId, pagosExistentes)
-            if (pagoCreado) {
-              pagosNuevosCreados++
-              console.log(`Pago creado/actualizado exitosamente para instructor: ${instructorNombre}`)
-            } else {
-              console.log(
-                `No se creó pago para instructor: ${instructorNombre} (posiblemente sin clases en el periodo)`,
-              )
-            }
+          // Si encontramos o creamos un instructor, lo agregamos al conjunto de instructores únicos
+          if (instructorId) {
+            instructoresUnicos.add(instructorId)
           }
+
+          // IMPORTANTE: Ya no creamos pagos aquí, solo registramos los instructores únicos
 
           // Convertir fecha
           let fecha: Date
@@ -822,12 +767,58 @@ export function ExcelImport() {
         }
       }
 
+      // Ahora procesamos los pagos una vez por instructor único
+      console.log(`=== INICIANDO PROCESAMIENTO DE PAGOS ===`)
+      console.log(`Total de instructores únicos: ${instructoresUnicos.size}`)
+
+      let pagosNuevosCreados = 0
+      let pagosActualizados = 0
+
+      // Convertir el conjunto a un array para poder iterar
+      const instructoresArray = Array.from(instructoresUnicos)
+
+      // Procesar pagos para cada instructor único
+      for (let j = 0; j < instructoresArray.length; j++) {
+        const instructorId = instructoresArray[j]
+
+        // Actualizar progreso para la fase de procesamiento de pagos
+        setProgress(80 + Math.floor((j / instructoresArray.length) * 20))
+
+        // Buscar el nombre del instructor para los logs
+        const instructor = instructores.find((i) => i.id === instructorId)
+        const instructorNombre = instructor ? instructor.nombre : `ID: ${instructorId}`
+
+        console.log(`Procesando pago para instructor: ${instructorNombre} (${j + 1}/${instructoresArray.length})`)
+
+        try {
+          // Verificar si ya existe un pago para este instructor en este periodo
+          const pagoKey = `${instructorId}-${periodoSeleccionadoId}`
+          const pagoExistente = pagosExistentes[pagoKey] === true
+
+          const pagoCreado = await crearPagoParaInstructor(instructorId, periodoSeleccionadoId, pagosExistentes)
+          if (pagoCreado) {
+            if (pagoExistente) {
+              pagosActualizados++
+              console.log(`Pago actualizado exitosamente para instructor: ${instructorNombre}`)
+            } else {
+              pagosNuevosCreados++
+              console.log(`Pago creado exitosamente para instructor: ${instructorNombre}`)
+            }
+          } else {
+            console.log(`No se creó pago para instructor: ${instructorNombre} (posiblemente sin clases en el periodo)`)
+          }
+        } catch (error) {
+          console.error(`Error al procesar pago para instructor ${instructorNombre}:`, error)
+        }
+      }
+
       setPagosCreados(pagosNuevosCreados)
       setProgress(100)
       console.log("=== PROCESO DE IMPORTACIÓN COMPLETADO ===")
       console.log(`Clases creadas: ${clasesCreadas}`)
       console.log(`Instructores creados: ${instructoresCreados}`)
-      console.log(`Pagos creados: ${pagosNuevosCreados}`)
+      console.log(`Pagos nuevos creados: ${pagosNuevosCreados}`)
+      console.log(`Pagos actualizados: ${pagosActualizados}`)
       console.log(`Registros con error: ${registrosConError}`)
 
       // 4. Preparar resultado
@@ -840,13 +831,14 @@ export function ExcelImport() {
         clasesEliminadas,
         instructoresCreados,
         pagosCreados: pagosNuevosCreados,
+        pagosActualizados, // Agregar esta propiedad al tipo ResultadoImportacion si no existe
       }
 
       setResultado(resultadoImportacion)
 
       toast({
         title: "Importación completada",
-        description: `Se importaron ${clasesCreadas} de ${processedData.length} registros. Se crearon/actualizaron ${pagosNuevosCreados} pagos.`,
+        description: `Se importaron ${clasesCreadas} de ${processedData.length} registros. Se crearon ${pagosNuevosCreados} y actualizaron ${pagosActualizados} pagos.`,
       })
     } catch (error) {
       console.error("Error general en la importación:", error)
@@ -1583,6 +1575,12 @@ export function ExcelImport() {
                     <div className="bg-card p-4 rounded-lg border shadow-sm">
                       <div className="text-sm text-muted-foreground">Pagos creados</div>
                       <div className="text-2xl font-bold text-green-600">{resultado.pagosCreados}</div>
+                    </div>
+                  )}
+                  {resultado.pagosActualizados !== undefined && (
+                    <div className="bg-card p-4 rounded-lg border shadow-sm">
+                      <div className="text-sm text-muted-foreground">Pagos actualizados</div>
+                      <div className="text-2xl font-bold text-green-600">{resultado.pagosActualizados}</div>
                     </div>
                   )}
                 </div>

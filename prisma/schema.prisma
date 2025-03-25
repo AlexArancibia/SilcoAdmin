@@ -109,6 +109,9 @@ model PagoInstructor {
   // Relaciones
   instructor        Instructor @relation(fields: [instructorId], references: [id])
   periodo           Periodo    @relation(fields: [periodoId], references: [id])
+
+  // Restricción de unicidad
+  @@unique([instructorId, periodoId])
 }
 
  

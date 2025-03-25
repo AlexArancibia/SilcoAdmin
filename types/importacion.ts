@@ -36,6 +36,7 @@ export interface ErrorImportacion {
 
 // Interfaz para el resultado de la importación
 export interface ResultadoImportacion {
+  pagosActualizados: number
   totalRegistros: number
   registrosImportados: number
   registrosConError: number
