@@ -20,7 +20,7 @@ export enum EstadoInstructor {
 export interface Usuario {
   id: number
   nombre: string
-  correo: string
+  email: string
   password: string
   telefono?: string
   rol: Rol
@@ -32,6 +32,7 @@ export interface Usuario {
 export interface Instructor {
   id: number
   nombre: string
+  email?: string
   password?: string
   extrainfo?: InstructorExtraInfo
   createdAt: Date
