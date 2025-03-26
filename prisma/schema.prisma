@@ -32,7 +32,7 @@ model Instructor {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-
+  parametros        Json? 
   // Relaciones
   clases            Clase[]
   pagos             PagoInstructor[]

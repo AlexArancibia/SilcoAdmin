@@ -425,10 +425,14 @@ export function ExcelImport() {
     console.log(
       `Intentando crear instructor: ${nombre}${disciplinaIds ? ` con disciplinas: ${disciplinaIds.join(", ")}` : ""}`,
     )
+
     try {
-      // Generar una contraseña aleatoria segura
-      const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).toUpperCase().slice(-4)
-      const hashedPassword = await hash(randomPassword, 10)
+      // Generar la contraseña basada en el patrón definido
+      const nombreSinEspacios = nombre.replace(/\s+/g, "").toLowerCase()
+      const cantidadLetras = nombreSinEspacios.length
+      const simbolo = cantidadLetras % 2 === 0 ? "#" : "%"
+      const patternPassword = `${nombreSinEspacios}${cantidadLetras}${simbolo}`
+      const hashedPassword = await hash(patternPassword, 10)
 
       // Crear el instructor usando la nueva API con disciplinaIds y contraseña
       const nuevoInstructor = await instructoresApi.crearInstructor({
@@ -438,20 +442,20 @@ export function ExcelImport() {
           estado: "ACTIVO",
           activo: true,
           especialidad: "",
-          passwordTemporal: randomPassword, // Guardar la contraseña temporal en extrainfo
+          passwordTemporal: patternPassword, // Guardar la contraseña temporal en extrainfo
         },
         disciplinaIds: disciplinaIds || [], // Agregar disciplinaIds al crear el instructor
       })
 
       console.log(
-        `Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}, contraseña temporal: ${randomPassword}`,
+        `Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}, contraseña temporal: ${patternPassword}`,
       )
       return nuevoInstructor.id
     } catch (error) {
       console.error(`Error al crear instructor ${nombre}:`, error)
       throw error
     }
-  }
+}
 
   // Modificar la función crearPagoParaInstructor para calcular el monto basado en las clases
   // Modify the crearPagoParaInstructor function to add more console logs

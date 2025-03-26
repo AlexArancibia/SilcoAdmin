@@ -37,6 +37,7 @@ export interface Instructor {
   extrainfo?: InstructorExtraInfo
   createdAt: Date
   updatedAt: Date
+  parametros?: ParametrosDisciplina
   // Relaciones
   clases?: Clase[]
   pagos?: PagoInstructor[]
