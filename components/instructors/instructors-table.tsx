@@ -255,10 +255,6 @@ export function InstructorsTable() {
             <Download className="mr-2 h-4 w-4" />
             Exportar
           </Button>
-          <Button className="bg-primary hover:bg-primary/90">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Instructor
-          </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-6">
