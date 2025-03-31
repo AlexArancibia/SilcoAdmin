@@ -28,7 +28,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" collapsible="offcanvas" className="bg-gradient-to-b from-primary/5 to-background border-r">
-      <SidebarHeader className="px-4 py-6">
+      <SidebarHeader className="px-4 py-6 pb-2">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border-2 border-primary">
@@ -81,8 +81,14 @@ export function AppSidebar() {
         ) : (
           // Vista para administradores y otros roles
           <>
+ 
+
             <SidebarGroup>
-              <SidebarMenu>
+              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground px-3">
+                Gestión
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild 
@@ -95,15 +101,6 @@ export function AppSidebar() {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroup>
-
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground px-3">
-                Gestión
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton 
                       asChild 
@@ -128,30 +125,8 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
-                      tooltip="Horarios"
-                      className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
-                    >
-                      <Link href="/horarios">
-                        <Clock className="h-5 w-5" />
-                        <span>Horarios</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
-                      tooltip="Disciplinas"
-                      className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
-                    >
-                      <Link href="/disciplinas">
-                        <BookOpen className="h-5 w-5" />
-                        <span>Disciplinas</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+ 
+
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
