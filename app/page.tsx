@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -27,8 +25,10 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "@/components/ui/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PeriodSelector } from "@/components/period-selector"
+import type { EstadoPago, Instructor, Disciplina, Periodo, Clase, PagoInstructor } from "@/types/schema"
 
-// Importar todos los stores
+// Importar stores
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
@@ -48,8 +48,9 @@ export default function DashboardPage() {
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
   const {
     periodos,
-    periodoSeleccionado,
-    setPeriodoSeleccionado,
+    periodoActual,
+    rangoSeleccionado,
+    periodosSeleccionados,
     fetchPeriodos,
     isLoading: isLoadingPeriodos,
   } = usePeriodosStore()
@@ -82,26 +83,14 @@ export default function DashboardPage() {
     loadAllData()
   }, [fetchInstructores, fetchDisciplinas, fetchPeriodos, fetchClases, fetchPagos])
 
-  // Seleccionar el periodo más reciente cuando se carguen los periodos
+  // Cargar pagos y clases cuando cambia la selección de periodos
   useEffect(() => {
-    if (periodos.length > 0 && !periodoSeleccionado) {
-      // Ordenar periodos por año y número (descendente)
-      const sortedPeriodos = [...periodos].sort((a, b) => {
-        if (a.año !== b.año) return b.año - a.año
-        return b.numero - a.numero
-      })
-
-      setPeriodoSeleccionado(sortedPeriodos[0].id)
+    if (periodosSeleccionados.length > 0) {
+      const periodosIds = periodosSeleccionados.map(p => p.id)
+      fetchPagos()
+      fetchClases( })
     }
-  }, [periodos, periodoSeleccionado, setPeriodoSeleccionado])
-
-  // Cargar pagos y clases cuando se seleccione un periodo
-  useEffect(() => {
-    if (periodoSeleccionado) {
-      fetchPagos({ periodoId: periodoSeleccionado.id })
-      fetchClases({ periodoId: periodoSeleccionado.id })
-    }
-  }, [periodoSeleccionado, fetchPagos, fetchClases])
+  }, [periodosSeleccionados, fetchPagos, fetchClases])
 
   // Calcular estadísticas de instructores
   const instructoresStats = {
@@ -119,7 +108,7 @@ export default function DashboardPage() {
     inactivas: disciplinas.filter((d) => d.activo === false).length,
   }
 
-  // Calcular estadísticas de clases para el periodo seleccionado
+  // Calcular estadísticas de clases para los periodos seleccionados
   const clasesStats = {
     total: clases.length,
     ocupacionPromedio:
@@ -140,14 +129,14 @@ export default function DashboardPage() {
       .sort((a, b) => b.count - a.count),
   }
 
-  // Calcular estadísticas de pagos para el periodo seleccionado
+  // Calcular estadísticas de pagos para los periodos seleccionados
   const pagosStats = {
     total: pagos.length,
     pendientes: pagos.filter((p) => p.estado === "PENDIENTE").length,
     pagados: pagos.filter((p) => p.estado === "APROBADO").length,
-    montoTotal: pagos.reduce((acc, pago) => acc + pago.monto, 0),
-    montoPagado: pagos.filter((p) => p.estado === "APROBADO").reduce((acc, pago) => acc + pago.monto, 0),
-    montoPendiente: pagos.filter((p) => p.estado === "PENDIENTE").reduce((acc, pago) => acc + pago.monto, 0),
+    montoTotal: pagos.reduce((acc, pago) => acc + pago.pagoFinal, 0),
+    montoPagado: pagos.filter((p) => p.estado === "APROBADO").reduce((acc, pago) => acc + pago.pagoFinal, 0),
+    montoPendiente: pagos.filter((p) => p.estado === "PENDIENTE").reduce((acc, pago) => acc + pago.pagoFinal, 0),
     ultimoPago:
       pagos.length > 0
         ? [...pagos]
@@ -167,10 +156,9 @@ export default function DashboardPage() {
     }, 0)
     const ocupacionPromedio = clasesInstructor.length > 0 ? (ocupacionTotal / clasesInstructor.length) * 100 : 0
 
-    // Usar los pagos reales en lugar de calcular ingresos estimados
     const pagosTotales = pagos
       .filter((p) => p.instructorId === instructor.id)
-      .reduce((acc, pago) => acc + pago.monto, 0)
+      .reduce((acc, pago) => acc + pago.pagoFinal, 0)
 
     return {
       ...instructor,
@@ -212,12 +200,18 @@ export default function DashboardPage() {
     }).format(amount)
   }
 
-  // Obtener el nombre del periodo seleccionado
+  // Obtener el nombre del periodo/rango seleccionado
   const getPeriodoNombre = (): string => {
-    if (!periodoSeleccionado) return "No seleccionado"
+    if (periodosSeleccionados.length === 0) return "No seleccionado"
     
-    const periodo = periodos.find(p => p.id === periodoSeleccionado.id)
-    return periodo ? `Periodo ${periodo.numero} - ${periodo.año}` : "No seleccionado"
+    if (periodosSeleccionados.length === 1) {
+      const periodo = periodosSeleccionados[0]
+      return `Periodo ${periodo.numero} - ${periodo.año}`
+    } else {
+      const first = periodosSeleccionados[0]
+      const last = periodosSeleccionados[periodosSeleccionados.length - 1]
+      return `${first.numero}/${first.año} - ${last.numero}/${last.año}`
+    }
   }
 
   // Renderizar estado de carga
@@ -272,26 +266,12 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-3 pt-4">
-              <div className="flex gap-4 items-center">
-                <Skeleton className="h-3 w-3 rounded-full" />
-                <Skeleton className="h-4 w-full" />
-              </div>
-              <div className="flex gap-4 items-center">
-                <Skeleton className="h-3 w-3 rounded-full" />
-                <Skeleton className="h-4 w-full" />
-              </div>
-              <div className="flex gap-4 items-center">
-                <Skeleton className="h-3 w-3 rounded-full" />
-                <Skeleton className="h-4 w-full" />
-              </div>
-              <div className="flex gap-4 items-center">
-                <Skeleton className="h-3 w-3 rounded-full" />
-                <Skeleton className="h-4 w-full" />
-              </div>
-              <div className="flex gap-4 items-center">
-                <Skeleton className="h-3 w-3 rounded-full" />
-                <Skeleton className="h-4 w-full" />
-              </div>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-4 items-center">
+                  <Skeleton className="h-3 w-3 rounded-full" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -307,11 +287,9 @@ export default function DashboardPage() {
             </div>
 
             <div className="space-y-2 pt-4">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
@@ -331,6 +309,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-foreground">Dashboard Administrativo</h1>
           <p className="text-muted-foreground mt-1">Resumen general del sistema y estadísticas clave</p>
         </div>
+        <PeriodSelector />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -707,8 +686,6 @@ export default function DashboardPage() {
                       title: "Actualizando pagos",
                       description: "Calculando pagos para todos los instructores...",
                     })
-                    // Aquí iría la lógica para actualizar los pagos
-                    // Esta funcionalidad se implementará más adelante
                   }}
                 >
                   <Calculator className="mr-2 h-4 w-4" />
@@ -805,7 +782,7 @@ export default function DashboardPage() {
                                     {instructor?.nombre || `Instructor ${pago.instructorId}`}
                                   </Link>
                                 </TableCell>
-                                <TableCell className="font-medium">{formatCurrency(pago.monto)}</TableCell>
+                                <TableCell className="font-medium">{formatCurrency(pago.pagoFinal)}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={estadoColor}>
                                     {pago.estado}

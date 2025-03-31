@@ -1,69 +1,200 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import type { Periodo } from "@/types/schema"
+import { Button } from "@/components/ui/button"
+import { Calendar, ChevronDown, ChevronUp } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 
 export function PeriodSelector() {
-  const { periodos, periodoSeleccionadoId, setPeriodoSeleccionado, fetchPeriodos, isLoading } = usePeriodosStore()
-  const [mounted, setMounted] = useState(false)
+  const {
+    periodos,
+    rangoSeleccionado,
+    setSeleccion,
+    resetearSeleccion,
+    fetchPeriodos,
+    isLoading,
+    periodoActual
+  } = usePeriodosStore()
+  
+  const [activeTab, setActiveTab] = useState<"individual" | "rango">("individual")
+  const [tempStart, setTempStart] = useState<number | null>(null)
+  const [tempEnd, setTempEnd] = useState<number | null>(null)
+  const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
     fetchPeriodos()
   }, [fetchPeriodos])
 
-  const determinarPeriodoActual = useCallback(() => {
-    if (periodos.length === 0 || periodoSeleccionadoId !== null) return
-
-    const hoy = new Date()
-    const periodoActual = periodos.find(({ fechaInicio, fechaFin }) => {
-      const inicio = new Date(fechaInicio)
-      const fin = new Date(fechaFin)
-      return hoy >= inicio && hoy <= fin
-    })
-
-    if (periodoActual) {
-      setPeriodoSeleccionado(periodoActual.id)
-    } else {
-      const periodoCercano = [...periodos].sort((a, b) => {
-        return Math.abs(new Date(a.fechaInicio).getTime() - hoy.getTime()) -
-               Math.abs(new Date(b.fechaInicio).getTime() - hoy.getTime())
-      })[0]
-      if (periodoCercano) setPeriodoSeleccionado(periodoCercano.id)
-    }
-  }, [periodos, periodoSeleccionadoId, setPeriodoSeleccionado])
-
-  useEffect(determinarPeriodoActual, [determinarPeriodoActual])
-
-  const handlePeriodoChange = (value: string) => setPeriodoSeleccionado(Number(value))
-
-  const formatFecha = (fecha: Date | string, formatStr: string) => {
-    if (!mounted) return "Cargando..."
+  const formatFecha = (fecha: Date | string) => {
     const fechaObj = new Date(fecha)
-    return isNaN(fechaObj.getTime()) ? "Fecha inválida" : format(fechaObj, formatStr, { locale: es })
+    return isNaN(fechaObj.getTime()) ? "" : format(fechaObj, "dd MMM yyyy", { locale: es })
+  }
+
+  const handleIndividualSelect = (periodoId: number) => {
+    setSeleccion(periodoId)
+    setIsOpen(false)
+  }
+
+  const handleRangeStartSelect = (periodoId: number) => {
+    setTempStart(periodoId)
+    if (tempEnd !== null && periodoId > tempEnd) {
+      setTempEnd(null)
+    }
+  }
+
+  const handleRangeEndSelect = (periodoId: number) => {
+    if (tempStart === null) return
+    setTempEnd(periodoId)
+  }
+
+  const applyRangeSelection = () => {
+    if (tempStart && tempEnd) {
+      setSeleccion(tempStart, tempEnd)
+    } else if (tempStart) {
+      setSeleccion(tempStart)
+    }
+    setIsOpen(false)
+    setTempStart(null)
+    setTempEnd(null)
+  }
+
+  const getDisplayText = () => {
+    if (!rangoSeleccionado) return "Seleccionar período"
+    
+    const [start, end] = rangoSeleccionado
+    const startPeriod = periodos.find(p => p.id === start)
+    const endPeriod = periodos.find(p => p.id === end)
+    
+    if (start === end) {
+      return startPeriod ? `${startPeriod.numero}/${startPeriod.año}` : "Período seleccionado"
+    }
+    
+    return startPeriod && endPeriod 
+      ? `${startPeriod.numero}/${startPeriod.año} → ${endPeriod.numero}/${endPeriod.año}`
+      : "Rango inválido"
   }
 
   return (
-    <Select value={periodoSeleccionadoId?.toString()} onValueChange={handlePeriodoChange} disabled={isLoading}>
-      <SelectTrigger className="w-full max-w-xs border border-gray-300 dark:border-gray-600 bg-background dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors p-2 rounded-md focus:ring-2 focus:ring-primary focus:outline-none">
-        <SelectValue placeholder="Seleccionar periodo" />
-      </SelectTrigger>
-      <SelectContent className="w-full max-w-xs bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 shadow-lg rounded-md overflow-hidden">
-        {periodos.map((periodo) => (
-          <SelectItem key={periodo.id} value={periodo.id.toString()} className="py-2 px-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-            <div className="flex flex-col">
-              <span className="font-medium text-gray-900 dark:text-gray-100">Periodo {periodo.numero} - {periodo.año}</span>
-              <span className="text-xs text-gray-600 dark:text-gray-400">
-                {formatFecha(periodo.fechaInicio, "dd MMM")} - {formatFecha(periodo.fechaFin, "dd MMM yyyy")}
-              </span>
-            </div>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="relative">
+      <Button
+        variant="outline"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full justify-between"
+      >
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          <span>{getDisplayText()}</span>
+        </div>
+        {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </Button>
+
+      {isOpen && (
+        <Card className="absolute z-10 mt-1 w-[320px] p-3 shadow-lg">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="individual">Individual</TabsTrigger>
+              <TabsTrigger value="rango">Rango</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="individual" className="mt-3">
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {periodos.map((periodo) => (
+                  <div
+                    key={periodo.id}
+                    onClick={() => handleIndividualSelect(periodo.id)}
+                    className={cn(
+                      "p-2 rounded-md cursor-pointer hover:bg-accent transition-colors",
+                      rangoSeleccionado?.[0] === periodo.id && "bg-blue-100 dark:bg-blue-900 font-medium",
+                      periodo.id === periodoActual?.id && "border-l-4 border-blue-500"
+                    )}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span>Período {periodo.numero}/{periodo.año}</span>
+                      {rangoSeleccionado?.[0] === periodo.id && (
+                        <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full">
+                          Seleccionado
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatFecha(periodo.fechaInicio)} - {formatFecha(periodo.fechaFin)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="rango" className="mt-3">
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {periodos.map((periodo) => {
+                  const isStart = periodo.id === tempStart
+                  const isEnd = periodo.id === tempEnd
+                  const isInRange = tempStart && tempEnd && 
+                    periodo.id >= tempStart && periodo.id <= tempEnd
+                  
+                  return (
+                    <div
+                      key={periodo.id}
+                      onClick={() => {
+                        if (tempStart === null || (tempStart && tempEnd)) {
+                          handleRangeStartSelect(periodo.id)
+                        } else {
+                          handleRangeEndSelect(periodo.id)
+                        }
+                      }}
+                      className={cn(
+                        "p-2 rounded-md cursor-pointer transition-colors",
+                        isStart && "bg-green-100 dark:bg-green-900",
+                        isEnd && "bg-red-100 dark:bg-red-900",
+                        isInRange && "bg-blue-50 dark:bg-blue-800",
+                        !isStart && !isEnd && !isInRange && "hover:bg-accent"
+                      )}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span>Período {periodo.numero}/{periodo.año}</span>
+                        {isStart && <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full">Inicio</span>}
+                        {isEnd && <span className="text-xs bg-red-500 text-white px-2 py-1 rounded-full">Fin</span>}
+                        {isInRange && !isStart && !isEnd && (
+                          <span className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full">En rango</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatFecha(periodo.fechaInicio)} - {formatFecha(periodo.fechaFin)}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="flex justify-between mt-4 pt-3 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setTempStart(null)
+                    setTempEnd(null)
+                  }}
+                  disabled={!tempStart && !tempEnd}
+                >
+                  Limpiar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={applyRangeSelection}
+                  disabled={!tempStart}
+                >
+                  {tempStart && tempEnd ? "Aplicar rango" : "Seleccionar"}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </Card>
+      )}
+    </div>
   )
 }
