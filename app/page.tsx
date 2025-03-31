@@ -49,7 +49,6 @@ export default function DashboardPage() {
   const {
     periodos,
     periodoSeleccionado,
-    periodoSeleccionadoId,
     setPeriodoSeleccionado,
     fetchPeriodos,
     isLoading: isLoadingPeriodos,
@@ -70,6 +69,11 @@ export default function DashboardPage() {
         await Promise.all([fetchInstructores(), fetchDisciplinas(), fetchClases(), fetchPagos()])
       } catch (error) {
         console.error("Error al cargar datos iniciales:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los datos iniciales",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
@@ -80,7 +84,7 @@ export default function DashboardPage() {
 
   // Seleccionar el periodo más reciente cuando se carguen los periodos
   useEffect(() => {
-    if (periodos.length > 0 && !periodoSeleccionadoId) {
+    if (periodos.length > 0 && !periodoSeleccionado) {
       // Ordenar periodos por año y número (descendente)
       const sortedPeriodos = [...periodos].sort((a, b) => {
         if (a.año !== b.año) return b.año - a.año
@@ -89,15 +93,15 @@ export default function DashboardPage() {
 
       setPeriodoSeleccionado(sortedPeriodos[0].id)
     }
-  }, [periodos, periodoSeleccionadoId, setPeriodoSeleccionado])
+  }, [periodos, periodoSeleccionado, setPeriodoSeleccionado])
 
   // Cargar pagos y clases cuando se seleccione un periodo
   useEffect(() => {
-    if (periodoSeleccionadoId) {
-      fetchPagos({ periodoId: periodoSeleccionadoId })
-      fetchClases({ periodoId: periodoSeleccionadoId })
+    if (periodoSeleccionado) {
+      fetchPagos({ periodoId: periodoSeleccionado.id })
+      fetchClases({ periodoId: periodoSeleccionado.id })
     }
-  }, [periodoSeleccionadoId, fetchPagos, fetchClases])
+  }, [periodoSeleccionado, fetchPagos, fetchClases])
 
   // Calcular estadísticas de instructores
   const instructoresStats = {
@@ -112,7 +116,7 @@ export default function DashboardPage() {
   const disciplinasStats = {
     total: disciplinas.length,
     activas: disciplinas.filter((d) => d.activo !== false).length,
-    inactivos: disciplinas.filter((d) => d.activo === false).length,
+    inactivas: disciplinas.filter((d) => d.activo === false).length,
   }
 
   // Calcular estadísticas de clases para el periodo seleccionado
@@ -121,7 +125,7 @@ export default function DashboardPage() {
     ocupacionPromedio:
       clases.length > 0
         ? Math.round(
-            (clases.reduce((acc, clase) => acc + clase.reservasTotales / (clase.lugares || 1), 0) / clases.length) *
+            (clases.reduce((acc, clase) => acc + (clase.reservasTotales / (clase.lugares || 1)), 0) / clases.length) *
               100,
           )
         : 0,
@@ -140,26 +144,26 @@ export default function DashboardPage() {
   const pagosStats = {
     total: pagos.length,
     pendientes: pagos.filter((p) => p.estado === "PENDIENTE").length,
-    pagados: pagos.filter((p) => p.estado === "PAGADO").length,
+    pagados: pagos.filter((p) => p.estado === "APROBADO").length,
     montoTotal: pagos.reduce((acc, pago) => acc + pago.monto, 0),
-    montoPagado: pagos.filter((p) => p.estado === "PAGADO").reduce((acc, pago) => acc + pago.monto, 0),
+    montoPagado: pagos.filter((p) => p.estado === "APROBADO").reduce((acc, pago) => acc + pago.monto, 0),
     montoPendiente: pagos.filter((p) => p.estado === "PENDIENTE").reduce((acc, pago) => acc + pago.monto, 0),
     ultimoPago:
       pagos.length > 0
         ? [...pagos]
-            .filter((p) => p.estado === "PAGADO")
+            .filter((p) => p.estado === "APROBADO")
             .sort(
-              (a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime(),
+              (a, b) => new Date(b.updatedAt! || b.createdAt).getTime() - new Date(a.updatedAt! || a.createdAt).getTime(),
             )[0]
         : null,
     proximoPago: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toLocaleDateString(),
   }
 
-  // Corregir el cálculo de estadísticas de instructores por ocupación
+  // Calcular estadísticas de instructores por ocupación
   const instructoresPorOcupacion = instructores.map((instructor) => {
     const clasesInstructor = clases.filter((c) => c.instructorId === instructor.id)
     const ocupacionTotal = clasesInstructor.reduce((acc, clase) => {
-      return acc + clase.reservasTotales / clase.lugares
+      return acc + (clase.reservasTotales / (clase.lugares || 1))
     }, 0)
     const ocupacionPromedio = clasesInstructor.length > 0 ? (ocupacionTotal / clasesInstructor.length) * 100 : 0
 
@@ -211,7 +215,9 @@ export default function DashboardPage() {
   // Obtener el nombre del periodo seleccionado
   const getPeriodoNombre = (): string => {
     if (!periodoSeleccionado) return "No seleccionado"
-    return `Periodo ${periodoSeleccionado.numero} - ${periodoSeleccionado.año}`
+    
+    const periodo = periodos.find(p => p.id === periodoSeleccionado.id)
+    return periodo ? `Periodo ${periodo.numero} - ${periodo.año}` : "No seleccionado"
   }
 
   // Renderizar estado de carga
@@ -396,7 +402,7 @@ export default function DashboardPage() {
                     {disciplinasStats.activas} activas
                   </Badge>
                   <Badge variant="outline" className="bg-muted text-muted-foreground border-muted/50">
-                    {disciplinasStats.inactivos} inactivas
+                    {disciplinasStats.inactivas} inactivas
                   </Badge>
                 </div>
               </CardContent>
@@ -452,7 +458,7 @@ export default function DashboardPage() {
                     {pagosStats.pendientes} pendientes
                   </Badge>
                   <Badge variant="outline" className="bg-secondary/10 text-secondary-foreground border-secondary/20">
-                    {pagosStats.pagados} pagados
+                    {pagosStats.pagados} aprobados
                   </Badge>
                 </div>
               </CardContent>
@@ -532,7 +538,7 @@ export default function DashboardPage() {
                     const ocupacionPromedio =
                       disciplinaClases.length > 0
                         ? Math.round(
-                            (disciplinaClases.reduce((acc, clase) => acc + clase.reservasTotales / clase.lugares, 0) /
+                            (disciplinaClases.reduce((acc, clase) => acc + (clase.reservasTotales / (clase.lugares || 1)), 0) /
                               disciplinaClases.length) *
                               100,
                           )
@@ -664,7 +670,7 @@ export default function DashboardPage() {
                       <div className="text-sm text-muted-foreground mb-1">Total de pagos</div>
                       <div className="text-2xl font-bold">{pagosStats.total}</div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {pagosStats.pagados} pagados, {pagosStats.pendientes} pendientes
+                        {pagosStats.pagados} aprobados, {pagosStats.pendientes} pendientes
                       </div>
                     </div>
                     <div className="bg-card p-4 rounded-lg border">
@@ -672,7 +678,7 @@ export default function DashboardPage() {
                       <div className="text-2xl font-bold">{formatCurrency(pagosStats.montoTotal)}</div>
                       <div className="text-xs text-muted-foreground mt-1">
                         {pagosStats.ultimoPago
-                          ? `Último pago: ${new Date(pagosStats.ultimoPago.updatedAt || pagosStats.ultimoPago.createdAt).toLocaleDateString()}`
+                          ? `Último pago: ${new Date(pagosStats.ultimoPago.updatedAt! || pagosStats.ultimoPago.createdAt).toLocaleDateString()}`
                           : "Sin pagos realizados"}
                       </div>
                     </div>
@@ -733,8 +739,7 @@ export default function DashboardPage() {
                           <SelectContent>
                             <SelectItem value="todos">Todos los estados</SelectItem>
                             <SelectItem value="PENDIENTE">Pendientes</SelectItem>
-                            <SelectItem value="PAGADO">Pagados</SelectItem>
-                            <SelectItem value="CANCELADO">Cancelados</SelectItem>
+                            <SelectItem value="APROBADO">Aprobados</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -783,11 +788,9 @@ export default function DashboardPage() {
                           {paginatedPagos.map((pago) => {
                             const instructor = instructores.find((i) => i.id === pago.instructorId)
                             const estadoColor =
-                              pago.estado === "PAGADO"
+                              pago.estado === "APROBADO"
                                 ? "bg-green-100 text-green-800 hover:bg-green-200 border-green-200"
-                                : pago.estado === "PENDIENTE"
-                                  ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200"
-                                  : "bg-red-100 text-red-800 hover:bg-red-200 border-red-200"
+                                : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200"
 
                             // Obtener el número de clases del instructor en este periodo
                             const clasesInstructor = clases.filter((c) => c.instructorId === pago.instructorId).length
@@ -812,7 +815,7 @@ export default function DashboardPage() {
                                 <TableCell className="text-muted-foreground text-sm">
                                   {pago.updatedAt
                                     ? new Date(pago.updatedAt).toLocaleDateString()
-                                    : new Date(pago.createdAt).toLocaleDateString()}
+                                    : new Date(pago.createdAt!).toLocaleDateString()}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <DropdownMenu>
@@ -883,4 +886,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-

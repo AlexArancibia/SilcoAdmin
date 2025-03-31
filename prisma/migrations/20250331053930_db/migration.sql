@@ -16,13 +16,7 @@ CREATE TABLE "Usuario" (
 CREATE TABLE "Instructor" (
     "id" SERIAL NOT NULL,
     "nombre" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "telefono" TEXT,
-    "especialidad" TEXT,
-    "estado" TEXT NOT NULL DEFAULT 'ACTIVO',
-    "fechaContratacion" TIMESTAMP(3),
-    "notas" TEXT,
-    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "password" TEXT,
     "extrainfo" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -36,21 +30,11 @@ CREATE TABLE "Disciplina" (
     "nombre" TEXT NOT NULL,
     "descripcion" TEXT,
     "color" TEXT,
-    "parametros" JSONB,
     "activo" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Disciplina_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "DisciplinaInstructor" (
-    "disciplinaId" INTEGER NOT NULL,
-    "instructorId" INTEGER NOT NULL,
-    "asignadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "DisciplinaInstructor_pkey" PRIMARY KEY ("disciplinaId","instructorId")
 );
 
 -- CreateTable
@@ -68,16 +52,28 @@ CREATE TABLE "Periodo" (
 );
 
 -- CreateTable
+CREATE TABLE "Formula" (
+    "id" SERIAL NOT NULL,
+    "disciplinaId" INTEGER NOT NULL,
+    "periodoId" INTEGER NOT NULL,
+    "parametros" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Formula_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Clase" (
     "id" SERIAL NOT NULL,
     "pais" TEXT NOT NULL,
     "ciudad" TEXT NOT NULL,
     "disciplinaId" INTEGER NOT NULL,
+    "semana" INTEGER NOT NULL,
     "estudio" TEXT NOT NULL,
     "instructorId" INTEGER NOT NULL,
     "periodoId" INTEGER NOT NULL,
     "salon" TEXT NOT NULL,
-    "semana" INTEGER NOT NULL,
     "reservasTotales" INTEGER NOT NULL DEFAULT 0,
     "listasEspera" INTEGER NOT NULL DEFAULT 0,
     "cortesias" INTEGER NOT NULL DEFAULT 0,
@@ -85,7 +81,6 @@ CREATE TABLE "Clase" (
     "reservasPagadas" INTEGER NOT NULL DEFAULT 0,
     "textoEspecial" TEXT,
     "fecha" TIMESTAMP(3) NOT NULL,
-    "estado" TEXT NOT NULL DEFAULT 'PROGRAMADA',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -95,32 +90,65 @@ CREATE TABLE "Clase" (
 -- CreateTable
 CREATE TABLE "PagoInstructor" (
     "id" SERIAL NOT NULL,
-    "fecha" TIMESTAMP(3) NOT NULL,
     "monto" DOUBLE PRECISION NOT NULL,
     "estado" TEXT NOT NULL DEFAULT 'PENDIENTE',
     "instructorId" INTEGER NOT NULL,
     "periodoId" INTEGER NOT NULL,
     "detalles" JSONB,
+    "retencion" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "reajuste" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "tipoReajuste" TEXT NOT NULL DEFAULT 'FIJO',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "pagoFinal" DOUBLE PRECISION NOT NULL,
+
+    CONSTRAINT "PagoInstructor_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Archivo" (
+    "id" SERIAL NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "tipo" TEXT,
+    "url" TEXT NOT NULL,
+    "descripcion" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "PagoInstructor_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Archivo_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "_DisciplinaToInstructor" (
+    "A" INTEGER NOT NULL,
+    "B" INTEGER NOT NULL,
+
+    CONSTRAINT "_DisciplinaToInstructor_AB_pkey" PRIMARY KEY ("A","B")
 );
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Usuario_email_key" ON "Usuario"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Instructor_email_key" ON "Instructor"("email");
+CREATE UNIQUE INDEX "Instructor_nombre_key" ON "Instructor"("nombre");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Disciplina_nombre_key" ON "Disciplina"("nombre");
 
--- AddForeignKey
-ALTER TABLE "DisciplinaInstructor" ADD CONSTRAINT "DisciplinaInstructor_disciplinaId_fkey" FOREIGN KEY ("disciplinaId") REFERENCES "Disciplina"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- CreateIndex
+CREATE UNIQUE INDEX "Formula_disciplinaId_periodoId_key" ON "Formula"("disciplinaId", "periodoId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PagoInstructor_instructorId_periodoId_key" ON "PagoInstructor"("instructorId", "periodoId");
+
+-- CreateIndex
+CREATE INDEX "_DisciplinaToInstructor_B_index" ON "_DisciplinaToInstructor"("B");
 
 -- AddForeignKey
-ALTER TABLE "DisciplinaInstructor" ADD CONSTRAINT "DisciplinaInstructor_instructorId_fkey" FOREIGN KEY ("instructorId") REFERENCES "Instructor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Formula" ADD CONSTRAINT "Formula_disciplinaId_fkey" FOREIGN KEY ("disciplinaId") REFERENCES "Disciplina"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Formula" ADD CONSTRAINT "Formula_periodoId_fkey" FOREIGN KEY ("periodoId") REFERENCES "Periodo"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Clase" ADD CONSTRAINT "Clase_instructorId_fkey" FOREIGN KEY ("instructorId") REFERENCES "Instructor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -136,3 +164,9 @@ ALTER TABLE "PagoInstructor" ADD CONSTRAINT "PagoInstructor_instructorId_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "PagoInstructor" ADD CONSTRAINT "PagoInstructor_periodoId_fkey" FOREIGN KEY ("periodoId") REFERENCES "Periodo"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_DisciplinaToInstructor" ADD CONSTRAINT "_DisciplinaToInstructor_A_fkey" FOREIGN KEY ("A") REFERENCES "Disciplina"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_DisciplinaToInstructor" ADD CONSTRAINT "_DisciplinaToInstructor_B_fkey" FOREIGN KEY ("B") REFERENCES "Instructor"("id") ON DELETE CASCADE ON UPDATE CASCADE;

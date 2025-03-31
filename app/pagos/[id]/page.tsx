@@ -41,26 +41,31 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import type { EstadoPago } from "@/types/schema"
+import type { EstadoPago, TipoReajuste, PagoInstructor, Instructor, Disciplina, Periodo, Clase } from "@/types/schema"
 import { PagoDetalleStats } from "@/components/payments/pago-detalle-stats"
-
- 
 
 export default function PagoDetallePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const resolvedParams = use(params)
   const pagoId = Number.parseInt(resolvedParams.id)
 
-  const { pagos, fetchPagos, actualizarPago, isLoading: isLoadingPagos } = usePagosStore()
+  const { 
+    pagos, 
+    pagoSeleccionado, 
+    fetchPagos, 
+    fetchPago, 
+    actualizarPago, 
+    isLoading: isLoadingPagos 
+  } = usePagosStore()
+  
   const { instructores, fetchInstructores } = useInstructoresStore()
   const { periodos, fetchPeriodos } = usePeriodosStore()
   const { clases, fetchClases, isLoading: isLoadingClases } = useClasesStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
 
-  const [pago, setPago] = useState<any | null>(null)
-  const [instructor, setInstructor] = useState<any | null>(null)
-  const [periodo, setPeriodo] = useState<any | null>(null)
-  const [clasesInstructor, setClasesInstructor] = useState<any[]>([])
+  const [instructor, setInstructor] = useState<Instructor | null>(null)
+  const [periodo, setPeriodo] = useState<Periodo | null>(null)
+  const [clasesInstructor, setClasesInstructor] = useState<Clase[]>([])
   const [isRecalculando, setIsRecalculando] = useState<boolean>(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false)
   const [showEstadoDialog, setShowEstadoDialog] = useState<boolean>(false)
@@ -69,45 +74,38 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
 
   // Cargar datos iniciales
   useEffect(() => {
-    fetchPagos()
+    fetchPago(pagoId)
     fetchInstructores()
     fetchPeriodos()
     fetchDisciplinas()
-  }, [fetchPagos, fetchInstructores, fetchPeriodos, fetchDisciplinas])
+  }, [pagoId, fetchPago, fetchInstructores, fetchPeriodos, fetchDisciplinas])
 
-  // Obtener pago, instructor y periodo cuando se carguen los datos
+  // Obtener instructor y periodo cuando se carguen los datos
   useEffect(() => {
-    if (pagos.length > 0 && instructores.length > 0 && periodos.length > 0) {
-      const pagoActual = pagos.find((p) => p.id === pagoId)
-      if (pagoActual) {
-        setPago(pagoActual)
-        setInstructor(instructores.find((i) => i.id === pagoActual.instructorId) || null)
-        setPeriodo(periodos.find((p) => p.id === pagoActual.periodoId) || null)
+    if (pagoSeleccionado && instructores.length > 0 && periodos.length > 0) {
+      setInstructor(instructores.find((i) => i.id === pagoSeleccionado.instructorId) || null)
+      setPeriodo(periodos.find((p) => p.id === pagoSeleccionado.periodoId) || null)
 
-        // Cargar clases del instructor en este periodo
-        if (pagoActual.instructorId && pagoActual.periodoId) {
-          fetchClases({
-            instructorId: pagoActual.instructorId,
-            periodoId: pagoActual.periodoId,
-          })
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: "No se encontró el pago solicitado",
-          variant: "destructive",
+      // Cargar clases del instructor en este periodo
+      if (pagoSeleccionado.instructorId && pagoSeleccionado.periodoId) {
+        fetchClases({
+          instructorId: pagoSeleccionado.instructorId,
+          periodoId: pagoSeleccionado.periodoId,
         })
-        router.push("/pagos")
       }
     }
-  }, [pagos, instructores, periodos, pagoId, router, fetchClases])
+  }, [pagoSeleccionado, instructores, periodos, fetchClases])
 
   // Actualizar clases del instructor cuando se carguen
   useEffect(() => {
-    if (clases.length > 0 && pago) {
-      setClasesInstructor(clases.filter((c) => c.instructorId === pago.instructorId && c.periodoId === pago.periodoId))
+    if (clases.length > 0 && pagoSeleccionado) {
+      setClasesInstructor(
+        clases.filter(
+          (c) => c.instructorId === pagoSeleccionado.instructorId && c.periodoId === pagoSeleccionado.periodoId
+        )
+      )
     }
-  }, [clases, pago])
+  }, [clases, pagoSeleccionado])
 
   // Función para formatear moneda
   const formatCurrency = (amount: number): string => {
@@ -121,20 +119,27 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
   // Función para obtener el color del estado
   const getEstadoColor = (estado: EstadoPago): string => {
     switch (estado) {
-      case "PAGADO":
+      case "APROBADO":
         return "bg-green-100 text-green-800 hover:bg-green-200"
       case "PENDIENTE":
         return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-      case "RECHAZADO":
-        return "bg-red-100 text-red-800 hover:bg-red-200"
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-200"
     }
   }
 
+  // Función para obtener la fórmula de una disciplina para un periodo específico
+  const getFormulaDisciplina = (disciplinaId: number, periodoId: number) => {
+    const disciplina = disciplinas.find((d) => d.id === disciplinaId)
+    if (!disciplina || !disciplina.formulas) return null
+
+    const formulaDB = disciplina.formulas.find((f) => f.periodoId === periodoId)
+    return formulaDB ? formulaDB.parametros.formula : null
+  }
+
   // Función para recalcular el pago
   const recalcularPago = async () => {
-    if (!pago || !instructor || !periodo) {
+    if (!pagoSeleccionado || !instructor || !periodo) {
       toast({
         title: "Error",
         description: "No se puede recalcular el pago sin la información completa",
@@ -161,11 +166,8 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
       const detallesClases = []
 
       for (const clase of clasesInstructor) {
-        // Obtener la disciplina
-        const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
-
-        // Obtener la fórmula de la disciplina
-        const formula = disciplina?.parametros?.formula || null
+        // Obtener la fórmula de la disciplina para este periodo
+        const formula = getFormulaDisciplina(clase.disciplinaId, periodo.id)
 
         // Datos para evaluar la fórmula
         const datosEvaluacion = {
@@ -194,7 +196,7 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
         } else {
           // Si no hay fórmula, registrar un error
           montoCalculado = 0
-          detalleCalculo = { error: "No hay fórmula definida para esta disciplina" }
+          detalleCalculo = { error: "No hay fórmula definida para esta disciplina en este periodo" }
         }
 
         // Agregar a los totales
@@ -205,18 +207,20 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
           claseId: clase.id,
           montoCalculado,
           detalleCalculo,
+          disciplinaId: clase.disciplinaId,
+          fechaClase: clase.fecha,
         })
       }
 
-      // Actualizar pago
+      // Actualizar pago manteniendo los valores de retención y reajuste
       const pagoActualizado = {
-        ...pago,
+        ...pagoSeleccionado,
         monto: montoTotal,
         detalles: {
-          ...pago.detalles,
+          ...pagoSeleccionado.detalles,
           clases: detallesClases,
           resumen: {
-            ...pago.detalles?.resumen,
+            ...pagoSeleccionado.detalles?.resumen,
             totalClases: clasesInstructor.length,
             totalMonto: montoTotal,
             comentarios: `Pago recalculado manualmente el ${new Date().toLocaleDateString()}`,
@@ -224,14 +228,8 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
         },
       }
 
-      await actualizarPago(instructor.id,pagoActualizado)
-
-      // Recargar pago
-      await fetchPagos()
-      const pagoActualizado2 = pagos.find((p) => p.id === pagoId)
-      if (pagoActualizado2) {
-        setPago(pagoActualizado2)
-      }
+      await actualizarPago(pagoId, pagoActualizado)
+      await fetchPago(pagoId)
 
       toast({
         title: "Recálculo completado",
@@ -250,25 +248,18 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
 
   // Función para cambiar el estado del pago
   const cambiarEstadoPago = async () => {
-    if (!pago || !nuevoEstado) {
+    if (!pagoSeleccionado || !nuevoEstado) {
       return
     }
 
     try {
       const pagoActualizado = {
-        ...pago,
+        ...pagoSeleccionado,
         estado: nuevoEstado,
-        updatedAt: new Date().toISOString(),
       }
 
-      await actualizarPago(instructor.id,pagoActualizado)
-
-      // Recargar pago
-      await fetchPagos()
-      const pagoActualizado2 = pagos.find((p) => p.id === pagoId)
-      if (pagoActualizado2) {
-        setPago(pagoActualizado2)
-      }
+      await actualizarPago(pagoId, pagoActualizado)
+      await fetchPago(pagoId)
 
       toast({
         title: "Estado actualizado",
@@ -287,7 +278,7 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
   }
 
   // Si está cargando, mostrar skeleton
-  if (isLoadingPagos || !pago || !instructor || !periodo) {
+  if (isLoadingPagos || !pagoSeleccionado || !instructor || !periodo) {
     return (
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex items-center gap-2">
@@ -359,7 +350,12 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <PagoDetalleStats pago={pago} instructor={instructor} periodo={periodo} clases={clasesInstructor} />
+        <PagoDetalleStats 
+          pago={pagoSeleccionado} 
+          instructor={instructor} 
+          periodo={periodo} 
+          clases={clasesInstructor} 
+        />
       </div>
 
       <Card className="border shadow-sm">
@@ -370,8 +366,8 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className={getEstadoColor(pago.estado)}>
-              {pago.estado}
+            <Badge variant="outline" className={getEstadoColor(pagoSeleccionado.estado)}>
+              {pagoSeleccionado.estado}
             </Badge>
             <Button variant="outline" size="sm" onClick={() => setShowEstadoDialog(true)}>
               Cambiar Estado
@@ -412,7 +408,7 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="text-muted-foreground">ID del Pago:</div>
-                    <div>{pago.id}</div>
+                    <div>{pagoSeleccionado.id}</div>
 
                     <div className="text-muted-foreground">Instructor:</div>
                     <div>{instructor.nombre}</div>
@@ -424,19 +420,40 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
 
                     <div className="text-muted-foreground">Estado:</div>
                     <div>
-                      <Badge variant="outline" className={getEstadoColor(pago.estado)}>
-                        {pago.estado}
+                      <Badge variant="outline" className={getEstadoColor(pagoSeleccionado.estado)}>
+                        {pagoSeleccionado.estado}
                       </Badge>
                     </div>
 
-                    <div className="text-muted-foreground">Monto Total:</div>
-                    <div className="font-bold">{formatCurrency(pago.monto)}</div>
+                    <div className="text-muted-foreground">Monto Base:</div>
+                    <div className="font-bold">{formatCurrency(pagoSeleccionado.monto)}</div>
+
+                    <div className="text-muted-foreground">Retención:</div>
+                    <div className="text-red-600">-{formatCurrency(pagoSeleccionado.retencion)}</div>
+
+                    <div className="text-muted-foreground">Reajuste:</div>
+                    <div className="text-green-600">
+                      {pagoSeleccionado.tipoReajuste === "PORCENTAJE"
+                        ? `+${pagoSeleccionado.reajuste}%`
+                        : `+${formatCurrency(pagoSeleccionado.reajuste)}`}
+                    </div>
+
+                    <div className="text-muted-foreground">Monto Final:</div>
+                    <div className="font-bold">
+                      {formatCurrency(
+                        pagoSeleccionado.monto -
+                          pagoSeleccionado.retencion +
+                          (pagoSeleccionado.tipoReajuste === "PORCENTAJE"
+                            ? (pagoSeleccionado.monto * pagoSeleccionado.reajuste) / 100
+                            : pagoSeleccionado.reajuste)
+                      )}
+                    </div>
 
                     <div className="text-muted-foreground">Fecha de Creación:</div>
-                    <div>{new Date(pago.createdAt).toLocaleDateString()}</div>
+                    <div>{new Date(pagoSeleccionado.createdAt!).toLocaleDateString()}</div>
 
                     <div className="text-muted-foreground">Última Actualización:</div>
-                    <div>{pago.updatedAt ? new Date(pago.updatedAt).toLocaleDateString() : "-"}</div>
+                    <div>{pagoSeleccionado.updatedAt ? new Date(pagoSeleccionado.updatedAt).toLocaleDateString() : "-"}</div>
                   </div>
                 </div>
 
@@ -448,14 +465,14 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="text-muted-foreground">Total de Clases:</div>
-                    <div>{pago.detalles?.resumen?.totalClases || clasesInstructor.length}</div>
+                    <div>{pagoSeleccionado.detalles?.resumen?.totalClases || clasesInstructor.length}</div>
 
                     <div className="text-muted-foreground">Moneda:</div>
-                    <div>{pago.detalles?.resumen?.moneda || "PEN"}</div>
+                    <div>{pagoSeleccionado.detalles?.resumen?.moneda || "PEN"}</div>
 
                     <div className="text-muted-foreground">Comentarios:</div>
                     <div className="col-span-2 text-sm bg-muted/20 p-2 rounded-md">
-                      {pago.detalles?.resumen?.comentarios || "Sin comentarios"}
+                      {pagoSeleccionado.detalles?.resumen?.comentarios || "Sin comentarios"}
                     </div>
                   </div>
 
@@ -506,7 +523,9 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
                     <TableBody>
                       {clasesInstructor.map((clase) => {
                         // Buscar el detalle de la clase en el pago
-                        const detalleClase = pago.detalles?.clases?.find((d: any) => d.claseId === clase.id)
+                        const detalleClase = pagoSeleccionado.detalles?.clases?.find(
+                          (d: any) => d.claseId === clase.id
+                        )
 
                         // Obtener la disciplina
                         const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
@@ -552,12 +571,12 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
                       <div className="flex justify-between">
                         <h4 className="font-medium">Pago recalculado</h4>
                         <span className="text-sm text-muted-foreground">
-                          {new Date(pago.updatedAt || pago.createdAt).toLocaleDateString()}
+                          {new Date(pagoSeleccionado.updatedAt || pagoSeleccionado.createdAt!).toLocaleDateString()}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        El pago fue recalculado con un total de {pago.detalles?.resumen?.totalClases || 0} clases. Monto
-                        actualizado: {formatCurrency(pago.monto)}
+                        El pago fue recalculado con un total de {pagoSeleccionado.detalles?.resumen?.totalClases || 0}{" "}
+                        clases. Monto actualizado: {formatCurrency(pagoSeleccionado.monto)}
                       </p>
                     </div>
                   </div>
@@ -570,12 +589,12 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
                       <div className="flex justify-between">
                         <h4 className="font-medium">Pago creado</h4>
                         <span className="text-sm text-muted-foreground">
-                          {new Date(pago.createdAt).toLocaleDateString()}
+                          {new Date(pagoSeleccionado.createdAt!).toLocaleDateString()}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
                         Se creó el pago para el instructor {instructor.nombre} en el periodo {periodo.numero} -{" "}
-                        {periodo.año}. Estado inicial: {pago.estado}
+                        {periodo.año}. Estado inicial: {pagoSeleccionado.estado}
                       </p>
                     </div>
                   </div>
@@ -618,8 +637,7 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="PENDIENTE">Pendiente</SelectItem>
-                <SelectItem value="PAGADO">Pagado</SelectItem>
-                <SelectItem value="CANCELADO">Cancelado</SelectItem>
+                <SelectItem value="APROBADO">Aprobado</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -634,4 +652,3 @@ export default function PagoDetallePage({ params }: { params: Promise<{ id: stri
     </div>
   )
 }
-

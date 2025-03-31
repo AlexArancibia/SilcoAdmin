@@ -73,14 +73,16 @@ export interface NodoDatosComparador {
 
 // Interfaz para una fórmula completa
 export interface Formula {
-  id: string
+  id: string | number
   nombre: string
-  descripcion: string
-  nodos: NodoFormula[]
-  conexiones: Conexion[]
+  descripcion?: string
+  nodos: FormulaNode[]
+  conexiones: FormulaConnection[]
   nodoResultado: string // ID del nodo de resultado
-  fechaCreacion: Date
-  fechaActualizacion: Date
+  fechaCreacion: Date | string
+  fechaActualizacion: Date | string
+  disciplinaId?: number
+  periodoId?: number
 }
 
 // Interfaz para una conexión entre nodos
@@ -113,3 +115,17 @@ export interface FormulaConDisciplina extends Formula {
   disciplinaNombre?: string
 }
 
+export interface FormulaNode {
+  id: string
+  tipo: string
+  datos: Record<string, any>
+  posicion: { x: number; y: number }
+}
+
+export interface FormulaConnection {
+  id: string
+  origen: string
+  destino: string
+  puntoSalida: string
+  puntoEntrada: string
+}

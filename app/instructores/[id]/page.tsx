@@ -30,11 +30,17 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Phone,
+  BookOpen,
+  Star,
+  Percent,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { evaluarFormula } from "@/lib/formula-evaluator"
-import type { Instructor, PagoInstructor } from "@/types/schema"
+import type { Instructor, PagoInstructor, EstadoPago, TipoReajuste } from "@/types/schema"
 import { toast } from "@/components/ui/use-toast"
+import { useFormulasStore } from "@/store/useFormulaStore"
+import { Progress } from "@/components/ui/progress"
 
 export default function InstructorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -46,6 +52,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
   const [instructor, setInstructor] = useState<Instructor | null>(null)
   const [activeTab, setActiveTab] = useState("clases-pagos")
+  const {formulas, fetchFormulas} = useFormulasStore()
   const [paymentDetails, setPaymentDetails] = useState<any[]>([])
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
@@ -60,6 +67,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
         await fetchInstructor(instructorId)
         await fetchPeriodos()
         await fetchDisciplinas()
+        await fetchFormulas()
         if (periodoSeleccionadoId) {
           await fetchClases({ instructorId, periodoId: periodoSeleccionadoId })
           await fetchPagos({ periodoId: periodoSeleccionadoId, instructorId })
@@ -70,37 +78,28 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
     }
 
     loadData()
-  }, [instructorId, fetchInstructor, fetchPeriodos, fetchDisciplinas, fetchClases, fetchPagos, periodoSeleccionadoId])
+  }, [instructorId, fetchInstructor, fetchPeriodos,fetchFormulas, fetchDisciplinas, fetchClases, fetchPagos, periodoSeleccionadoId])
 
-  // Actualizar el estado local cuando cambie instructorSeleccionado
   useEffect(() => {
     if (instructorSeleccionado) {
       setInstructor(instructorSeleccionado)
     }
   }, [instructorSeleccionado])
 
-  // Calcular pagos cuando cambien las clases o se carguen las disciplinas
   useEffect(() => {
     if (clases.length > 0 && !isLoadingDisciplinas) {
       calculatePayments()
     }
   }, [clases, disciplinas, isLoadingDisciplinas])
 
-  // Función para calcular los pagos de las clases usando las fórmulas de las disciplinas
   const calculatePayments = () => {
     const details: any[] = []
-
-    // Registrar la fecha de actualización
     setUltimaActualizacion(new Date())
 
     clases.forEach((clase) => {
-      // Obtener la disciplina
       const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
-
-      // Obtener la fórmula de la disciplina
-      const formula = disciplina?.parametros?.formula || null
-
-      // Datos para evaluar la fórmula
+      const formula = formulas.filter(f => f.disciplinaId === disciplina?.id && f.periodoId === periodoSeleccionadoId)[0]
+      
       const datosEvaluacion = {
         reservaciones: clase.reservasTotales,
         listaEspera: clase.listasEspera,
@@ -113,10 +112,9 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
       let montoCalculado = 0
       let detalleCalculo = null
 
-      // Evaluar la fórmula si existe
       if (formula) {
         try {
-          const resultado = evaluarFormula(formula, datosEvaluacion)
+          const resultado = evaluarFormula(formula.parametros.formula, datosEvaluacion)
           montoCalculado = resultado.valor
           detalleCalculo = resultado
         } catch (error) {
@@ -125,12 +123,10 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
           detalleCalculo = { error: error instanceof Error ? error.message : "Error desconocido" }
         }
       } else {
-        // Si no hay fórmula, registrar un error
         montoCalculado = 0
         detalleCalculo = { error: "No hay fórmula definida para esta disciplina" }
       }
 
-      // Agregar detalle de pago
       details.push({
         claseId: clase.id,
         fecha: clase.fecha,
@@ -144,12 +140,10 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
       })
     })
 
-    // Ordenar por fecha
     details.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
     setPaymentDetails(details)
   }
 
-  // Función para actualizar el pago
   const handleUpdatePayment = async () => {
     if (!instructor || !periodoSeleccionadoId) {
       toast({
@@ -162,10 +156,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
 
     setIsUpdatingPayment(true)
     try {
-      // Calcular el monto total
       const totalMonto = paymentDetails.reduce((sum, detail) => sum + detail.montoCalculado, 0)
-
-      // Buscar el pago existente para este instructor y periodo
       const existingPago = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoSeleccionadoId)
 
       if (!existingPago) {
@@ -177,7 +168,6 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
         return
       }
 
-      // Datos actualizados del pago
       const pagoData: Partial<PagoInstructor> = {
         monto: totalMonto,
         detalles: {
@@ -188,9 +178,12 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
             disciplina: detail.disciplina,
           })),
         },
+        retencion: existingPago.retencion,
+        reajuste: existingPago.reajuste,
+        tipoReajuste: existingPago.tipoReajuste,
+        pagoFinal: existingPago.pagoFinal,
       }
 
-      // Actualizar el pago existente
       await actualizarPago(existingPago.id, pagoData)
 
       toast({
@@ -199,9 +192,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
         variant: "default",
       })
 
-      // Actualizar la lista de pagos
       await fetchPagos({ periodoId: periodoSeleccionadoId, instructorId })
-
       setUltimaActualizacion(new Date())
     } catch (error) {
       console.error("Error al actualizar pago:", error)
@@ -228,7 +219,6 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
     return format(new Date(date), "dd MMMM, yyyy", { locale: es })
   }
 
-  // Formatear monto
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat("es-PE", {
       style: "currency",
@@ -236,7 +226,6 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
     }).format(amount)
   }
 
-  // Calcular estadísticas básicas
   const totalClases = clases.length
   const clasesCompletadas = clases.filter((c) => new Date(c.fecha) < new Date()).length
   const ocupacionPromedio =
@@ -244,72 +233,78 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
       ? Math.round(clases.reduce((sum, c) => sum + (c.reservasTotales / c.lugares) * 100, 0) / clases.length)
       : 0
 
-  // Calcular monto total pendiente (simplificado)
   const montoPendiente = pagos.find((p) => p.estado === "PENDIENTE")?.monto || 0
   const montoAprobado = pagos.find((p) => p.estado === "APROBADO")?.monto || 0
   const totalMonto = paymentDetails.reduce((sum, detail) => sum + detail.montoCalculado, 0)
 
-  // Obtener datos del instructor
   const telefono = instructor.extrainfo?.telefono || "No disponible"
   const especialidad = instructor.extrainfo?.especialidad || "No especificada"
   const estado = instructor.extrainfo?.activo ? "activo" : "inactivo"
   const foto = instructor.extrainfo?.foto
   const biografia = instructor.extrainfo?.biografia || "Sin biografia"
   const experiencia = instructor.extrainfo?.experiencia || 0
-
-  // Obtener disciplinas
   const disciplinasInstructor = instructor.disciplinas?.map((d) => d.nombre || `Disciplina ${d.id}`) || []
 
-  const fadeIn = {
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    transition: { duration: 0.3 },
-  }
-
   return (
-    <div className="container mx-auto py-6">
-      {/* Header con selector de periodo e información principal */}
-      <div className="bg-card rounded-lg p-6 mb-6 border shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12">
-                <AvatarImage src={foto || `/placeholder.svg?height=48&width=48`} alt={instructor.nombre} />
-                <AvatarFallback className="text-lg">{instructor.nombre.substring(0, 2).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div>
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-primary/5 to-card rounded-xl p-6 border shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <Avatar className="h-16 w-16 border-2 border-primary">
+              <AvatarImage src={foto || `/placeholder.svg?height=64&width=64`} alt={instructor.nombre} />
+              <AvatarFallback className="text-xl font-bold bg-primary/10">
+                {instructor.nombre.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            
+            <div>
+              <div className="flex items-center gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">{instructor.nombre}</h1>
-                <div className="text-muted-foreground flex items-center gap-1 text-sm">
-                  <Badge variant={estado === "activo" ? "default" : "secondary"} className="mr-2">
-                    {estado === "activo" ? "Activo" : "Inactivo"}
+                <Badge variant={estado === "activo" ? "default" : "secondary"} className="h-6">
+                  {estado === "activo" ? "Activo" : "Inactivo"}
+                </Badge>
+              </div>
+              
+              <p className="text-muted-foreground mt-1">{especialidad}</p>
+              
+              <div className="flex flex-wrap gap-2 mt-2">
+                {disciplinasInstructor.map((disciplina, index) => (
+                  <Badge key={index} variant="outline" className="flex items-center gap-1">
+                    <Star className="h-3 w-3 text-yellow-500" />
+                    {disciplina}
                   </Badge>
-                  {disciplinasInstructor.length > 0 && (
-                    <span>
-                      {disciplinasInstructor[0]}
-                      {disciplinasInstructor.length > 1 ? ` +${disciplinasInstructor.length - 1} más` : ""}
-                    </span>
-                  )}
-                </div>
+                ))}
+              </div>
+              
+              <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <BookOpen className="h-4 w-4" />
+                  {experiencia} {experiencia === 1 ? "año" : "años"} de experiencia
+                </span>
+                <span className="flex items-center gap-1">
+                  <Phone className="h-4 w-4" />
+                  {telefono}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right mr-2">
+          <div className="flex flex-col items-end gap-2">
+            <div className="text-right">
               <p className="text-sm text-muted-foreground">Periodo actual</p>
-              <p className="font-medium">
+              <p className="font-medium text-lg">
                 {periodoSeleccionadoId
-                  ? periodos.find((p) => p.id === periodoSeleccionadoId)?.numero +
-                    " - " +
-                    periodos.find((p) => p.id === periodoSeleccionadoId)?.año
+                  ? `Periodo ${periodos.find((p) => p.id === periodoSeleccionadoId)?.numero} - ${periodos.find((p) => p.id === periodoSeleccionadoId)?.año}`
                   : "No seleccionado"}
               </p>
             </div>
+            
             <Select
               value={periodoSeleccionadoId?.toString() || ""}
               onValueChange={(value) => setPeriodoSeleccionado(value ? Number(value) : null)}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[200px] bg-background">
                 <SelectValue placeholder="Seleccionar periodo" />
               </SelectTrigger>
               <SelectContent>
@@ -323,191 +318,195 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
 
-        {/* Resumen de estadísticas clave */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-          <div className="bg-background rounded-md p-3 border flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Calendar className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Clases</p>
-              <p className="text-lg font-bold">{totalClases}</p>
-            </div>
-          </div>
-          <div className="bg-background rounded-md p-3 border flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Users className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Ocupación</p>
-              <p className="text-lg font-bold">{ocupacionPromedio}%</p>
-            </div>
-          </div>
-          <div className="bg-background rounded-md p-3 border flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <DollarSign className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Pendiente</p>
-              <p className="text-lg font-bold">{formatAmount(montoPendiente)}</p>
-            </div>
-          </div>
-          <div className="bg-background rounded-md p-3 border flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Calculator className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total</p>
-              <p className="text-lg font-bold">{formatAmount(totalMonto)}</p>
-            </div>
-          </div>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+          <StatCard 
+            icon={<Calendar className="h-5 w-5" />} 
+            title="Clases" 
+            value={totalClases} 
+            description={`${clasesCompletadas} completadas`}
+            color="text-blue-500"
+          />
+          
+          <StatCard 
+            icon={<Users className="h-5 w-5" />} 
+            title="Ocupación" 
+            value={`${ocupacionPromedio}%`} 
+            description="Promedio"
+            color="text-green-500"
+          />
+          
+          <StatCard 
+            icon={<DollarSign className="h-5 w-5" />} 
+            title="Pendiente" 
+            value={formatAmount(montoPendiente)} 
+            description="Por pagar"
+            color="text-amber-500"
+          />
+          
+          <StatCard 
+            icon={<Calculator className="h-5 w-5" />} 
+            title="Total calculado" 
+            value={formatAmount(totalMonto)} 
+            description="Este periodo"
+            color="text-purple-500"
+          />
         </div>
       </div>
 
-      {/* Tabs principales */}
+      {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-2 w-full">
-          <TabsTrigger value="clases-pagos">Clases y Pagos</TabsTrigger>
-          <TabsTrigger value="rendimiento">Rendimiento</TabsTrigger>
+        <TabsList className="grid grid-cols-2 w-full bg-muted/50">
+          <TabsTrigger value="clases-pagos" className="data-[state=active]:bg-primary/10">
+            <Calendar className="h-4 w-4 mr-2" />
+            Clases y Pagos
+          </TabsTrigger>
+          <TabsTrigger value="rendimiento" className="data-[state=active]:bg-primary/10">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Rendimiento
+          </TabsTrigger>
         </TabsList>
 
-        {/* Tab de Clases y Pagos (combinado) */}
-        <TabsContent value="clases-pagos">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div>
-                  <CardTitle>Clases y cálculo de pagos</CardTitle>
-                  <CardDescription>Listado de clases y cálculo de pagos para el instructor</CardDescription>
+        {/* Clases y Pagos Tab */}
+        <TabsContent value="clases-pagos" className="space-y-6">
+          <Card className="border-none shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Clases y cálculo de pagos
+                </CardTitle>
+                <CardDescription>Listado de clases y cálculo de pagos para el instructor</CardDescription>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {ultimaActualizacion && (
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4 mr-1" />
+                    <span>Actualizado: {format(ultimaActualizacion, "dd/MM/yyyy HH:mm", { locale: es })}</span>
+                  </div>
+                )}
+                
+                <Button
+                  variant="outline"
+                  onClick={handleUpdatePayment}
+                  disabled={isUpdatingPayment || !periodoSeleccionadoId || clases.length === 0}
+                  className="flex items-center gap-1"
+                >
+                  {isUpdatingPayment ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Actualizando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      Actualizar pago
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              {isLoadingClases || isLoadingDisciplinas ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-sm text-muted-foreground flex items-center">
-                    {ultimaActualizacion && (
-                      <div className="flex items-center mr-3">
-                        <Clock className="h-4 w-4 mr-1" />
-                        <span>Actualizado: {format(ultimaActualizacion, "dd/MM/yyyy HH:mm", { locale: es })}</span>
+              ) : clases.length === 0 ? (
+                <EmptyState 
+                  icon={<Calendar className="h-12 w-12" />}
+                  title="No hay clases"
+                  description="No hay clases asignadas en el periodo seleccionado."
+                />
+              ) : (
+                <>
+                  <div className="flex justify-between items-center mb-4 bg-gradient-to-r from-primary/5 to-background p-4 rounded-lg border">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <DollarSign className="h-6 w-6 text-primary" />
                       </div>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleUpdatePayment}
-                    disabled={isUpdatingPayment || !periodoSeleccionadoId || clases.length === 0}
-                    className="flex items-center gap-1"
-                  >
-                    {isUpdatingPayment ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        Actualizando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4" />
-                        Actualizar pago
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {isLoadingClases || isLoadingDisciplinas ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                  </div>
-                ) : clases.length === 0 ? (
-                  <div className="text-center py-6">
-                    <Calendar className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
-                    <h3 className="mt-4 text-lg font-medium">No hay clases</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      No hay clases asignadas en el periodo seleccionado.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-4 bg-muted/30 p-3 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <DollarSign className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Total calculado</p>
-                          <p className="text-xl font-bold">{formatAmount(totalMonto)}</p>
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        <p>
-                          Total de clases: <span className="font-medium">{totalClases}</span>
-                        </p>
-                        <p>
-                          Periodo:{" "}
-                          <span className="font-medium">
-                            {periodoSeleccionadoId
-                              ? periodos.find((p) => p.id === periodoSeleccionadoId)?.numero +
-                                " - " +
-                                periodos.find((p) => p.id === periodoSeleccionadoId)?.año
-                              : "No seleccionado"}
-                          </span>
-                        </p>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total calculado para este periodo</p>
+                        <p className="text-2xl font-bold">{formatAmount(totalMonto)}</p>
                       </div>
                     </div>
-                    <div className="rounded-md border overflow-hidden">
+                    
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">
+                        Periodo:{" "}
+                        <span className="font-medium">
+                          {periodoSeleccionadoId
+                            ? `Periodo ${periodos.find((p) => p.id === periodoSeleccionadoId)?.numero} - ${periodos.find((p) => p.id === periodoSeleccionadoId)?.año}`
+                            : "No seleccionado"}
+                        </span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Total de clases: <span className="font-medium">{totalClases}</span>
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="rounded-lg border overflow-hidden">
+                    <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="py-3 px-4 text-left font-medium">Fecha</th>
-                            <th className="py-3 px-4 text-left font-medium">Disciplina</th>
-                            <th className="py-3 px-4 text-left font-medium">Estudio</th>
-                            <th className="py-3 px-4 text-left font-medium">Reservas</th>
-                            <th className="py-3 px-4 text-right font-medium">Monto calculado</th>
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="py-3 px-4 text-left font-medium text-sm">Fecha</th>
+                            <th className="py-3 px-4 text-left font-medium text-sm">Disciplina</th>
+                            <th className="py-3 px-4 text-left font-medium text-sm">Estudio</th>
+                            <th className="py-3 px-4 text-left font-medium text-sm">Ocupación</th>
+                            <th className="py-3 px-4 text-right font-medium text-sm">Monto</th>
                           </tr>
                         </thead>
+                        
                         <tbody className="divide-y">
                           {paymentDetails.map((detail) => (
-                            <tr key={detail.claseId} className="hover:bg-muted/30">
-                              <td className="py-3 px-4">
+                            <tr key={detail.claseId} className="hover:bg-muted/10 transition-colors">
+                              <td className="py-3 px-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                   <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                                   {formatDate(detail.fecha)}
                                 </div>
                               </td>
+                              
                               <td className="py-3 px-4">
-                                <Badge variant="outline">{detail.disciplina}</Badge>
+                                <Badge variant="secondary" className="whitespace-nowrap">
+                                  {detail.disciplina}
+                                </Badge>
                               </td>
+                              
                               <td className="py-3 px-4">{detail.estudio}</td>
+                              
                               <td className="py-3 px-4">
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger className="flex items-center">
-                                      <div className="flex items-center">
-                                        <div className="w-16 bg-gray-200 rounded-full h-2 dark:bg-gray-700 mr-2">
-                                          <div
-                                            className="bg-primary h-2 rounded-full"
-                                            style={{
-                                              width: `${Math.round((detail.reservas / detail.capacidad) * 100)}%`,
-                                            }}
-                                          ></div>
-                                        </div>
-                                        <span>
-                                          {detail.reservas} / {detail.capacidad}
+                                      <div className="flex items-center w-full max-w-[160px]">
+                                        <Progress 
+                                          value={(detail.reservas / detail.capacidad) * 100} 
+                                          className="h-2 mr-2" 
+                                        />
+                                        <span className="text-sm">
+                                          {Math.round((detail.reservas / detail.capacidad) * 100)}%
                                         </span>
-                                        <Info className="ml-1 h-3 w-3 text-muted-foreground" />
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p>Ocupación: {Math.round((detail.reservas / detail.capacidad) * 100)}%</p>
+                                      <p>{detail.reservas} reservas de {detail.capacidad} lugares</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
                               </td>
-                              <td className="py-3 px-4 text-right font-medium">
+                              
+                              <td className="py-3 px-4 text-right font-medium whitespace-nowrap">
                                 <TooltipProvider>
                                   <Tooltip>
-                                    <TooltipTrigger className="flex items-center justify-end">
+                                    <TooltipTrigger className="flex items-center justify-end gap-1">
                                       {formatAmount(detail.montoCalculado)}
-                                      <Info className="ml-1 h-3 w-3 text-muted-foreground" />
+                                      <Info className="h-3 w-3 text-muted-foreground" />
                                     </TooltipTrigger>
                                     <TooltipContent className="w-64 max-w-sm">
                                       {detail.detalleCalculo?.error ? (
@@ -516,10 +515,13 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                                         <p>{detail.detalleCalculo.mensaje}</p>
                                       ) : detail.detalleCalculo?.pasos ? (
                                         <div className="space-y-1">
-                                          <p className="font-semibold">Pasos de cálculo:</p>
+                                          <p className="font-semibold">Detalle de cálculo:</p>
                                           <ul className="text-xs space-y-1">
                                             {detail.detalleCalculo.pasos.map((paso: any, idx: number) => (
-                                              <li key={idx}>{paso.descripcion}</li>
+                                              <li key={idx} className="flex items-start gap-1">
+                                                <span className="text-primary">•</span>
+                                                <span>{paso.descripcion}</span>
+                                              </li>
                                             ))}
                                           </ul>
                                         </div>
@@ -535,233 +537,208 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                         </tbody>
                       </table>
                     </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+            
+            <CardFooter className="flex justify-between border-t pt-6">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Periodo actual:{" "}
+                  {periodoSeleccionadoId
+                    ? `Periodo ${periodos.find((p) => p.id === periodoSeleccionadoId)?.numero} - ${periodos.find((p) => p.id === periodoSeleccionadoId)?.año}`
+                    : "No seleccionado"}
+                </p>
+              </div>
+              
+              <Button
+                onClick={handleUpdatePayment}
+                disabled={isUpdatingPayment || !periodoSeleccionadoId || clases.length === 0}
+                className="flex items-center gap-2"
+              >
+                {isUpdatingPayment ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Actualizando pago...
+                  </>
+                ) : (
+                  <>
+                    <DollarSign className="h-4 w-4" />
+                    Actualizar pago
                   </>
                 )}
-              </CardContent>
-              <CardFooter className="flex justify-between border-t pt-6">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Periodo actual:{" "}
-                    {periodoSeleccionadoId
-                      ? periodos.find((p) => p.id === periodoSeleccionadoId)?.numero +
-                        " - " +
-                        periodos.find((p) => p.id === periodoSeleccionadoId)?.año
-                      : "No seleccionado"}
-                  </p>
-                </div>
-                <Button
-                  onClick={handleUpdatePayment}
-                  disabled={isUpdatingPayment || !periodoSeleccionadoId || clases.length === 0}
-                  className="flex items-center gap-2"
-                >
-                  {isUpdatingPayment ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Actualizando pago...
-                    </>
-                  ) : (
-                    <>
-                      <DollarSign className="h-4 w-4" />
-                      Actualizar pago
-                    </>
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
+              </Button>
+            </CardFooter>
+          </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div>
-                  <CardTitle>Estado del pago actual</CardTitle>
-                  <CardDescription>Información del pago para el periodo actual</CardDescription>
+          {/* Payment Status Card */}
+          <Card className="border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                Estado del pago actual
+              </CardTitle>
+              <CardDescription>Información del pago para el periodo actual</CardDescription>
+            </CardHeader>
+            
+            <CardContent>
+              {isLoadingPagos ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-20 w-full rounded-lg" />
+                  <Skeleton className="h-20 w-full rounded-lg" />
                 </div>
-                {ultimaActualizacion && (
-                  <div className="text-sm text-muted-foreground flex items-center">
-                    <Clock className="h-4 w-4 mr-1" />
-                    <span>Actualizado: {format(ultimaActualizacion, "dd/MM/yyyy HH:mm", { locale: es })}</span>
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent>
-                {isLoadingPagos ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                  </div>
-                ) : pagos.length === 0 ? (
-                  <div className="text-center py-6 bg-muted/20 rounded-lg border border-dashed">
-                    <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
-                    <h3 className="mt-4 text-lg font-medium">No hay pagos registrados</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Utilice el botón "Actualizar pago" para crear un nuevo pago para este periodo.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {pagos.map((pago) => (
-                      <div key={pago.id} className="bg-muted/20 p-4 rounded-lg border">
-                        <div className="flex justify-between items-center mb-4">
-                          <div className="flex items-center gap-2">
-                            {pago.estado === "APROBADO" ? (
-                              <CheckCircle className="h-5 w-5 text-green-500" />
-                            ) : (
-                              <Clock className="h-5 w-5 text-amber-500" />
-                            )}
-                            <h3 className="text-lg font-medium">
-                              Pago {pago.estado === "APROBADO" ? "aprobado" : "pendiente"}
-                            </h3>
-                          </div>
-                          <Badge
-                            variant={
-                              pago.estado === "APROBADO"
-                                ? "default"
-                                : pago.estado === "PENDIENTE"
-                                  ? "outline"
-                                  : "destructive"
-                            }
-                          >
-                            {pago.estado}
-                          </Badge>
+              ) : pagos.length === 0 ? (
+                <EmptyState 
+                  icon={<AlertCircle className="h-12 w-12" />}
+                  title="No hay pagos registrados"
+                  description="Utilice el botón 'Actualizar pago' para crear un nuevo pago para este periodo."
+                />
+              ) : (
+                <div className="space-y-4">
+                  {pagos.map((pago) => (
+                    <div key={pago.id} className="bg-gradient-to-r from-primary/5 to-background p-4 rounded-lg border">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                          {pago.estado === "APROBADO" ? (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <Clock className="h-5 w-5 text-amber-500" />
+                          )}
+                          <h3 className="text-lg font-medium">
+                            Pago {pago.estado === "APROBADO" ? "aprobado" : "pendiente"}
+                          </h3>
                         </div>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Monto</p>
-                            <p className="text-xl font-bold">{formatAmount(pago.monto)}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Fecha de pago</p>
-                            <p className="font-medium">
-                              {pago.periodo?.fechaPago ? formatDate(pago.periodo.fechaPago) : "Pendiente"}
-                            </p>
-                          </div>
+                        
+                        <Badge
+                          variant={
+                            pago.estado === "APROBADO"
+                              ? "default"
+                              : pago.estado === "PENDIENTE"
+                                ? "outline"
+                                : "destructive"
+                          }
+                        >
+                          {pago.estado}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Monto</p>
+                          <p className="text-xl font-bold">{formatAmount(pago.monto)}</p>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          <p>
-                            Periodo: {pago.periodo?.numero} - {pago.periodo?.año}
+                        
+                        <div>
+                          <p className="text-sm text-muted-foreground">Fecha de pago</p>
+                          <p className="font-medium">
+                            {pago.periodo?.fechaPago ? formatDate(pago.periodo.fechaPago) : "Pendiente"}
                           </p>
-                          <p>ID de pago: {pago.id}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                      
+                      <div className="text-sm text-muted-foreground">
+                        <p>
+                          Periodo: {pago.periodo?.numero} - {pago.periodo?.año}
+                        </p>
+                        <p>ID de pago: {pago.id}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Historial de pagos</CardTitle>
-                <CardDescription>Registro de todos los pagos realizados</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <InstructorPaymentHistory instructorId={instructorId} />
-              </CardContent>
-            </Card>
-          </div>
+          {/* Payment History Card */}
+          <Card className="border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-primary" />
+                Historial de pagos
+              </CardTitle>
+              <CardDescription>Registro de todos los pagos realizados</CardDescription>
+            </CardHeader>
+            
+            <CardContent>
+              <InstructorPaymentHistory instructorId={instructorId} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* Tab de Rendimiento */}
-        <TabsContent value="rendimiento">
+        {/* Rendimiento Tab */}
+        <TabsContent value="rendimiento" className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
-            <Card>
+            <PerformanceCard 
+              icon={<Percent className="h-5 w-5 text-primary" />}
+              title="Ocupación por clase"
+              description="Porcentaje de ocupación de tus clases"
+              value={`${ocupacionPromedio}%`}
+              progressValue={ocupacionPromedio}
+            />
+            
+            <PerformanceCard 
+              icon={<Briefcase className="h-5 w-5 text-primary" />}
+              title="Clases por disciplina"
+              description="Distribución de clases por disciplina"
+              value={totalClases.toString()}
+              secondaryValue={`${clasesCompletadas} completadas`}
+            />
+            
+            <PerformanceCard 
+              icon={<DollarSign className="h-5 w-5 text-primary" />}
+              title="Ingresos mensuales"
+              description="Evolución de tus ingresos por mes"
+              value={formatAmount(montoPendiente + montoAprobado)}
+            />
+            
+            <Card className="border-none shadow-sm">
               <CardHeader>
-                <CardTitle>Ocupación por clase</CardTitle>
-                <CardDescription>Porcentaje de ocupación de tus clases</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <BarChart3 className="mx-auto h-16 w-16 text-muted-foreground opacity-50" />
-                    <p className="mt-4 text-muted-foreground">Ocupación promedio: {ocupacionPromedio}%</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Clases por disciplina</CardTitle>
-                <CardDescription>Distribución de clases por disciplina</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <Briefcase className="mx-auto h-16 w-16 text-muted-foreground opacity-50" />
-                    <p className="mt-4 text-muted-foreground">{totalClases} clases en total</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Ingresos mensuales</CardTitle>
-                <CardDescription>Evolución de tus ingresos por mes</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <DollarSign className="mx-auto h-16 w-16 text-muted-foreground opacity-50" />
-                    <p className="mt-4 text-muted-foreground">Total: {formatAmount(montoPendiente + montoAprobado)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Rendimiento general</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  Rendimiento general
+                </CardTitle>
                 <CardDescription>Métricas clave de tu desempeño</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium">Ocupación</span>
-                      <span className="text-sm font-medium">{ocupacionPromedio}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-                      <div className="bg-primary h-2 rounded-full" style={{ width: `${ocupacionPromedio}%` }}></div>
-                    </div>
+              
+              <CardContent className="space-y-6">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Ocupación promedio</span>
+                    <span className="text-sm font-medium">{ocupacionPromedio}%</span>
                   </div>
+                  <Progress value={ocupacionPromedio} className="h-2" />
+                </div>
 
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium">Clases completadas</span>
-                      <span className="text-sm font-medium">
-                        {clasesCompletadas} / {totalClases}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-                      <div
-                        className="bg-primary h-2 rounded-full"
-                        style={{ width: `${totalClases > 0 ? (clasesCompletadas / totalClases) * 100 : 0}%` }}
-                      ></div>
-                    </div>
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Clases completadas</span>
+                    <span className="text-sm font-medium">
+                      {clasesCompletadas} / {totalClases}
+                    </span>
                   </div>
+                  <Progress 
+                    value={totalClases > 0 ? (clasesCompletadas / totalClases) * 100 : 0} 
+                    className="h-2" 
+                  />
+                </div>
 
-                  <div className="pt-4">
-                    <h4 className="text-sm font-medium mb-3">Logros</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center gap-2 p-3 rounded-lg border">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Award className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">Instructor destacado</div>
-                          <div className="text-xs text-muted-foreground">Ocupación superior al 80%</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 p-3 rounded-lg border">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Users className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">Clases llenas</div>
-                          <div className="text-xs text-muted-foreground">5 clases con 100% de ocupación</div>
-                        </div>
-                      </div>
-                    </div>
+                <div className="pt-4">
+                  <h4 className="text-sm font-medium mb-3">Logros</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <AchievementCard 
+                      icon={<Award className="h-5 w-5 text-yellow-500" />}
+                      title="Instructor destacado"
+                      description="Ocupación superior al 80%"
+                      achieved={ocupacionPromedio >= 80}
+                    />
+                    
+                    <AchievementCard 
+                      icon={<Users className="h-5 w-5 text-blue-500" />}
+                      title="Clases llenas"
+                      description="5 clases con 100% de ocupación"
+                      achieved={clases.filter(c => (c.reservasTotales / c.lugares) >= 1).length >= 5}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -773,24 +750,147 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
   )
 }
 
-function InstructorDetailSkeleton() {
-  return (
-    <div className="container mx-auto py-6">
-      <div className="mb-8">
-        <Skeleton className="h-10 w-1/3 mb-4" />
-        <Skeleton className="h-6 w-2/3" />
-      </div>
+// Componentes auxiliares para mejorar la legibilidad
 
-      <div className="grid gap-6 md:grid-cols-7">
-        <div className="md:col-span-2">
-          <Skeleton className="h-[500px] w-full rounded-lg" />
-        </div>
-        <div className="md:col-span-5">
-          <Skeleton className="h-10 w-full mb-4" />
-          <Skeleton className="h-[500px] w-full rounded-lg" />
-        </div>
+function StatCard({ icon, title, value, description, color }: { 
+  icon: React.ReactNode, 
+  title: string, 
+  value: string | number, 
+  description: string,
+  color?: string 
+}) {
+  return (
+    <div className="bg-background rounded-lg p-4 border flex items-center gap-3 hover:shadow-sm transition-shadow">
+      <div className={`h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center ${color}`}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-lg font-bold">{value}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
     </div>
   )
 }
 
+function EmptyState({ icon, title, description }: { 
+  icon: React.ReactNode, 
+  title: string, 
+  description: string 
+}) {
+  return (
+    <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed">
+      <div className="mx-auto h-12 w-12 text-muted-foreground opacity-50">
+        {icon}
+      </div>
+      <h3 className="mt-4 text-lg font-medium">{title}</h3>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+    </div>
+  )
+}
+
+function PerformanceCard({ 
+  icon, 
+  title, 
+  description, 
+  value, 
+  secondaryValue,
+  progressValue 
+}: { 
+  icon: React.ReactNode, 
+  title: string, 
+  description: string, 
+  value: string,
+  secondaryValue?: string,
+  progressValue?: number
+}) {
+  return (
+    <Card className="border-none shadow-sm">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      
+      <CardContent>
+        <div className="text-center py-6">
+          <p className="text-3xl font-bold">{value}</p>
+          {secondaryValue && <p className="text-sm text-muted-foreground mt-1">{secondaryValue}</p>}
+          
+          {progressValue !== undefined && (
+            <div className="mt-4">
+              <Progress value={progressValue} className="h-2" />
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function AchievementCard({ 
+  icon, 
+  title, 
+  description, 
+  achieved 
+}: { 
+  icon: React.ReactNode, 
+  title: string, 
+  description: string, 
+  achieved: boolean 
+}) {
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-lg border ${achieved ? 'bg-green-50 border-green-100' : 'bg-muted/20'}`}>
+      <div className={`h-10 w-10 rounded-full ${achieved ? 'bg-green-100' : 'bg-muted'} flex items-center justify-center`}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-sm font-medium">{title}</div>
+        <div className="text-xs text-muted-foreground">{description}</div>
+        {achieved && (
+          <Badge variant="outline" className="mt-1 text-green-600 border-green-300">
+            Completado
+          </Badge>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function InstructorDetailSkeleton() {
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col md:flex-row gap-6">
+        <div className="md:w-1/3 space-y-4">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-16 w-16 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 rounded-lg" />
+            ))}
+          </div>
+        </div>
+        
+        <div className="md:w-2/3 space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </div>
+      </div>
+    </div>
+  )
+}

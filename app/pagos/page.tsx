@@ -36,12 +36,13 @@ import {
   Eye,
   Filter,
   Loader2,
+  Percent,
   RefreshCw,
   Search,
   Users,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import type { EstadoPago } from "@/types/schema"
+import type { EstadoPago, TipoReajuste, PagoInstructor, Instructor, Disciplina, Periodo, Clase } from "@/types/schema"
 import { PagosStats } from "@/components/payments/pagos-stats"
 
 export default function PagosPage() {
@@ -76,8 +77,9 @@ export default function PagosPage() {
   useEffect(() => {
     if (periodoSeleccionadoId) {
       fetchPagos({ periodoId: periodoSeleccionadoId })
+      fetchClases({ periodoId: periodoSeleccionadoId })
     }
-  }, [fetchPagos, periodoSeleccionadoId])
+  }, [fetchPagos, fetchClases, periodoSeleccionadoId])
 
   // Filtrar pagos
   const filteredPagos = pagos.filter((pago) => {
@@ -113,7 +115,7 @@ export default function PagosPage() {
       ? filteredPagos
       : filteredPagos.filter((pago) => {
           if (activeTab === "pendientes") return pago.estado === "PENDIENTE"
-          if (activeTab === "pagados") return pago.estado === "PAGADO"
+          if (activeTab === "aprobados") return pago.estado === "APROBADO"
           return true
         })
 
@@ -140,8 +142,8 @@ export default function PagosPage() {
     }
 
     if (sortConfig.key === "fecha") {
-      const dateA = a.updatedAt ? new Date(a.updatedAt) : new Date(a.createdAt)
-      const dateB = b.updatedAt ? new Date(b.updatedAt) : new Date(b.createdAt)
+      const dateA = a.updatedAt ? new Date(a.updatedAt) : new Date(a.createdAt!)
+      const dateB = b.updatedAt ? new Date(b.updatedAt) : new Date(b.createdAt!)
       return sortConfig.direction === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
     }
 
@@ -185,14 +187,40 @@ export default function PagosPage() {
   // Función para obtener el color del estado
   const getEstadoColor = (estado: EstadoPago): string => {
     switch (estado) {
-      case "PAGADO":
+      case "APROBADO":
         return "bg-green-100 text-green-800 hover:bg-green-200"
       case "PENDIENTE":
         return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-
       default:
         return "bg-gray-100 text-gray-800 hover:bg-gray-200"
     }
+  }
+
+  // Función para calcular el monto final con retención y reajuste
+  const calcularMontoFinal = (pago: PagoInstructor): number => {
+    let montoFinal = pago.monto
+
+    // Aplicar retención (obligatorio según schema)
+    montoFinal -= pago.retencion
+
+    // Aplicar reajuste (obligatorio según schema)
+    if (pago.tipoReajuste === "PORCENTAJE") {
+      montoFinal += (pago.monto * pago.reajuste) / 100
+    } else {
+      // FIJO
+      montoFinal += pago.reajuste
+    }
+
+    return montoFinal
+  }
+
+  // Función para obtener la fórmula de una disciplina para un periodo específico
+  const getFormulaDisciplina = (disciplinaId: number, periodoId: number) => {
+    const disciplina = disciplinas.find(d => d.id === disciplinaId)
+    if (!disciplina || !disciplina.formulas) return null
+    
+    const formulaDB = disciplina.formulas.find(f => f.periodoId === periodoId)
+    return formulaDB ? formulaDB.parametros.formula : null
   }
 
   // Función para recalcular todos los pagos
@@ -237,11 +265,8 @@ export default function PagosPage() {
         const detallesClases = []
 
         for (const clase of clasesInstructor) {
-          // Obtener la disciplina
-          const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
-
-          // Obtener la fórmula de la disciplina
-          const formula = disciplina?.parametros?.formula || null
+          // Obtener la fórmula de la disciplina para este periodo
+          const formula = getFormulaDisciplina(clase.disciplinaId, periodoSeleccionadoId)
 
           // Datos para evaluar la fórmula
           const datosEvaluacion = {
@@ -270,7 +295,7 @@ export default function PagosPage() {
           } else {
             // Si no hay fórmula, registrar un error
             montoCalculado = 0
-            detalleCalculo = { error: "No hay fórmula definida para esta disciplina" }
+            detalleCalculo = { error: "No hay fórmula definida para esta disciplina en este periodo" }
           }
 
           // Agregar a los totales
@@ -281,6 +306,8 @@ export default function PagosPage() {
             claseId: clase.id,
             montoCalculado,
             detalleCalculo,
+            disciplinaId: clase.disciplinaId,
+            fechaClase: clase.fecha,
           })
         }
 
@@ -290,10 +317,16 @@ export default function PagosPage() {
         )
 
         if (pagoExistente) {
+          // Mantener los valores de retención y reajuste existentes
+          const { retencion, reajuste, tipoReajuste } = pagoExistente
+
           // Actualizar pago existente
-          await actualizarPago(instructor.id,{
+          await actualizarPago(pagoExistente.id,{
             ...pagoExistente,
             monto: montoTotal,
+            retencion,
+            reajuste,
+            tipoReajuste,
             detalles: {
               ...pagoExistente.detalles,
               clases: detallesClases,
@@ -307,12 +340,16 @@ export default function PagosPage() {
           })
           pagosActualizados++
         } else {
-          // Crear nuevo pago
-          const nuevoPago = {
+          // Crear nuevo pago (simulado ya que no tenemos función crearPago)
+          // En una implementación real, deberías llamar a tu API para crear el pago
+          console.log("Nuevo pago a crear:", {
             instructorId: instructor.id,
             periodoId: periodoSeleccionadoId,
             monto: montoTotal,
             estado: "PENDIENTE" as EstadoPago,
+            retencion: 0,
+            reajuste: 0,
+            tipoReajuste: "FIJO" as TipoReajuste,
             detalles: {
               clases: detallesClases,
               resumen: {
@@ -322,10 +359,7 @@ export default function PagosPage() {
                 moneda: "PEN",
               },
             },
-          }
-
-          // Aquí deberías usar la función para crear un nuevo pago
-          // await crearPago(nuevoPago)
+          })
           pagosCreados++
         }
       }
@@ -413,7 +447,7 @@ export default function PagosPage() {
 
         <CardContent className="pt-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger
                 value="todos"
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -427,16 +461,10 @@ export default function PagosPage() {
                 Pendientes
               </TabsTrigger>
               <TabsTrigger
-                value="pagados"
+                value="aprobados"
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                Pagados
-              </TabsTrigger>
-              <TabsTrigger
-                value="cancelados"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                Cancelados
+                Aprobados
               </TabsTrigger>
             </TabsList>
 
@@ -460,8 +488,7 @@ export default function PagosPage() {
                   <SelectContent>
                     <SelectItem value="todos">Todos los estados</SelectItem>
                     <SelectItem value="PENDIENTE">Pendientes</SelectItem>
-                    <SelectItem value="PAGADO">Pagados</SelectItem>
-                    <SelectItem value="CANCELADO">Cancelados</SelectItem>
+                    <SelectItem value="APROBADO">Aprobados</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -516,19 +543,15 @@ export default function PagosPage() {
                         </TableHead>
                         <TableHead className="text-primary font-medium">
                           <Button variant="ghost" onClick={() => requestSort("monto")} className="text-primary group">
-                            Monto
+                            Monto Base
                             <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
                           </Button>
                         </TableHead>
+                        <TableHead className="text-primary font-medium">Ajustes</TableHead>
+                        <TableHead className="text-primary font-medium">Monto Final</TableHead>
                         <TableHead className="text-primary font-medium">
                           <Button variant="ghost" onClick={() => requestSort("estado")} className="text-primary group">
                             Estado
-                            <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                          </Button>
-                        </TableHead>
-                        <TableHead className="text-primary font-medium">
-                          <Button variant="ghost" onClick={() => requestSort("fecha")} className="text-primary group">
-                            Última actualización
                             <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
                           </Button>
                         </TableHead>
@@ -538,60 +561,83 @@ export default function PagosPage() {
                     <TableBody>
                       {paginatedPagos.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                             No se encontraron pagos con los filtros seleccionados.
                           </TableCell>
                         </TableRow>
                       ) : (
-                        paginatedPagos.map((pago) => (
-                          <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
-                            <TableCell className="font-medium">{getNombreInstructor(pago.instructorId)}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-primary/60" />
-                                {getNombrePeriodo(pago.periodoId)}
-                              </div>
-                            </TableCell>
-                            <TableCell>{formatCurrency(pago.monto)}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={getEstadoColor(pago.estado)}>
-                                {pago.estado}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {pago.updatedAt
-                                ? new Date(pago.updatedAt).toLocaleDateString()
-                                : new Date(pago.createdAt).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted transition-colors">
-                                    <span className="sr-only">Abrir menú</span>
-                                    <ChevronDown className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-40 rounded-lg">
-                                  <DropdownMenuItem
-                                    className="cursor-pointer"
-                                    onClick={() => router.push(`/pagos/${pago.id}`)}
-                                  >
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    Ver detalles
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="cursor-pointer">
-                                    <Calculator className="mr-2 h-4 w-4" />
-                                    Recalcular
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem className="cursor-pointer">
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Exportar
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        paginatedPagos.map((pago) => {
+                          const montoFinal = calcularMontoFinal(pago)
+
+                          return (
+                            <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
+                              <TableCell className="font-medium">{getNombreInstructor(pago.instructorId)}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4 text-primary/60" />
+                                  {getNombrePeriodo(pago.periodoId)}
+                                </div>
+                              </TableCell>
+                              <TableCell>{formatCurrency(pago.monto)}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-1 text-xs">
+                                  {pago.retencion > 0 && (
+                                    <span className="text-red-600">Retención: -{formatCurrency(pago.retencion)}</span>
+                                  )}
+                                  {pago.reajuste > 0 && (
+                                    <span className="text-green-600 flex items-center">
+                                      Reajuste:{" "}
+                                      {pago.tipoReajuste === "PORCENTAJE" ? (
+                                        <span className="flex items-center">
+                                          +{pago.reajuste}%
+                                          <Percent className="h-3 w-3 ml-1" />
+                                        </span>
+                                      ) : (
+                                        `+${formatCurrency(pago.reajuste)}`
+                                      )}
+                                    </span>
+                                  )}
+                                  {pago.retencion === 0 && pago.reajuste === 0 && (
+                                    <span className="text-muted-foreground">Sin ajustes</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-medium">{formatCurrency(montoFinal)}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={getEstadoColor(pago.estado)}>
+                                  {pago.estado}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted transition-colors">
+                                      <span className="sr-only">Abrir menú</span>
+                                      <ChevronDown className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-40 rounded-lg">
+                                    <DropdownMenuItem
+                                      className="cursor-pointer"
+                                      onClick={() => router.push(`/pagos/${pago.id}`)}
+                                    >
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      Ver detalles
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer">
+                                      <Calculator className="mr-2 h-4 w-4" />
+                                      Recalcular
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="cursor-pointer">
+                                      <Download className="mr-2 h-4 w-4" />
+                                      Exportar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -660,4 +706,3 @@ export default function PagosPage() {
     </div>
   )
 }
-

@@ -9,111 +9,135 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-// Definición de modelos
-
 model Usuario {
-  id                Int      @id @default(autoincrement())
-  nombre            String
-  email             String   @unique
-  password          String
-  rol               String   // SUPER_ADMIN, ADMIN, USUARIO
-  activo            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  email     String   @unique
+  password  String
+  rol       String   // SUPER_ADMIN, ADMIN, USUARIO
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Instructor {
-  id                Int      @id @default(autoincrement())
-  nombre            String   @unique
-  email             String?   @unique
-  password          String?
-  extrainfo          Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
+  nombre     String   @unique
+  password   String?
+  extrainfo  Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  parametros        Json? 
   // Relaciones
-  clases            Clase[]
-  pagos             PagoInstructor[]
-  disciplinas       Disciplina[]
+  clases      Clase[]
+  pagos       PagoInstructor[]
+  disciplinas Disciplina[]
 }
 
 model Disciplina {
-  id                Int      @id @default(autoincrement())
-  nombre            String   @unique
-  
-  descripcion       String?
-  color             String?
-  parametros        Json?    // Incluye parámetros y fórmula de la disciplina
-  activo            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique
+  descripcion String?
+  color       String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relaciones
-  clases            Clase[]
+  clases   Clase[]
+  formulas Formula[]
 
   Instructor Instructor[]
 }
 
 model Periodo {
-  id                Int      @id @default(autoincrement())
-  numero            Int
-  año               Int
-  fechaInicio       DateTime
-  fechaFin          DateTime
-  fechaPago         DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  numero      Int
+  año         Int
+  fechaInicio DateTime
+  fechaFin    DateTime
+  fechaPago   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relaciones
-  clases            Clase[]
-  pagos             PagoInstructor[]
+  clases   Clase[]
+  pagos    PagoInstructor[]
+  formulas Formula[]
+}
+
+model Formula {
+  id          Int      @id @default(autoincrement())
+  disciplinaId Int
+  periodoId   Int
+  parametros  Json    // Incluye parámetros y fórmula de la disciplina
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  disciplina Disciplina @relation(fields: [disciplinaId], references: [id])
+  periodo    Periodo    @relation(fields: [periodoId], references: [id])
+
+  // Restricción de unicidad para evitar duplicados en el mismo periodo y disciplina
+  @@unique([disciplinaId, periodoId])
 }
 
 model Clase {
-  id                Int      @id @default(autoincrement())
-  pais              String
-  ciudad            String
-  disciplinaId      Int
-  semana            Int
-  estudio           String
-  instructorId      Int
-  periodoId         Int      // Catorcena
-  salon             String
-  reservasTotales   Int      @default(0)
-  listasEspera      Int      @default(0)
-  cortesias         Int      @default(0)
-  lugares           Int      // Capacidad total
-  reservasPagadas   Int      @default(0)
-  textoEspecial     String?
-  fecha             DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  pais            String
+  ciudad          String
+  disciplinaId    Int
+  semana          Int
+  estudio         String
+  instructorId    Int
+  periodoId       Int
+  salon           String
+  reservasTotales Int      @default(0)
+  listasEspera    Int      @default(0)
+  cortesias       Int      @default(0)
+  lugares         Int
+  reservasPagadas Int      @default(0)
+  textoEspecial   String?
+  fecha           DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relaciones
-  instructor        Instructor @relation(fields: [instructorId], references: [id])
-  disciplina        Disciplina @relation(fields: [disciplinaId], references: [id])
-  periodo           Periodo    @relation(fields: [periodoId], references: [id])
+  instructor  Instructor @relation(fields: [instructorId], references: [id])
+  disciplina  Disciplina @relation(fields: [disciplinaId], references: [id])
+  periodo     Periodo    @relation(fields: [periodoId], references: [id])
 }
 
 model PagoInstructor {
-  id                Int      @id @default(autoincrement())
-  monto             Float
-  estado            String   @default("PENDIENTE")
-  instructorId      Int
-  periodoId         Int
-  detalles          Json?    // Detalles del cálculo del pago
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  reajuste          Float?
+  id          Int      @id @default(autoincrement())
+  monto       Float
+  estado      String   @default("PENDIENTE")
+  instructorId Int
+  periodoId   Int
+  detalles    Json?
 
+  // Nuevos campos
+  retencion   Float   @default(0.0) // Monto retenido
+  reajuste    Float   @default(0.0) // Ajuste aplicado al pago
+  tipoReajuste String @default("FIJO") // Puede ser "FIJO" o "PORCENTAJE"
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  pagoFinal Float 
   // Relaciones
-  instructor        Instructor @relation(fields: [instructorId], references: [id])
-  periodo           Periodo    @relation(fields: [periodoId], references: [id])
+  instructor  Instructor @relation(fields: [instructorId], references: [id])
+  periodo     Periodo    @relation(fields: [periodoId], references: [id])
 
   // Restricción de unicidad
   @@unique([instructorId, periodoId])
 }
 
- 
+model Archivo {
+  id Int @id @default(autoincrement())
+  nombre String
+  tipo String?
+  url String
+  descripcion String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

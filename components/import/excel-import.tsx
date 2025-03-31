@@ -72,6 +72,9 @@ interface DisciplineAnalysis {
 
 // Asegurarnos de importar la función evaluarFormula
 import { evaluarFormula } from "@/lib/formula-evaluator"
+import { useFormulasStore } from "@/store/useFormulaStore"
+import { ResultadoFormula } from "@/types/formula"
+import { retencion } from "@/utils/const"
 
 export function ExcelImport() {
   // Función para obtener el nombre del periodo
@@ -118,7 +121,7 @@ export function ExcelImport() {
   } = usePeriodosStore()
 
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
-
+  const {formulas, fetchFormulas} = useFormulasStore()
   const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
 
   // Obtener el store de pagos
@@ -134,6 +137,10 @@ export function ExcelImport() {
       if (periodos.length === 0) {
         promises.push(fetchPeriodos())
       }
+      if (formulas.length === 0) {
+        promises.push(fetchFormulas())
+      }
+
 
       if (disciplinas.length === 0) {
         promises.push(fetchDisciplinas())
@@ -163,7 +170,7 @@ export function ExcelImport() {
     }
 
     loadInitialData()
-  }, [periodos.length, disciplinas.length, instructores.length, fetchPeriodos, fetchDisciplinas, fetchInstructores])
+  }, [periodos.length,formulas.length, disciplinas.length, instructores.length, fetchPeriodos, fetchFormulas,fetchDisciplinas, fetchInstructores])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -481,17 +488,17 @@ export function ExcelImport() {
       }
 
       let montoTotal = 0
-      const detallesClases = []
+      const detallesClases: { claseId: number; fecha: Date; disciplina: string; montoCalculado: number; detalleCalculo: ResultadoFormula }[] = []
 
       for (const clase of clasesInstructor) {
         const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
         if (!disciplina) continue
 
-        const formula = disciplina?.parametros?.formula
+        const formula = formulas.filter(f => f.disciplinaId === disciplina.id && f.periodoId === periodoId)[0]
         if (!formula) continue
 
         try {
-          const resultado = evaluarFormula(formula, {
+          const resultado = evaluarFormula(formula.parametros.formula, {
             reservaciones: clase.reservasTotales,
             listaEspera: clase.listasEspera,
             cortesias: clase.cortesias,
@@ -523,16 +530,21 @@ export function ExcelImport() {
       if (pagosExistentes[pagoKey]) {
         const pagoExistente = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoId)
         if (pagoExistente) {
-          await actualizarPago(instructorId, { ...pagoExistente, monto: montoTotal })
+          await actualizarPago(instructorId, { ...pagoExistente, monto: montoTotal, retencion:montoTotal*retencion })
           console.log(`Pago actualizado para instructor ${instructorId}`)
         }
       } else {
+ 
         await crearPago({
           instructorId,
           periodoId,
           monto: montoTotal,
-          estado: EstadoPago.PENDIENTE,
+          estado: "PENDIENTE",
           detalles: { clases: detallesClases },
+          retencion: montoTotal*retencion,
+          reajuste: 0,
+          tipoReajuste: "FIJO",
+          pagoFinal:montoTotal-retencion 
         })
         pagosExistentes[pagoKey] = true
         console.log(`Pago creado para instructor ${instructorId}`)
