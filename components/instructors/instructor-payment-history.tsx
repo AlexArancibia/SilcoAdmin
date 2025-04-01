@@ -10,19 +10,17 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Calendar, DollarSign, FileText, Download, Eye } from "lucide-react"
 import { usePagosStore } from "@/store/usePagosStore"
-import type { EstadoPago } from "@/types/schema"
+import type { EstadoPago, PagoInstructor } from "@/types/schema"
 
-interface InstructorPaymentHistoryProps {
-  instructorId: number
+interface PagosProps {
+  pagos: PagoInstructor[] | null
 }
 
-export function InstructorPaymentHistory({ instructorId }: InstructorPaymentHistoryProps) {
-  const { pagos, isLoading, error, fetchPagos } = usePagosStore()
+export function InstructorPaymentHistory({ pagos }: PagosProps) {
+  const { isLoading, error } = usePagosStore()
+  console.log(pagos,"XDDD")
 
-  useEffect(() => {
-    fetchPagos({ instructorId })
-  }, [fetchPagos, instructorId])
-
+ 
   // Formatear fecha
   const formatDate = (date: Date | undefined) => {
     if (!date) return "N/A"
@@ -44,8 +42,7 @@ export function InstructorPaymentHistory({ instructorId }: InstructorPaymentHist
         return { color: "bg-green-100 text-green-800", text: "Aprobado" }
       case "PENDIENTE":
         return { color: "bg-yellow-100 text-yellow-800", text: "Pendiente" }
-      case "RECHAZADO":
-        return { color: "bg-red-100 text-red-800", text: "Rechazado" }
+ 
       default:
         return { color: "bg-gray-100 text-gray-800", text: "Desconocido" }
     }
@@ -65,14 +62,12 @@ export function InstructorPaymentHistory({ instructorId }: InstructorPaymentHist
     return (
       <div className="text-center py-4">
         <p className="text-destructive mb-2">Error al cargar el historial de pagos</p>
-        <Button variant="outline" size="sm" onClick={() => fetchPagos({ instructorId })}>
-          Reintentar
-        </Button>
+ 
       </div>
     )
   }
 
-  if (pagos.length === 0) {
+  if (pagos && pagos.length === 0) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
@@ -103,7 +98,7 @@ export function InstructorPaymentHistory({ instructorId }: InstructorPaymentHist
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pagos.map((pago) => {
+            {pagos && pagos.map((pago) => {
               const statusBadge = getStatusBadge(pago.estado)
               return (
                 <TableRow key={pago.id}>
@@ -151,11 +146,7 @@ export function InstructorPaymentHistory({ instructorId }: InstructorPaymentHist
         </Table>
       </div>
 
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => (window.location.href = `/pagos?instructorId=${instructorId}`)}>
-          Ver todos los pagos
-        </Button>
-      </div>
+ 
     </div>
   )
 }

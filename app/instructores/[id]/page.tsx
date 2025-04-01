@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback, useRef, use } from "react"
 import { notFound } from "next/navigation"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { useClasesStore } from "@/store/useClasesStore"
@@ -37,68 +37,101 @@ import {
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { evaluarFormula } from "@/lib/formula-evaluator"
-import type { Instructor, PagoInstructor, EstadoPago, TipoReajuste } from "@/types/schema"
+import type { Instructor, PagoInstructor, EstadoPago, TipoReajuste, Clase } from "@/types/schema"
 import { toast } from "@/components/ui/use-toast"
 import { useFormulasStore } from "@/store/useFormulaStore"
 import { Progress } from "@/components/ui/progress"
+import { PeriodSelector } from "@/components/period-selector"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export default function InstructorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
   const instructorId = Number.parseInt(resolvedParams.id)
   const { fetchInstructor, instructorSeleccionado, isLoading, error } = useInstructoresStore()
   const { fetchClases, clases, isLoading: isLoadingClases } = useClasesStore()
-  const { periodos, periodoSeleccionadoId, setPeriodoSeleccionado, fetchPeriodos } = usePeriodosStore()
+  const { periodos, periodosSeleccionados, fetchPeriodos } = usePeriodosStore()
   const { pagos, fetchPagos, isLoading: isLoadingPagos, actualizarPago } = usePagosStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
   const [instructor, setInstructor] = useState<Instructor | null>(null)
   const [activeTab, setActiveTab] = useState("clases-pagos")
-  const {formulas, fetchFormulas} = useFormulasStore()
+  const { formulas, fetchFormulas } = useFormulasStore()
   const [paymentDetails, setPaymentDetails] = useState<any[]>([])
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false)
+  const [clasesPeriodo, setClasesPeriodo] = useState<Clase[]>([])
+  const [pagosPeriodo, setPagosPeriodo] = useState<PagoInstructor[]>([])
+  const dataLoaded = useRef(false)
 
+  // Load initial data
   useEffect(() => {
-    if (isNaN(instructorId)) {
-      notFound()
-    }
-
+    if (isNaN(instructorId)) notFound()
+    if (dataLoaded.current) return
+    dataLoaded.current = true
+    
     const loadData = async () => {
       try {
-        await fetchInstructor(instructorId)
-        await fetchPeriodos()
-        await fetchDisciplinas()
-        await fetchFormulas()
-        if (periodoSeleccionadoId) {
-          await fetchClases({ instructorId, periodoId: periodoSeleccionadoId })
-          await fetchPagos({ periodoId: periodoSeleccionadoId, instructorId })
-        }
+        await Promise.all([
+          fetchInstructor(instructorId),
+          fetchPeriodos(),
+          fetchDisciplinas(),
+          fetchFormulas(),
+          fetchClases(),
+          fetchPagos()
+        ])
       } catch (error) {
         console.error("Error al cargar datos:", error)
       }
     }
 
     loadData()
-  }, [instructorId, fetchInstructor, fetchPeriodos,fetchFormulas, fetchDisciplinas, fetchClases, fetchPagos, periodoSeleccionadoId])
+  }, [instructorId, fetchInstructor, fetchPeriodos, fetchDisciplinas, fetchFormulas, fetchClases, fetchPagos])
 
+  // Update instructor state when instructorSeleccionado changes
   useEffect(() => {
     if (instructorSeleccionado) {
       setInstructor(instructorSeleccionado)
     }
   }, [instructorSeleccionado])
 
+  // Filter classes and payments when periods change
   useEffect(() => {
-    if (clases.length > 0 && !isLoadingDisciplinas) {
-      calculatePayments()
+    // Solo actualizar si tenemos datos válidos
+    if (clases.length > 0 && periodosSeleccionados.length > 0) {
+      const filteredClases = clases.filter(clase =>
+        clase.instructorId === instructorId && 
+        periodosSeleccionados.some(p => p.id === clase.periodoId)
+      )
+      
+      const filteredPagos = pagos.filter(pago =>
+        pago.instructorId === instructorId && 
+        periodosSeleccionados.some(p => p.id === pago.periodoId)
+      )
+      
+      setClasesPeriodo(filteredClases)
+      setPagosPeriodo(filteredPagos)
+    } else {
+      // Reiniciar a arreglos vacíos si no hay datos o periodos seleccionados
+      setClasesPeriodo([])
+      setPagosPeriodo([])
     }
-  }, [clases, disciplinas, isLoadingDisciplinas])
+  }, [clases, pagos, periodosSeleccionados, instructorId])
 
-  const calculatePayments = () => {
+  // Calculate payments when relevant data changes
+  const calculatePayments = useCallback(() => {
+    if (!clasesPeriodo || clasesPeriodo.length === 0 || isLoadingDisciplinas || !disciplinas.length) {
+      setPaymentDetails([])
+      return
+    }
+
     const details: any[] = []
     setUltimaActualizacion(new Date())
 
-    clases.forEach((clase) => {
+    clasesPeriodo.forEach((clase) => {
       const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
-      const formula = formulas.filter(f => f.disciplinaId === disciplina?.id && f.periodoId === periodoSeleccionadoId)[0]
+      const formula = formulas.find(f => 
+        f.disciplinaId === disciplina?.id && 
+        f.periodoId === clase.periodoId
+      )
       
       const datosEvaluacion = {
         reservaciones: clase.reservasTotales,
@@ -142,10 +175,15 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
 
     details.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
     setPaymentDetails(details)
-  }
+  }, [clasesPeriodo, disciplinas, formulas, isLoadingDisciplinas])
+
+  // Execute calculatePayments when filtered data changes
+  useEffect(() => {
+    calculatePayments()
+  }, [calculatePayments])
 
   const handleUpdatePayment = async () => {
-    if (!instructor || !periodoSeleccionadoId) {
+    if (!instructor || !periodosSeleccionados || periodosSeleccionados.length === 0) {
       toast({
         title: "Error",
         description: "No se puede actualizar el pago sin instructor o periodo seleccionado",
@@ -157,8 +195,10 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
     setIsUpdatingPayment(true)
     try {
       const totalMonto = paymentDetails.reduce((sum, detail) => sum + detail.montoCalculado, 0)
-      const existingPago = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoSeleccionadoId)
-
+      const existingPago = pagosPeriodo.find((p) => 
+        p.instructorId === instructorId && 
+        periodosSeleccionados.some(periodo => periodo.id === p.periodoId))
+      
       if (!existingPago) {
         toast({
           title: "Error",
@@ -192,7 +232,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
         variant: "default",
       })
 
-      await fetchPagos({ periodoId: periodoSeleccionadoId, instructorId })
+      await fetchPagos({ instructorId })
       setUltimaActualizacion(new Date())
     } catch (error) {
       console.error("Error al actualizar pago:", error)
@@ -206,14 +246,6 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
     }
   }
 
-  if (isLoading || !instructor) {
-    return <InstructorDetailSkeleton />
-  }
-
-  if (error) {
-    notFound()
-  }
-
   const formatDate = (date: Date | undefined) => {
     if (!date) return "N/A"
     return format(new Date(date), "dd MMMM, yyyy", { locale: es })
@@ -225,25 +257,26 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
       currency: "PEN",
     }).format(amount)
   }
+  
+  // Derived calculations
+  const totalClases = clasesPeriodo.length
+  const clasesCompletadas = clasesPeriodo.filter((c) => new Date(c.fecha) < new Date()).length
+  
+  const ocupacionPromedio = clasesPeriodo.length > 0
+    ? Math.round(clasesPeriodo.reduce((sum, c) => sum + (c.reservasTotales / c.lugares) * 100, 0) / clasesPeriodo.length)
+    : 0
 
-  const totalClases = clases.length
-  const clasesCompletadas = clases.filter((c) => new Date(c.fecha) < new Date()).length
-  const ocupacionPromedio =
-    clases.length > 0
-      ? Math.round(clases.reduce((sum, c) => sum + (c.reservasTotales / c.lugares) * 100, 0) / clases.length)
-      : 0
-
-  const montoPendiente = pagos.find((p) => p.estado === "PENDIENTE")?.monto || 0
-  const montoAprobado = pagos.find((p) => p.estado === "APROBADO")?.monto || 0
+  const montoPendiente = pagosPeriodo.find((p) => p.estado === "PENDIENTE")?.monto || 0
+  const montoAprobado = pagosPeriodo.find((p) => p.estado === "APROBADO")?.monto || 0
   const totalMonto = paymentDetails.reduce((sum, detail) => sum + detail.montoCalculado, 0)
 
-  const telefono = instructor.extrainfo?.telefono || "No disponible"
-  const especialidad = instructor.extrainfo?.especialidad || "No especificada"
-  const estado = instructor.extrainfo?.activo ? "activo" : "inactivo"
-  const foto = instructor.extrainfo?.foto
-  const biografia = instructor.extrainfo?.biografia || "Sin biografia"
-  const experiencia = instructor.extrainfo?.experiencia || 0
-  const disciplinasInstructor = instructor.disciplinas?.map((d) => d.nombre || `Disciplina ${d.id}`) || []
+  const telefono = instructor?.extrainfo?.telefono || "No disponible"
+  const especialidad = instructor?.extrainfo?.especialidad || "No especificada"
+  const estado = instructor?.extrainfo?.activo ? "activo" : "inactivo"
+  const foto = instructor?.extrainfo?.foto
+  const biografia = instructor?.extrainfo?.biografia || "Sin biografia"
+  const experiencia = instructor?.extrainfo?.experiencia || 0
+  const disciplinasInstructor = instructor?.disciplinas?.map((d) => d.nombre || `Disciplina ${d.id}`) || []
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -252,69 +285,31 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex items-start gap-4">
             <Avatar className="h-16 w-16 border-2 border-primary">
-              <AvatarImage src={foto || `/placeholder.svg?height=64&width=64`} alt={instructor.nombre} />
+              <AvatarImage src={foto} alt={instructor?.nombre} />
               <AvatarFallback className="text-xl font-bold bg-primary/10">
-                {instructor.nombre.substring(0, 2).toUpperCase()}
+                {instructor?.nombre?.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">{instructor.nombre}</h1>
-                <Badge variant={estado === "activo" ? "default" : "secondary"} className="h-6">
-                  {estado === "activo" ? "Activo" : "Inactivo"}
-                </Badge>
+                <h1 className="text-3xl font-bold tracking-tight">{instructor?.nombre}</h1>
               </div>
-              
-              <p className="text-muted-foreground mt-1">{especialidad}</p>
-              
+     
               <div className="flex flex-wrap gap-2 mt-2">
                 {disciplinasInstructor.map((disciplina, index) => (
                   <Badge key={index} variant="outline" className="flex items-center gap-1">
-                    <Star className="h-3 w-3 text-yellow-500" />
                     {disciplina}
                   </Badge>
                 ))}
-              </div>
-              
-              <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <BookOpen className="h-4 w-4" />
-                  {experiencia} {experiencia === 1 ? "año" : "años"} de experiencia
-                </span>
-                <span className="flex items-center gap-1">
-                  <Phone className="h-4 w-4" />
-                  {telefono}
-                </span>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col items-end gap-2">
             <div className="text-right">
-              <p className="text-sm text-muted-foreground">Periodo actual</p>
-              <p className="font-medium text-lg">
-                {periodoSeleccionadoId
-                  ? `Periodo ${periodos.find((p) => p.id === periodoSeleccionadoId)?.numero} - ${periodos.find((p) => p.id === periodoSeleccionadoId)?.año}`
-                  : "No seleccionado"}
-              </p>
+              <PeriodSelector />
             </div>
-            
-            <Select
-              value={periodoSeleccionadoId?.toString() || ""}
-              onValueChange={(value) => setPeriodoSeleccionado(value ? Number(value) : null)}
-            >
-              <SelectTrigger className="w-[200px] bg-background">
-                <SelectValue placeholder="Seleccionar periodo" />
-              </SelectTrigger>
-              <SelectContent>
-                {periodos.map((periodo) => (
-                  <SelectItem key={periodo.id} value={periodo.id.toString()}>
-                    Periodo {periodo.numero} - {periodo.año}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
 
@@ -369,43 +364,24 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
 
         {/* Clases y Pagos Tab */}
         <TabsContent value="clases-pagos" className="space-y-6">
-          <Card className="border-none shadow-sm">
+          <Card className="border-none shadow-sm ">
             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-primary" />
                   Clases y cálculo de pagos
                 </CardTitle>
-                <CardDescription>Listado de clases y cálculo de pagos para el instructor</CardDescription>
+                <CardDescription className=" mt-2 mb-3">Listado de clases y cálculo de pagos para el instructor</CardDescription>
               </div>
               
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 {ultimaActualizacion && (
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Clock className="h-4 w-4 mr-1" />
                     <span>Actualizado: {format(ultimaActualizacion, "dd/MM/yyyy HH:mm", { locale: es })}</span>
                   </div>
                 )}
-                
-                <Button
-                  variant="outline"
-                  onClick={handleUpdatePayment}
-                  disabled={isUpdatingPayment || !periodoSeleccionadoId || clases.length === 0}
-                  className="flex items-center gap-1"
-                >
-                  {isUpdatingPayment ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Actualizando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4" />
-                      Actualizar pago
-                    </>
-                  )}
-                </Button>
-              </div>
+              </div> */}
             </CardHeader>
             
             <CardContent>
@@ -415,7 +391,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                     <Skeleton key={i} className="h-12 w-full rounded-lg" />
                   ))}
                 </div>
-              ) : clases.length === 0 ? (
+              ) : clasesPeriodo.length === 0 ? (
                 <EmptyState 
                   icon={<Calendar className="h-12 w-12" />}
                   title="No hay clases"
@@ -436,14 +412,6 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                     
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">
-                        Periodo:{" "}
-                        <span className="font-medium">
-                          {periodoSeleccionadoId
-                            ? `Periodo ${periodos.find((p) => p.id === periodoSeleccionadoId)?.numero} - ${periodos.find((p) => p.id === periodoSeleccionadoId)?.año}`
-                            : "No seleccionado"}
-                        </span>
-                      </p>
-                      <p className="text-sm text-muted-foreground">
                         Total de clases: <span className="font-medium">{totalClases}</span>
                       </p>
                     </div>
@@ -451,36 +419,32 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                   
                   <div className="rounded-lg border overflow-hidden">
                     <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="py-3 px-4 text-left font-medium text-sm">Fecha</th>
-                            <th className="py-3 px-4 text-left font-medium text-sm">Disciplina</th>
-                            <th className="py-3 px-4 text-left font-medium text-sm">Estudio</th>
-                            <th className="py-3 px-4 text-left font-medium text-sm">Ocupación</th>
-                            <th className="py-3 px-4 text-right font-medium text-sm">Monto</th>
-                          </tr>
-                        </thead>
-                        
-                        <tbody className="divide-y">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Fecha</TableHead>
+                            <TableHead>Disciplina</TableHead>
+                            <TableHead>Estudio</TableHead>
+                            <TableHead>Ocupación</TableHead>
+                            <TableHead className="text-right">Monto</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                           {paymentDetails.map((detail) => (
-                            <tr key={detail.claseId} className="hover:bg-muted/10 transition-colors">
-                              <td className="py-3 px-4 whitespace-nowrap">
+                            <TableRow key={detail.claseId}>
+                              <TableCell className="whitespace-nowrap">
                                 <div className="flex items-center">
                                   <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
                                   {formatDate(detail.fecha)}
                                 </div>
-                              </td>
-                              
-                              <td className="py-3 px-4">
+                              </TableCell>
+                              <TableCell>
                                 <Badge variant="secondary" className="whitespace-nowrap">
                                   {detail.disciplina}
                                 </Badge>
-                              </td>
-                              
-                              <td className="py-3 px-4">{detail.estudio}</td>
-                              
-                              <td className="py-3 px-4">
+                              </TableCell>
+                              <TableCell>{detail.estudio}</TableCell>
+                              <TableCell>
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger className="flex items-center">
@@ -499,9 +463,8 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
-                              </td>
-                              
-                              <td className="py-3 px-4 text-right font-medium whitespace-nowrap">
+                              </TableCell>
+                              <TableCell className="text-right font-medium whitespace-nowrap">
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger className="flex items-center justify-end gap-1">
@@ -531,11 +494,11 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
                 </>
@@ -544,17 +507,12 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
             
             <CardFooter className="flex justify-between border-t pt-6">
               <div>
-                <p className="text-sm text-muted-foreground">
-                  Periodo actual:{" "}
-                  {periodoSeleccionadoId
-                    ? `Periodo ${periodos.find((p) => p.id === periodoSeleccionadoId)?.numero} - ${periodos.find((p) => p.id === periodoSeleccionadoId)?.año}`
-                    : "No seleccionado"}
-                </p>
+                {/* Espacio para información adicional si es necesario */}
               </div>
               
               <Button
                 onClick={handleUpdatePayment}
-                disabled={isUpdatingPayment || !periodoSeleccionadoId || clases.length === 0}
+                disabled={isUpdatingPayment || !periodosSeleccionados.length || clasesPeriodo.length === 0}
                 className="flex items-center gap-2"
               >
                 {isUpdatingPayment ? (
@@ -588,7 +546,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                   <Skeleton className="h-20 w-full rounded-lg" />
                   <Skeleton className="h-20 w-full rounded-lg" />
                 </div>
-              ) : pagos.length === 0 ? (
+              ) : pagosPeriodo.length === 0 ? (
                 <EmptyState 
                   icon={<AlertCircle className="h-12 w-12" />}
                   title="No hay pagos registrados"
@@ -596,7 +554,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                 />
               ) : (
                 <div className="space-y-4">
-                  {pagos.map((pago) => (
+                  {pagosPeriodo.map((pago) => (
                     <div key={pago.id} className="bg-gradient-to-r from-primary/5 to-background p-4 rounded-lg border">
                       <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
@@ -661,7 +619,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
             </CardHeader>
             
             <CardContent>
-              <InstructorPaymentHistory instructorId={instructorId} />
+              <InstructorPaymentHistory pagos={pagosPeriodo} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -681,7 +639,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
               icon={<Briefcase className="h-5 w-5 text-primary" />}
               title="Clases por disciplina"
               description="Distribución de clases por disciplina"
-              value={totalClases.toString()}
+              value={totalClases?.toString() || "0"}
               secondaryValue={`${clasesCompletadas} completadas`}
             />
             
@@ -717,10 +675,11 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                       {clasesCompletadas} / {totalClases}
                     </span>
                   </div>
+                  {totalClases && clasesCompletadas &&
                   <Progress 
                     value={totalClases > 0 ? (clasesCompletadas / totalClases) * 100 : 0} 
                     className="h-2" 
-                  />
+                  />}
                 </div>
 
                 <div className="pt-4">
@@ -842,8 +801,8 @@ function AchievementCard({
   achieved: boolean 
 }) {
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg border ${achieved ? 'bg-green-50 border-green-100' : 'bg-muted/20'}`}>
-      <div className={`h-10 w-10 rounded-full ${achieved ? 'bg-green-100' : 'bg-muted'} flex items-center justify-center`}>
+    <div className={`flex items-center gap-3 p-3 rounded-lg border ${achieved ? ' ' : 'bg-muted/20'}`}>
+      <div className={`h-10 w-10 rounded-full ${achieved ? ' bg-muted/20' : 'bg-muted'} flex items-center justify-center`}>
         {icon}
       </div>
       <div>
