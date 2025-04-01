@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +15,8 @@ import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { useClasesStore } from "@/store/useClasesStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { evaluarFormula } from "@/lib/formula-evaluator"
+import { downloadPagoPDF, printPagoPDF } from "@/utils/pago-instructor-pdf"
+import { downloadPagosPDF, printPagosPDF } from "@/utils/pagos-pdf"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,28 +30,35 @@ import {
 import {
   ArrowUpDown,
   Calendar,
+  Check,
   ChevronDown,
+  Download,
   Eye,
+  FileText,
   Filter,
   Loader2,
-  Percent,
+  Printer,
   RefreshCw,
   Search,
   Users,
+  X,
 } from "lucide-react"
-import type { EstadoPago, TipoReajuste, PagoInstructor, Instructor, Disciplina, Periodo, Clase } from "@/types/schema"
+import type { EstadoPago, TipoReajuste, PagoInstructor } from "@/types/schema"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useFormulasStore } from "@/store/useFormulaStore"
 import { retencionValor } from "@/utils/const"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export default function PagosPage() {
   const router = useRouter()
   const { pagos, fetchPagos, actualizarPago, isLoading: isLoadingPagos } = usePagosStore()
-  const { periodos, periodosSeleccionados , periodoActual } = usePeriodosStore()
+  const { periodos, periodosSeleccionados, periodoActual } = usePeriodosStore()
   const { instructores, fetchInstructores } = useInstructoresStore()
   const { clases, fetchClases } = useClasesStore()
   const { disciplinas, fetchDisciplinas } = useDisciplinasStore()
-  const {formulas, fetchFormulas} = useFormulasStore()
+  const { formulas, fetchFormulas } = useFormulasStore()
 
   const [filtroEstado, setFiltroEstado] = useState<string>("todos")
   const [filtroInstructor, setFiltroInstructor] = useState<string>("todos")
@@ -63,6 +72,12 @@ export default function PagosPage() {
   const [paginaActual, setPaginaActual] = useState<number>(1)
   const elementosPorPagina = 10
 
+  // Estados para edición de reajuste
+  const [editandoPagoId, setEditandoPagoId] = useState<number | null>(null)
+  const [nuevoReajuste, setNuevoReajuste] = useState<number>(0)
+  const [tipoReajuste, setTipoReajuste] = useState<TipoReajuste>("FIJO")
+  const [isActualizandoReajuste, setIsActualizandoReajuste] = useState<boolean>(false)
+
   // Cargar datos iniciales
   useEffect(() => {
     fetchInstructores()
@@ -70,14 +85,14 @@ export default function PagosPage() {
     fetchFormulas()
     fetchPagos()
     fetchClases()
-  }, [fetchInstructores, fetchDisciplinas, fetchPagos, fetchClases])
+  }, [fetchInstructores, fetchDisciplinas, fetchPagos, fetchClases, fetchFormulas])
 
   // Filtrar pagos por periodos seleccionados y otros filtros
   const filteredPagos = pagos.filter((pago) => {
     // Filtrar por periodos seleccionados
-    const periodoPago = periodos.find(p => p.id === pago.periodoId)
-    const enPeriodosSeleccionados = periodosSeleccionados.length === 0 || 
-      periodosSeleccionados.some(p => p.id === pago.periodoId)
+    const periodoPago = periodos.find((p) => p.id === pago.periodoId)
+    const enPeriodosSeleccionados =
+      periodosSeleccionados.length === 0 || periodosSeleccionados.some((p) => p.id === pago.periodoId)
 
     if (!enPeriodosSeleccionados) return false
 
@@ -90,11 +105,13 @@ export default function PagosPage() {
       const instructorNombre = instructor ? instructor.nombre.toLowerCase() : ""
       const periodoNombre = periodoPago ? `Periodo ${periodoPago.numero} - ${periodoPago.año}`.toLowerCase() : ""
 
-      if (!(
-        instructorNombre.includes(busqueda.toLowerCase()) ||
-        periodoNombre.includes(busqueda.toLowerCase()) ||
-        pago.estado.toLowerCase().includes(busqueda.toLowerCase())
-      )) {
+      if (
+        !(
+          instructorNombre.includes(busqueda.toLowerCase()) ||
+          periodoNombre.includes(busqueda.toLowerCase()) ||
+          pago.estado.toLowerCase().includes(busqueda.toLowerCase())
+        )
+      ) {
         return false
       }
     }
@@ -181,29 +198,175 @@ export default function PagosPage() {
 
   // Función para calcular el monto final con retención y reajuste
   const calcularMontoFinal = (pago: PagoInstructor): number => {
-    let montoFinal = pago.monto
+    // Calcular el reajuste
+    const reajusteCalculado = pago.tipoReajuste === "PORCENTAJE" ? (pago.monto * pago.reajuste) / 100 : pago.reajuste
 
-    // Aplicar retención
-    montoFinal -= pago.retencion
+    // Calcular el monto ajustado
+    const montoAjustado = pago.monto + reajusteCalculado
 
-    // Aplicar reajuste
-    if (pago.tipoReajuste === "PORCENTAJE") {
-      montoFinal += (pago.monto * pago.reajuste) / 100
-    } else {
-      montoFinal += pago.reajuste
+    // Aplicar retención al monto ajustado
+    return montoAjustado - pago.retencion
+  }
+
+  // Función para iniciar edición de reajuste
+  const iniciarEdicionReajuste = (pago: PagoInstructor) => {
+    setEditandoPagoId(pago.id)
+    setNuevoReajuste(pago.reajuste)
+    setTipoReajuste(pago.tipoReajuste)
+  }
+
+  // Función para cancelar edición de reajuste
+  const cancelarEdicionReajuste = () => {
+    setEditandoPagoId(null)
+  }
+
+  // Función para actualizar el reajuste
+  const actualizarReajuste = async (pagoId: number) => {
+    const pago = pagos.find((p) => p.id === pagoId)
+    if (!pago) return
+
+    setIsActualizandoReajuste(true)
+
+    try {
+      // Calculate the adjusted amount first
+      const montoBase = pago.monto
+      const reajusteCalculado = tipoReajuste === "PORCENTAJE" ? (montoBase * nuevoReajuste) / 100 : nuevoReajuste
+
+      // Calculate the retention based on the adjusted amount
+      const montoAjustado = montoBase + reajusteCalculado
+      const retencionPorcentaje = pago.retencion / pago.monto
+      const nuevaRetencion = montoAjustado * retencionPorcentaje
+
+      // Calculate the final payment
+      const pagoFinal = montoAjustado - nuevaRetencion
+
+      const pagoActualizado = {
+        ...pago,
+        reajuste: nuevoReajuste,
+        tipoReajuste: tipoReajuste,
+        retencion: nuevaRetencion,
+        pagoFinal: pagoFinal,
+      }
+
+      await actualizarPago(pagoId, pagoActualizado)
+
+      // Update only the specific payment in the local state
+      const updatedPagos = pagos.map((p) => (p.id === pagoId ? pagoActualizado : p))
+
+      // Update the pagos store directly without fetching all payments again
+      await actualizarPago(pagoId, pagoActualizado)
+ 
+      toast({
+        title: "Reajuste actualizado",
+        description: `El reajuste ha sido actualizado exitosamente.`,
+      })
+
+      setEditandoPagoId(null)
+    } catch (error) {
+      toast({
+        title: "Error al actualizar reajuste",
+        description: error instanceof Error ? error.message : "Error desconocido al actualizar reajuste",
+        variant: "destructive",
+      })
+    } finally {
+      setIsActualizandoReajuste(false)
+    }
+  }
+
+  // Función para exportar un pago individual a PDF
+  const exportarPagoPDF = (pagoId: number) => {
+    const pago = pagos.find((p) => p.id === pagoId)
+    if (!pago) return
+
+    const instructor = instructores.find((i) => i.id === pago.instructorId)
+    const periodo = periodos.find((p) => p.id === pago.periodoId)
+
+    if (!instructor || !periodo) return
+
+    const clasesInstructor = clases.filter(
+      (c) => c.instructorId === pago.instructorId && c.periodoId === pago.periodoId,
+    )
+
+    downloadPagoPDF(pago, instructor, periodo, clasesInstructor, disciplinas)
+  }
+
+  // Función para imprimir un pago individual
+  const imprimirPagoPDF = (pagoId: number) => {
+    const pago = pagos.find((p) => p.id === pagoId)
+    if (!pago) return
+
+    const instructor = instructores.find((i) => i.id === pago.instructorId)
+    const periodo = periodos.find((p) => p.id === pago.periodoId)
+
+    if (!instructor || !periodo) return
+
+    const clasesInstructor = clases.filter(
+      (c) => c.instructorId === pago.instructorId && c.periodoId === pago.periodoId,
+    )
+
+    printPagoPDF(pago, instructor, periodo, clasesInstructor, disciplinas)
+  }
+
+  // Función para exportar todos los pagos filtrados a PDF
+  const exportarTodosPagosPDF = () => {
+    if (sortedPagos.length === 0) {
+      toast({
+        title: "No hay pagos para exportar",
+        description: "No se encontraron pagos con los filtros seleccionados.",
+        variant: "destructive",
+      })
+      return
     }
 
-    return montoFinal
+    // Preparar información de filtros para el PDF
+    const filtrosInfo = {
+      estado: filtroEstado,
+      instructor: filtroInstructor,
+      periodos:
+        periodosSeleccionados.length > 0
+          ? periodosSeleccionados.map((p) => `${p.numero}-${p.año}`).join(", ")
+          : undefined,
+    }
+
+    downloadPagosPDF(sortedPagos, instructores, periodos, filtrosInfo)
+
+    toast({
+      title: "Reporte generado",
+      description: `Se ha generado un PDF con ${sortedPagos.length} pagos.`,
+    })
   }
- 
+
+  // Función para imprimir todos los pagos filtrados
+  const imprimirTodosPagosPDF = () => {
+    if (sortedPagos.length === 0) {
+      toast({
+        title: "No hay pagos para imprimir",
+        description: "No se encontraron pagos con los filtros seleccionados.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Preparar información de filtros para el PDF
+    const filtrosInfo = {
+      estado: filtroEstado,
+      instructor: filtroInstructor,
+      periodos:
+        periodosSeleccionados.length > 0
+          ? periodosSeleccionados.map((p) => `${p.numero}-${p.año}`).join(", ")
+          : undefined,
+    }
+
+    printPagosPDF(sortedPagos, instructores, periodos, filtrosInfo)
+  }
 
   // Función para recalcular todos los pagos
   const recalcularTodosPagos = async () => {
-    console.log('[Recalcular] Iniciando recálculo de pagos...');
-    console.log('[Recalcular] Periodo actual:', periodoActual?.id, periodoActual?.numero);
-    
+    console.log("[Recalcular] Iniciando recálculo de pagos...")
+    console.log("[Recalcular] Periodo actual:", periodoActual?.id, periodoActual?.numero)
+
     if (periodosSeleccionados.length === 0) {
-      console.error('[Recalcular] Error: No hay periodos seleccionados');
+      console.error("[Recalcular] Error: No hay periodos seleccionados")
       toast({
         title: "Error",
         description: "Debes seleccionar al menos un periodo para recalcular los pagos",
@@ -211,45 +374,47 @@ export default function PagosPage() {
       })
       return
     }
-  
+
     setIsRecalculando(true)
     setShowConfirmDialog(false)
-  
+
     try {
-      console.log('[Recalcular] Obteniendo instructores...');
+      console.log("[Recalcular] Obteniendo instructores...")
       const todosInstructores = instructores
-      console.log('[Recalcular] Total instructores:', todosInstructores.length);
-      
+      console.log("[Recalcular] Total instructores:", todosInstructores.length)
+
       let pagosActualizados = 0
       let instructoresSinClases = 0
-  
+
       for (const instructor of todosInstructores) {
-        console.log(`\n[Recalcular] Procesando instructor ${instructor.id} - ${instructor.nombre}`);
-        
-        // Buscar el pago existente (que según tu comentario siempre existe)
-        const pagoExistente = pagos.find(
-          (p) => p.instructorId === instructor.id && p.periodoId === periodoActual!.id,
-        )
-        
+        console.log(`\n[Recalcular] Procesando instructor ${instructor.id} - ${instructor.nombre}`)
+
+        const pagoExistente = pagos.find((p) => p.instructorId === instructor.id && p.periodoId === periodoActual!.id)
+
         if (!pagoExistente) {
-          console.error(`[Recalcular] ERROR: No se encontró pago existente para instructor ${instructor.id} en periodo ${periodoActual!.id}`);
+          console.error(
+            `[Recalcular] ERROR: No se encontró pago existente para instructor ${instructor.id} en periodo ${periodoActual!.id}`,
+          )
           continue
         }
-  
-        console.log(`[Recalcular] Pago existente encontrado (ID: ${pagoExistente.id}) con monto actual:`, pagoExistente.monto);
-  
+
+        console.log(
+          `[Recalcular] Pago existente encontrado (ID: ${pagoExistente.id}) con monto actual:`,
+          pagoExistente.monto,
+        )
+
         const clasesInstructor = clases.filter(
           (clase) => clase.instructorId === instructor.id && clase.periodoId === periodoActual?.id,
         )
-        console.log(`[Recalcular] Clases encontradas para instructor:`, clasesInstructor.length);
-  
+
         if (clasesInstructor.length === 0) {
-          console.log(`[Recalcular] Instructor no tiene clases, actualizando pago a monto 0`);
+          console.log(`[Recalcular] Instructor sin clases, actualizando pago a monto 0`)
           instructoresSinClases++
-          
+
           await actualizarPago(pagoExistente.id, {
             ...pagoExistente,
             monto: 0,
+            pagoFinal: 0,
             detalles: {
               ...pagoExistente.detalles,
               clases: [],
@@ -257,85 +422,68 @@ export default function PagosPage() {
                 ...pagoExistente.detalles?.resumen,
                 totalClases: 0,
                 totalMonto: 0,
-                comentarios: `Recalculado sin clases el ${new Date().toLocaleDateString()}`
-              }
-            }
+                comentarios: `Recalculado sin clases el ${new Date().toLocaleDateString()}`,
+              },
+            },
           })
           continue
         }
-  
+
         let montoTotal = 0
         const detallesClases = []
-  
-        for (const [index, clase] of clasesInstructor.entries()) {
-          console.log(`\n[Recalcular] Procesando clase ${index + 1}/${clasesInstructor.length} (ID: ${clase.id})`);
-          console.log('[Recalcular] Detalles clase:', {
-            fecha: clase.fecha,
-            disciplina: clase.disciplinaId,
-            reservasTotales: clase.reservasTotales,
-            lugares: clase.lugares
-          });
-  
-          const formula = formulas.filter(f => f.disciplinaId === clase.disciplinaId && f.periodoId === periodoActual?.id)[0]
-          console.log('[Recalcular] Fórmula obtenida:', formula);
-  
-          const datosEvaluacion = {
-            reservaciones: Number(clase.reservasTotales) || 0,
-            listaEspera: Number(clase.listasEspera) || 0,
-            cortesias: Number(clase.cortesias) || 0,
-            capacidad: Number(clase.lugares) || 0,
-            reservasPagadas: Number(clase.reservasPagadas) || 0,
-            lugares: Number(clase.lugares) || 0,
-          }
-          console.log('[Recalcular] Datos numéricos para evaluación:', datosEvaluacion);
-  
+
+        for (const clase of clasesInstructor) {
+          const formula = formulas.find(
+            (f) => f.disciplinaId === clase.disciplinaId && f.periodoId === periodoActual?.id,
+          )
+
           let montoCalculado = 0
-          let detalleCalculo = null
-  
           if (formula) {
             try {
-              console.log('[Recalcular] Evaluando fórmula...');
-              const resultado = evaluarFormula(formula.parametros.formula, datosEvaluacion)
+              const resultado = evaluarFormula(formula.parametros.formula, {
+                reservaciones: Number(clase.reservasTotales) || 0,
+                listaEspera: Number(clase.listasEspera) || 0,
+                cortesias: Number(clase.cortesias) || 0,
+                capacidad: Number(clase.lugares) || 0,
+                reservasPagadas: Number(clase.reservasPagadas) || 0,
+                lugares: Number(clase.lugares) || 0,
+              })
               montoCalculado = resultado.valor
-              detalleCalculo = resultado
-              console.log('[Recalcular] Resultado cálculo:', { montoCalculado, detalle: detalleCalculo });
             } catch (error) {
-              console.error('[Recalcular] Error al evaluar fórmula:', error);
-              montoCalculado = 0
-              detalleCalculo = { error: error instanceof Error ? error.message : "Error desconocido" }
+              console.error("[Recalcular] Error al evaluar fórmula:", error)
             }
-          } else {
-            console.warn('[Recalcular] No se encontró fórmula para esta disciplina');
-            montoCalculado = 0
-            detalleCalculo = { error: "No hay fórmula definida para esta disciplina en este periodo" }
           }
-  
+
           montoTotal += montoCalculado
-          console.log('[Recalcular] Monto acumulado:', montoTotal);
-          
           detallesClases.push({
             claseId: clase.id,
             montoCalculado,
-            detalleCalculo,
             disciplinaId: clase.disciplinaId,
             fechaClase: clase.fecha,
           })
         }
-  
-        console.log(`\n[Recalcular] Resumen para instructor ${instructor.id}:`);
-        console.log('[Recalcular] Monto total calculado:', montoTotal);
-        console.log('[Recalcular] Retencion calculado:', (montoTotal+pagoExistente.reajuste)*retencionValor);
-        console.log('[Recalcular] Pago Final calculado:', montoTotal-(montoTotal+pagoExistente.reajuste)*retencionValor);
 
-        console.log('[Recalcular] Total clases procesadas:', detallesClases.length);
-  
-        // Actualizar el pago existente con los nuevos cálculos
-        console.log('[Recalcular] Actualizando pago...');
+        // Calcular el reajuste
+        const reajusteCalculado =
+          pagoExistente.tipoReajuste === "PORCENTAJE"
+            ? (montoTotal * pagoExistente.reajuste) / 100
+            : pagoExistente.reajuste
+
+        // Calcular el monto ajustado
+        const montoAjustado = montoTotal + reajusteCalculado
+
+        // Calcular la retención basada en el porcentaje actual
+        const retencionPorcentaje = retencionValor
+        const retencionCalculada = montoAjustado * retencionPorcentaje
+
+        // Calcular el pago final
+        const pagoFinalCalculado = montoAjustado - retencionCalculada
+
         await actualizarPago(pagoExistente.id, {
           ...pagoExistente,
           monto: montoTotal,
-          retencion: (montoTotal+pagoExistente.reajuste)*retencionValor,
-          pagoFinal:montoTotal-(montoTotal+pagoExistente.reajuste)*retencionValor,
+          retencion: retencionCalculada,
+          pagoFinal: pagoFinalCalculado,
           detalles: {
             ...pagoExistente.detalles,
             clases: detallesClases,
@@ -343,51 +491,70 @@ export default function PagosPage() {
               ...pagoExistente.detalles?.resumen,
               totalClases: detallesClases.length,
               totalMonto: montoTotal,
-              comentarios: `Recalculado el ${new Date().toLocaleDateString()}`
-            }
-          }
+              comentarios: `Recalculado el ${new Date().toLocaleDateString()}`,
+            },
+          },
         })
         pagosActualizados++
-        console.log('[Recalcular] Pago actualizado correctamente');
       }
-  
-      console.log('\n[Recalcular] Proceso completado. Resumen:', {
+
+      console.log("\n[Recalcular] Proceso completado. Resumen:", {
         pagosActualizados,
         instructoresSinClases,
-        totalInstructores: todosInstructores.length
-      });
-      
+        totalInstructores: todosInstructores.length,
+      })
+
       await fetchPagos()
       toast({
         title: "Recálculo completado",
         description: `Se han actualizado ${pagosActualizados} pagos. ${instructoresSinClases} instructores sin clases.`,
       })
     } catch (error) {
-      console.error('[Recalcular] Error en el proceso:', error);
+      console.error("[Recalcular] Error en el proceso:", error)
       toast({
         title: "Error al recalcular pagos",
         description: error instanceof Error ? error.message : "Error desconocido al recalcular pagos",
         variant: "destructive",
       })
     } finally {
-      console.log('[Recalcular] Finalizando proceso');
+      console.log("[Recalcular] Finalizando proceso")
       setIsRecalculando(false)
     }
   }
 
   return (
-    <div className="px-6  py-6 space-y-6">
+    <div className="px-6 py-6 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">Gestión de Pagos</h1>
           <p className="text-muted-foreground">
-            {periodosSeleccionados.length > 0 
+            {periodosSeleccionados.length > 0
               ? `Mostrando pagos de ${periodosSeleccionados.length} periodos seleccionados`
               : "Mostrando todos los periodos (no hay selección)"}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="mr-2">
+                <Download className="mr-2 h-4 w-4" />
+                Exportar Pagos
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem className="cursor-pointer" onClick={exportarTodosPagosPDF}>
+                <FileText className="mr-2 h-4 w-4" />
+                Exportar a PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer" onClick={imprimirTodosPagosPDF}>
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             variant="default"
             onClick={() => setShowConfirmDialog(true)}
@@ -404,7 +571,6 @@ export default function PagosPage() {
       </div>
 
       <Card className="border shadow-sm">
- 
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
@@ -485,15 +651,9 @@ export default function PagosPage() {
                           <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
                         </Button>
                       </TableHead>
-                      <TableHead className="text-foreground font-medium">
-                        Reajuste
-                      </TableHead>
-                      <TableHead className="text-foreground font-medium">
-                        Retención
-                      </TableHead>
-                      <TableHead className="text-foreground font-medium">
-                        Monto Final
-                      </TableHead>
+                      <TableHead className="text-foreground font-medium">Reajuste</TableHead>
+                      <TableHead className="text-foreground font-medium">Retención</TableHead>
+                      <TableHead className="text-foreground font-medium">Monto Final</TableHead>
                       <TableHead className="text-foreground font-medium">
                         <Button variant="ghost" onClick={() => requestSort("estado")} className="text-primary group">
                           Estado
@@ -513,6 +673,7 @@ export default function PagosPage() {
                     ) : (
                       paginatedPagos.map((pago) => {
                         const montoFinal = calcularMontoFinal(pago)
+                        const isEditing = editandoPagoId === pago.id
 
                         return (
                           <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
@@ -525,13 +686,114 @@ export default function PagosPage() {
                             </TableCell>
                             <TableCell>{formatCurrency(pago.monto)}</TableCell>
                             <TableCell>
-                              {pago.reajuste > 0 ? (
-                                <div className="flex items-center gap-1">
-                                  <span>{pago.tipoReajuste === "PORCENTAJE" ? `${pago.reajuste}%` : formatCurrency(pago.reajuste)}</span>
-                                  <span className="text-xs text-muted-foreground">({pago.tipoReajuste.toLowerCase()})</span>
+                              {isEditing ? (
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      value={nuevoReajuste}
+                                      onChange={(e) => setNuevoReajuste(Number(e.target.value))}
+                                      className="w-20 h-8 px-2 border rounded text-right"
+                                      step="0.01"
+                                    />
+                                    <div className="flex items-center">
+                                      {isActualizandoReajuste ? (
+                                        <div className="flex items-center justify-center w-8 h-8">
+                                          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 px-2 py-0"
+                                            onClick={() => actualizarReajuste(pago.id)}
+                                          >
+                                            <Check className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-8 px-2 py-0"
+                                            onClick={cancelarEdicionReajuste}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </Button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <RadioGroup
+                                    value={tipoReajuste}
+                                    onValueChange={(value) => setTipoReajuste(value as TipoReajuste)}
+                                    className="flex space-x-2"
+                                  >
+                                    <div className="flex items-center space-x-1">
+                                      <RadioGroupItem value="FIJO" id={`fijo-${pago.id}`} className="h-3 w-3" />
+                                      <Label htmlFor={`fijo-${pago.id}`} className="text-xs">
+                                        Fijo
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                      <RadioGroupItem
+                                        value="PORCENTAJE"
+                                        id={`porcentaje-${pago.id}`}
+                                        className="h-3 w-3"
+                                      />
+                                      <Label htmlFor={`porcentaje-${pago.id}`} className="text-xs">
+                                        %
+                                      </Label>
+                                    </div>
+                                  </RadioGroup>
                                 </div>
                               ) : (
-                                <span className="text-muted-foreground">-</span>
+                                <div className="flex items-center gap-2">
+                                  {pago.reajuste > 0 ? (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-green-600">
+                                        {pago.tipoReajuste === "PORCENTAJE"
+                                          ? `+${pago.reajuste}%`
+                                          : `+${formatCurrency(pago.reajuste)}`}
+                                      </span>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => iniciarEdicionReajuste(pago)}
+                                      >
+                                        <FileText className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ) : pago.reajuste < 0 ? (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-red-600">
+                                        {pago.tipoReajuste === "PORCENTAJE"
+                                          ? `${pago.reajuste}%`
+                                          : formatCurrency(pago.reajuste)}
+                                      </span>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => iniciarEdicionReajuste(pago)}
+                                      >
+                                        <FileText className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground">-</span>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() => iniciarEdicionReajuste(pago)}
+                                      >
+                                        <FileText className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </TableCell>
                             <TableCell className={pago.retencion > 0 ? "text-red-600 " : ""}>
@@ -544,14 +806,39 @@ export default function PagosPage() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                onClick={() => router.push(`/pagos/${pago.id}`)}
-                                className="hover:bg-muted/50"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                      <Download className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      className="cursor-pointer"
+                                      onClick={() => exportarPagoPDF(pago.id)}
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Exportar a PDF
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      className="cursor-pointer"
+                                      onClick={() => imprimirPagoPDF(pago.id)}
+                                    >
+                                      <Printer className="mr-2 h-4 w-4" />
+                                      Imprimir
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => router.push(`/pagos/${pago.id}`)}
+                                  className="h-8 w-8 p-0 hover:bg-muted/50"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )
@@ -652,3 +939,4 @@ export default function PagosPage() {
     </div>
   )
 }
+
