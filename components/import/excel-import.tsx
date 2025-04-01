@@ -74,7 +74,7 @@ interface DisciplineAnalysis {
 import { evaluarFormula } from "@/lib/formula-evaluator"
 import { useFormulasStore } from "@/store/useFormulaStore"
 import { ResultadoFormula } from "@/types/formula"
-import { retencion } from "@/utils/const"
+import { retencionValor } from "@/utils/const"
 
 export function ExcelImport() {
   // Función para obtener el nombre del periodo
@@ -530,7 +530,7 @@ export function ExcelImport() {
       if (pagosExistentes[pagoKey]) {
         const pagoExistente = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoId)
         if (pagoExistente) {
-          await actualizarPago(instructorId, { ...pagoExistente, monto: montoTotal, retencion:montoTotal*retencion })
+          await actualizarPago(instructorId, { ...pagoExistente, monto: montoTotal, retencion:montoTotal*retencionValor })
           console.log(`Pago actualizado para instructor ${instructorId}`)
         }
       } else {
@@ -541,10 +541,10 @@ export function ExcelImport() {
           monto: montoTotal,
           estado: "PENDIENTE",
           detalles: { clases: detallesClases },
-          retencion: montoTotal*retencion,
+          retencion: montoTotal*retencionValor,
           reajuste: 0,
           tipoReajuste: "FIJO",
-          pagoFinal:montoTotal-retencion 
+          pagoFinal:montoTotal-retencionValor 
         })
         pagosExistentes[pagoKey] = true
         console.log(`Pago creado para instructor ${instructorId}`)
