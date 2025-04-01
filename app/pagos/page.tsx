@@ -6,8 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "@/hooks/use-toast"
@@ -30,9 +28,7 @@ import {
 import {
   ArrowUpDown,
   Calendar,
-  Calculator,
   ChevronDown,
-  Download,
   Eye,
   Filter,
   Loader2,
@@ -41,17 +37,19 @@ import {
   Search,
   Users,
 } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { EstadoPago, TipoReajuste, PagoInstructor, Instructor, Disciplina, Periodo, Clase } from "@/types/schema"
-import { PagosStats } from "@/components/payments/pagos-stats"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useFormulasStore } from "@/store/useFormulaStore"
+import { retencionValor } from "@/utils/const"
 
 export default function PagosPage() {
   const router = useRouter()
   const { pagos, fetchPagos, actualizarPago, isLoading: isLoadingPagos } = usePagosStore()
-  const { periodos, fetchPeriodos, periodoSeleccionadoId, setPeriodoSeleccionado } = usePeriodosStore()
+  const { periodos, periodosSeleccionados , periodoActual } = usePeriodosStore()
   const { instructores, fetchInstructores } = useInstructoresStore()
   const { clases, fetchClases } = useClasesStore()
   const { disciplinas, fetchDisciplinas } = useDisciplinasStore()
+  const {formulas, fetchFormulas} = useFormulasStore()
 
   const [filtroEstado, setFiltroEstado] = useState<string>("todos")
   const [filtroInstructor, setFiltroInstructor] = useState<string>("todos")
@@ -62,65 +60,50 @@ export default function PagosPage() {
   })
   const [isRecalculando, setIsRecalculando] = useState<boolean>(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false)
-  const [activeTab, setActiveTab] = useState<string>("todos")
   const [paginaActual, setPaginaActual] = useState<number>(1)
   const elementosPorPagina = 10
 
   // Cargar datos iniciales
   useEffect(() => {
-    fetchPeriodos()
     fetchInstructores()
     fetchDisciplinas()
-  }, [fetchPeriodos, fetchInstructores, fetchDisciplinas])
+    fetchFormulas()
+    fetchPagos()
+    fetchClases()
+  }, [fetchInstructores, fetchDisciplinas, fetchPagos, fetchClases])
 
-  // Cargar pagos cuando cambie el periodo seleccionado
-  useEffect(() => {
-    if (periodoSeleccionadoId) {
-      fetchPagos({ periodoId: periodoSeleccionadoId })
-      fetchClases({ periodoId: periodoSeleccionadoId })
-    }
-  }, [fetchPagos, fetchClases, periodoSeleccionadoId])
-
-  // Filtrar pagos
+  // Filtrar pagos por periodos seleccionados y otros filtros
   const filteredPagos = pagos.filter((pago) => {
-    let match = true
+    // Filtrar por periodos seleccionados
+    const periodoPago = periodos.find(p => p.id === pago.periodoId)
+    const enPeriodosSeleccionados = periodosSeleccionados.length === 0 || 
+      periodosSeleccionados.some(p => p.id === pago.periodoId)
 
-    if (filtroEstado !== "todos") {
-      match = match && pago.estado === filtroEstado
-    }
+    if (!enPeriodosSeleccionados) return false
 
-    if (filtroInstructor !== "todos") {
-      match = match && pago.instructorId === Number.parseInt(filtroInstructor)
-    }
+    // Resto de filtros
+    if (filtroEstado !== "todos" && pago.estado !== filtroEstado) return false
+    if (filtroInstructor !== "todos" && pago.instructorId !== Number.parseInt(filtroInstructor)) return false
 
     if (busqueda) {
       const instructor = instructores.find((i) => i.id === pago.instructorId)
       const instructorNombre = instructor ? instructor.nombre.toLowerCase() : ""
-      const periodo = periodos.find((p) => p.id === pago.periodoId)
-      const periodoNombre = periodo ? `Periodo ${periodo.numero} - ${periodo.año}`.toLowerCase() : ""
+      const periodoNombre = periodoPago ? `Periodo ${periodoPago.numero} - ${periodoPago.año}`.toLowerCase() : ""
 
-      match =
-        match &&
-        (instructorNombre.includes(busqueda.toLowerCase()) ||
-          periodoNombre.includes(busqueda.toLowerCase()) ||
-          pago.estado.toLowerCase().includes(busqueda.toLowerCase()))
+      if (!(
+        instructorNombre.includes(busqueda.toLowerCase()) ||
+        periodoNombre.includes(busqueda.toLowerCase()) ||
+        pago.estado.toLowerCase().includes(busqueda.toLowerCase())
+      )) {
+        return false
+      }
     }
 
-    return match
+    return true
   })
 
-  // Filtrar por tab activo
-  const tabFilteredPagos =
-    activeTab === "todos"
-      ? filteredPagos
-      : filteredPagos.filter((pago) => {
-          if (activeTab === "pendientes") return pago.estado === "PENDIENTE"
-          if (activeTab === "aprobados") return pago.estado === "APROBADO"
-          return true
-        })
-
   // Ordenar pagos
-  const sortedPagos = [...tabFilteredPagos].sort((a, b) => {
+  const sortedPagos = [...filteredPagos].sort((a, b) => {
     if (sortConfig.key === "periodoId") {
       return sortConfig.direction === "asc" ? a.periodoId - b.periodoId : b.periodoId - a.periodoId
     }
@@ -200,108 +183,136 @@ export default function PagosPage() {
   const calcularMontoFinal = (pago: PagoInstructor): number => {
     let montoFinal = pago.monto
 
-    // Aplicar retención (obligatorio según schema)
+    // Aplicar retención
     montoFinal -= pago.retencion
 
-    // Aplicar reajuste (obligatorio según schema)
+    // Aplicar reajuste
     if (pago.tipoReajuste === "PORCENTAJE") {
       montoFinal += (pago.monto * pago.reajuste) / 100
     } else {
-      // FIJO
       montoFinal += pago.reajuste
     }
 
     return montoFinal
   }
-
-  // Función para obtener la fórmula de una disciplina para un periodo específico
-  const getFormulaDisciplina = (disciplinaId: number, periodoId: number) => {
-    const disciplina = disciplinas.find(d => d.id === disciplinaId)
-    if (!disciplina || !disciplina.formulas) return null
-    
-    const formulaDB = disciplina.formulas.find(f => f.periodoId === periodoId)
-    return formulaDB ? formulaDB.parametros.formula : null
-  }
+ 
 
   // Función para recalcular todos los pagos
   const recalcularTodosPagos = async () => {
-    if (!periodoSeleccionadoId) {
+    console.log('[Recalcular] Iniciando recálculo de pagos...');
+    console.log('[Recalcular] Periodo actual:', periodoActual?.id, periodoActual?.numero);
+    
+    if (periodosSeleccionados.length === 0) {
+      console.error('[Recalcular] Error: No hay periodos seleccionados');
       toast({
         title: "Error",
-        description: "Debes seleccionar un periodo para recalcular los pagos",
+        description: "Debes seleccionar al menos un periodo para recalcular los pagos",
         variant: "destructive",
       })
       return
     }
-
+  
     setIsRecalculando(true)
     setShowConfirmDialog(false)
-
+  
     try {
-      // Obtener todos los instructores
+      console.log('[Recalcular] Obteniendo instructores...');
       const todosInstructores = instructores
-
-      // Obtener todas las clases del periodo
-      await fetchClases({ periodoId: periodoSeleccionadoId })
-
+      console.log('[Recalcular] Total instructores:', todosInstructores.length);
+      
       let pagosActualizados = 0
-      let pagosCreados = 0
       let instructoresSinClases = 0
-
-      // Para cada instructor, recalcular su pago
+  
       for (const instructor of todosInstructores) {
-        // Filtrar clases del instructor en este periodo
-        const clasesInstructor = clases.filter(
-          (clase) => clase.instructorId === instructor.id && clase.periodoId === periodoSeleccionadoId,
+        console.log(`\n[Recalcular] Procesando instructor ${instructor.id} - ${instructor.nombre}`);
+        
+        // Buscar el pago existente (que según tu comentario siempre existe)
+        const pagoExistente = pagos.find(
+          (p) => p.instructorId === instructor.id && p.periodoId === periodoActual!.id,
         )
-
-        if (clasesInstructor.length === 0) {
-          instructoresSinClases++
-          continue // Saltar al siguiente instructor si no tiene clases
+        
+        if (!pagoExistente) {
+          console.error(`[Recalcular] ERROR: No se encontró pago existente para instructor ${instructor.id} en periodo ${periodoActual!.id}`);
+          continue
         }
-
-        // Calcular el monto total
+  
+        console.log(`[Recalcular] Pago existente encontrado (ID: ${pagoExistente.id}) con monto actual:`, pagoExistente.monto);
+  
+        const clasesInstructor = clases.filter(
+          (clase) => clase.instructorId === instructor.id && clase.periodoId === periodoActual?.id,
+        )
+        console.log(`[Recalcular] Clases encontradas para instructor:`, clasesInstructor.length);
+  
+        if (clasesInstructor.length === 0) {
+          console.log(`[Recalcular] Instructor no tiene clases, actualizando pago a monto 0`);
+          instructoresSinClases++
+          
+          await actualizarPago(pagoExistente.id, {
+            ...pagoExistente,
+            monto: 0,
+            detalles: {
+              ...pagoExistente.detalles,
+              clases: [],
+              resumen: {
+                ...pagoExistente.detalles?.resumen,
+                totalClases: 0,
+                totalMonto: 0,
+                comentarios: `Recalculado sin clases el ${new Date().toLocaleDateString()}`
+              }
+            }
+          })
+          continue
+        }
+  
         let montoTotal = 0
         const detallesClases = []
-
-        for (const clase of clasesInstructor) {
-          // Obtener la fórmula de la disciplina para este periodo
-          const formula = getFormulaDisciplina(clase.disciplinaId, periodoSeleccionadoId)
-
-          // Datos para evaluar la fórmula
+  
+        for (const [index, clase] of clasesInstructor.entries()) {
+          console.log(`\n[Recalcular] Procesando clase ${index + 1}/${clasesInstructor.length} (ID: ${clase.id})`);
+          console.log('[Recalcular] Detalles clase:', {
+            fecha: clase.fecha,
+            disciplina: clase.disciplinaId,
+            reservasTotales: clase.reservasTotales,
+            lugares: clase.lugares
+          });
+  
+          const formula = formulas.filter(f => f.disciplinaId === clase.disciplinaId && f.periodoId === periodoActual?.id)[0]
+          console.log('[Recalcular] Fórmula obtenida:', formula);
+  
           const datosEvaluacion = {
-            reservaciones: clase.reservasTotales,
-            listaEspera: clase.listasEspera,
-            cortesias: clase.cortesias,
-            capacidad: clase.lugares,
-            reservasPagadas: clase.reservasPagadas,
-            lugares: clase.lugares,
+            reservaciones: Number(clase.reservasTotales) || 0,
+            listaEspera: Number(clase.listasEspera) || 0,
+            cortesias: Number(clase.cortesias) || 0,
+            capacidad: Number(clase.lugares) || 0,
+            reservasPagadas: Number(clase.reservasPagadas) || 0,
+            lugares: Number(clase.lugares) || 0,
           }
-
+          console.log('[Recalcular] Datos numéricos para evaluación:', datosEvaluacion);
+  
           let montoCalculado = 0
           let detalleCalculo = null
-
-          // Evaluar la fórmula si existe
+  
           if (formula) {
             try {
-              const resultado = evaluarFormula(formula, datosEvaluacion)
+              console.log('[Recalcular] Evaluando fórmula...');
+              const resultado = evaluarFormula(formula.parametros.formula, datosEvaluacion)
               montoCalculado = resultado.valor
               detalleCalculo = resultado
+              console.log('[Recalcular] Resultado cálculo:', { montoCalculado, detalle: detalleCalculo });
             } catch (error) {
-              console.error(`Error al evaluar fórmula para clase ${clase.id}:`, error)
+              console.error('[Recalcular] Error al evaluar fórmula:', error);
               montoCalculado = 0
               detalleCalculo = { error: error instanceof Error ? error.message : "Error desconocido" }
             }
           } else {
-            // Si no hay fórmula, registrar un error
+            console.warn('[Recalcular] No se encontró fórmula para esta disciplina');
             montoCalculado = 0
             detalleCalculo = { error: "No hay fórmula definida para esta disciplina en este periodo" }
           }
-
-          // Agregar a los totales
+  
           montoTotal += montoCalculado
-
-          // Agregar detalle de clase
+          console.log('[Recalcular] Monto acumulado:', montoTotal);
+          
           detallesClases.push({
             claseId: clase.id,
             montoCalculado,
@@ -310,389 +321,324 @@ export default function PagosPage() {
             fechaClase: clase.fecha,
           })
         }
+  
+        console.log(`\n[Recalcular] Resumen para instructor ${instructor.id}:`);
+        console.log('[Recalcular] Monto total calculado:', montoTotal);
+        console.log('[Recalcular] Retencion calculado:', (montoTotal+pagoExistente.reajuste)*retencionValor);
+        console.log('[Recalcular] Pago Final calculado:', montoTotal-(montoTotal+pagoExistente.reajuste)*retencionValor);
 
-        // Buscar si ya existe un pago para este instructor en este periodo
-        const pagoExistente = pagos.find(
-          (p) => p.instructorId === instructor.id && p.periodoId === periodoSeleccionadoId,
-        )
-
-        if (pagoExistente) {
-          // Mantener los valores de retención y reajuste existentes
-          const { retencion, reajuste, tipoReajuste } = pagoExistente
-
-          // Actualizar pago existente
-          await actualizarPago(pagoExistente.id,{
-            ...pagoExistente,
-            monto: montoTotal,
-            retencion,
-            reajuste,
-            tipoReajuste,
-            detalles: {
-              ...pagoExistente.detalles,
-              clases: detallesClases,
-              resumen: {
-                ...pagoExistente.detalles?.resumen,
-                totalClases: clasesInstructor.length,
-                totalMonto: montoTotal,
-                comentarios: `Pago recalculado automáticamente el ${new Date().toLocaleDateString()}`,
-              },
-            },
-          })
-          pagosActualizados++
-        } else {
-          // Crear nuevo pago (simulado ya que no tenemos función crearPago)
-          // En una implementación real, deberías llamar a tu API para crear el pago
-          console.log("Nuevo pago a crear:", {
-            instructorId: instructor.id,
-            periodoId: periodoSeleccionadoId,
-            monto: montoTotal,
-            estado: "PENDIENTE" as EstadoPago,
-            retencion: 0,
-            reajuste: 0,
-            tipoReajuste: "FIJO" as TipoReajuste,
-            detalles: {
-              clases: detallesClases,
-              resumen: {
-                totalClases: clasesInstructor.length,
-                totalMonto: montoTotal,
-                comentarios: `Pago creado automáticamente el ${new Date().toLocaleDateString()}`,
-                moneda: "PEN",
-              },
-            },
-          })
-          pagosCreados++
-        }
+        console.log('[Recalcular] Total clases procesadas:', detallesClases.length);
+  
+        // Actualizar el pago existente con los nuevos cálculos
+        console.log('[Recalcular] Actualizando pago...');
+        await actualizarPago(pagoExistente.id, {
+          ...pagoExistente,
+          monto: montoTotal,
+          retencion: (montoTotal+pagoExistente.reajuste)*retencionValor,
+          pagoFinal:montoTotal-(montoTotal+pagoExistente.reajuste)*retencionValor,
+          detalles: {
+            ...pagoExistente.detalles,
+            clases: detallesClases,
+            resumen: {
+              ...pagoExistente.detalles?.resumen,
+              totalClases: detallesClases.length,
+              totalMonto: montoTotal,
+              comentarios: `Recalculado el ${new Date().toLocaleDateString()}`
+            }
+          }
+        })
+        pagosActualizados++
+        console.log('[Recalcular] Pago actualizado correctamente');
       }
-
-      // Recargar pagos
-      await fetchPagos({ periodoId: periodoSeleccionadoId })
-
+  
+      console.log('\n[Recalcular] Proceso completado. Resumen:', {
+        pagosActualizados,
+        instructoresSinClases,
+        totalInstructores: todosInstructores.length
+      });
+      
+      await fetchPagos()
       toast({
         title: "Recálculo completado",
-        description: `Se han actualizado ${pagosActualizados} pagos y creado ${pagosCreados} nuevos. ${instructoresSinClases} instructores sin clases.`,
+        description: `Se han actualizado ${pagosActualizados} pagos. ${instructoresSinClases} instructores sin clases.`,
       })
     } catch (error) {
+      console.error('[Recalcular] Error en el proceso:', error);
       toast({
         title: "Error al recalcular pagos",
         description: error instanceof Error ? error.message : "Error desconocido al recalcular pagos",
         variant: "destructive",
       })
     } finally {
+      console.log('[Recalcular] Finalizando proceso');
       setIsRecalculando(false)
     }
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="px-6  py-6 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">Gestión de Pagos</h1>
-          <p className="text-muted-foreground">Administra y recalcula los pagos de todos los instructores</p>
+          <p className="text-muted-foreground">
+            {periodosSeleccionados.length > 0 
+              ? `Mostrando pagos de ${periodosSeleccionados.length} periodos seleccionados`
+              : "Mostrando todos los periodos (no hay selección)"}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Select
-            value={periodoSeleccionadoId?.toString() || ""}
-            onValueChange={(value) => setPeriodoSeleccionado(value ? Number(value) : null)}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Seleccionar periodo" />
-            </SelectTrigger>
-            <SelectContent>
-              {periodos.map((periodo) => (
-                <SelectItem key={periodo.id} value={periodo.id.toString()}>
-                  Periodo {periodo.numero} - {periodo.año}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           <Button
             variant="default"
             onClick={() => setShowConfirmDialog(true)}
-            disabled={isRecalculando || !periodoSeleccionadoId}
+            disabled={isRecalculando || periodosSeleccionados.length === 0}
           >
             {isRecalculando ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <RefreshCw className="mr-2 h-4 w-4" />
             )}
-            Recalcular Pagos
+            Recalcular Periodo Actual
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <PagosStats pagos={pagos} instructores={instructores} periodos={periodos} />
-      </div>
-
       <Card className="border shadow-sm">
-        <CardHeader className="bg-muted/20 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-xl text-primary">Todos los Pagos</CardTitle>
-            <CardDescription>
-              {periodoSeleccionadoId
-                ? `Pagos del ${getNombrePeriodo(periodoSeleccionadoId)}`
-                : "Selecciona un periodo para ver los pagos"}
-            </CardDescription>
-          </div>
-
-          <div className="flex gap-2">
-            <Button variant="outline" className="border-muted">
-              <Download className="mr-2 h-4 w-4" />
-              Exportar
-            </Button>
-          </div>
-        </CardHeader>
-
+ 
         <CardContent className="pt-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger
-                value="todos"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                Todos
-              </TabsTrigger>
-              <TabsTrigger
-                value="pendientes"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                Pendientes
-              </TabsTrigger>
-              <TabsTrigger
-                value="aprobados"
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                Aprobados
-              </TabsTrigger>
-            </TabsList>
-
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
-              <div className="flex-1 relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por instructor, periodo o estado..."
-                  className="pl-8 bg-background border-muted"
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-                  <SelectTrigger className="w-[180px] bg-background border-muted">
-                    <Filter className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los estados</SelectItem>
-                    <SelectItem value="PENDIENTE">Pendientes</SelectItem>
-                    <SelectItem value="APROBADO">Aprobados</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={filtroInstructor} onValueChange={setFiltroInstructor}>
-                  <SelectTrigger className="w-[180px] bg-background border-muted">
-                    <Users className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Instructor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los instructores</SelectItem>
-                    {instructores.map((instructor) => (
-                      <SelectItem key={instructor.id} value={instructor.id.toString()}>
-                        {instructor.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="flex-1 relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por instructor, periodo o estado..."
+                className="pl-8 bg-background border-muted"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
             </div>
 
-            {isLoadingPagos ? (
-              <div className="space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="rounded-lg border shadow-sm overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted/30">
-                      <TableRow>
-                        <TableHead className="text-primary font-medium">
-                          <Button
-                            variant="ghost"
-                            onClick={() => requestSort("instructorId")}
-                            className="text-primary group"
-                          >
-                            Instructor
-                            <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                          </Button>
-                        </TableHead>
-                        <TableHead className="text-primary font-medium">
-                          <Button
-                            variant="ghost"
-                            onClick={() => requestSort("periodoId")}
-                            className="text-primary group"
-                          >
-                            Periodo
-                            <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                          </Button>
-                        </TableHead>
-                        <TableHead className="text-primary font-medium">
-                          <Button variant="ghost" onClick={() => requestSort("monto")} className="text-primary group">
-                            Monto Base
-                            <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                          </Button>
-                        </TableHead>
-                        <TableHead className="text-primary font-medium">Ajustes</TableHead>
-                        <TableHead className="text-primary font-medium">Monto Final</TableHead>
-                        <TableHead className="text-primary font-medium">
-                          <Button variant="ghost" onClick={() => requestSort("estado")} className="text-primary group">
-                            Estado
-                            <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                          </Button>
-                        </TableHead>
-                        <TableHead className="text-right text-primary font-medium">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedPagos.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                            No se encontraron pagos con los filtros seleccionados.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        paginatedPagos.map((pago) => {
-                          const montoFinal = calcularMontoFinal(pago)
+            <div className="flex gap-2">
+              <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                <SelectTrigger className="w-[180px] bg-background border-muted">
+                  <Filter className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los estados</SelectItem>
+                  <SelectItem value="PENDIENTE">Pendientes</SelectItem>
+                  <SelectItem value="APROBADO">Aprobados</SelectItem>
+                </SelectContent>
+              </Select>
 
-                          return (
-                            <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
-                              <TableCell className="font-medium">{getNombreInstructor(pago.instructorId)}</TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="h-4 w-4 text-primary/60" />
-                                  {getNombrePeriodo(pago.periodoId)}
-                                </div>
-                              </TableCell>
-                              <TableCell>{formatCurrency(pago.monto)}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-col gap-1 text-xs">
-                                  {pago.retencion > 0 && (
-                                    <span className="text-red-600">Retención: -{formatCurrency(pago.retencion)}</span>
-                                  )}
-                                  {pago.reajuste > 0 && (
-                                    <span className="text-green-600 flex items-center">
-                                      Reajuste:{" "}
-                                      {pago.tipoReajuste === "PORCENTAJE" ? (
-                                        <span className="flex items-center">
-                                          +{pago.reajuste}%
-                                          <Percent className="h-3 w-3 ml-1" />
-                                        </span>
-                                      ) : (
-                                        `+${formatCurrency(pago.reajuste)}`
-                                      )}
-                                    </span>
-                                  )}
-                                  {pago.retencion === 0 && pago.reajuste === 0 && (
-                                    <span className="text-muted-foreground">Sin ajustes</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-medium">{formatCurrency(montoFinal)}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={getEstadoColor(pago.estado)}>
-                                  {pago.estado}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted transition-colors">
-                                      <span className="sr-only">Abrir menú</span>
-                                      <ChevronDown className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-40 rounded-lg">
-                                    <DropdownMenuItem
-                                      className="cursor-pointer"
-                                      onClick={() => router.push(`/pagos/${pago.id}`)}
-                                    >
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      Ver detalles
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="cursor-pointer">
-                                      <Calculator className="mr-2 h-4 w-4" />
-                                      Recalcular
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem className="cursor-pointer">
-                                      <Download className="mr-2 h-4 w-4" />
-                                      Exportar
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+              <Select value={filtroInstructor} onValueChange={setFiltroInstructor}>
+                <SelectTrigger className="w-[180px] bg-background border-muted">
+                  <Users className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Instructor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los instructores</SelectItem>
+                  {instructores.map((instructor) => (
+                    <SelectItem key={instructor.id} value={instructor.id.toString()}>
+                      {instructor.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-                {/* Paginación */}
-                {totalPaginas > 1 && (
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      Mostrando {(paginaActual - 1) * elementosPorPagina + 1} a{" "}
-                      {Math.min(paginaActual * elementosPorPagina, sortedPagos.length)} de {sortedPagos.length} pagos
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPaginaActual(paginaActual - 1)}
-                        disabled={paginaActual === 1}
-                      >
-                        Anterior
-                      </Button>
-                      {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((pagina) => (
+          {isLoadingPagos ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="rounded-lg border shadow-sm overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="text-foreground font-medium">
                         <Button
-                          key={pagina}
-                          variant={pagina === paginaActual ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setPaginaActual(pagina)}
-                          className={pagina === paginaActual ? "bg-primary text-primary-foreground" : ""}
+                          variant="ghost"
+                          onClick={() => requestSort("instructorId")}
+                          className="text-foreground group"
                         >
-                          {pagina}
+                          Instructor
+                          <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
                         </Button>
-                      ))}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPaginaActual(paginaActual + 1)}
-                        disabled={paginaActual === totalPaginas}
-                      >
-                        Siguiente
-                      </Button>
-                    </div>
+                      </TableHead>
+                      <TableHead className="text-foreground font-medium">
+                        <Button
+                          variant="ghost"
+                          onClick={() => requestSort("periodoId")}
+                          className="text-foreground group"
+                        >
+                          Periodo
+                          <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-foreground font-medium">
+                        <Button variant="ghost" onClick={() => requestSort("monto")} className="text-foreground group">
+                          Monto Base
+                          <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-foreground font-medium">
+                        Reajuste
+                      </TableHead>
+                      <TableHead className="text-foreground font-medium">
+                        Retención
+                      </TableHead>
+                      <TableHead className="text-foreground font-medium">
+                        Monto Final
+                      </TableHead>
+                      <TableHead className="text-foreground font-medium">
+                        <Button variant="ghost" onClick={() => requestSort("estado")} className="text-primary group">
+                          Estado
+                          <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-right text-foreground font-medium">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedPagos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                          No se encontraron pagos con los filtros seleccionados.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedPagos.map((pago) => {
+                        const montoFinal = calcularMontoFinal(pago)
+
+                        return (
+                          <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
+                            <TableCell className="font-medium">{getNombreInstructor(pago.instructorId)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-primary/60" />
+                                {getNombrePeriodo(pago.periodoId)}
+                              </div>
+                            </TableCell>
+                            <TableCell>{formatCurrency(pago.monto)}</TableCell>
+                            <TableCell>
+                              {pago.reajuste > 0 ? (
+                                <div className="flex items-center gap-1">
+                                  <span>{pago.tipoReajuste === "PORCENTAJE" ? `${pago.reajuste}%` : formatCurrency(pago.reajuste)}</span>
+                                  <span className="text-xs text-muted-foreground">({pago.tipoReajuste.toLowerCase()})</span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className={pago.retencion > 0 ? "text-red-600 " : ""}>
+                              {pago.retencion > 0 ? `-${formatCurrency(pago.retencion)}` : "-"}
+                            </TableCell>
+                            <TableCell className="font-medium">{formatCurrency(montoFinal)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={getEstadoColor(pago.estado)}>
+                                {pago.estado}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => router.push(`/pagos/${pago.id}`)}
+                                className="hover:bg-muted/50"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Paginación mejorada */}
+              {totalPaginas > 1 && (
+                <div className="flex items-center justify-between mt-6">
+                  <div className="text-sm text-muted-foreground">
+                    Página {paginaActual} de {totalPaginas} • {sortedPagos.length} pagos
                   </div>
-                )}
-              </>
-            )}
-          </Tabs>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual(paginaActual - 1)}
+                      disabled={paginaActual === 1}
+                      className="border-muted"
+                    >
+                      Anterior
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
+                        let pageNum
+                        if (totalPaginas <= 5) {
+                          pageNum = i + 1
+                        } else if (paginaActual <= 3) {
+                          pageNum = i + 1
+                        } else if (paginaActual >= totalPaginas - 2) {
+                          pageNum = totalPaginas - 4 + i
+                        } else {
+                          pageNum = paginaActual - 2 + i
+                        }
+
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={pageNum === paginaActual ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPaginaActual(pageNum)}
+                            className={pageNum === paginaActual ? "bg-primary text-primary-foreground" : "border-muted"}
+                          >
+                            {pageNum}
+                          </Button>
+                        )
+                      })}
+                      {totalPaginas > 5 && paginaActual < totalPaginas - 2 && (
+                        <span className="px-2 text-muted-foreground">...</span>
+                      )}
+                      {totalPaginas > 5 && paginaActual < totalPaginas - 2 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPaginaActual(totalPaginas)}
+                          className="border-muted"
+                        >
+                          {totalPaginas}
+                        </Button>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaginaActual(paginaActual + 1)}
+                      disabled={paginaActual === totalPaginas}
+                      className="border-muted"
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar recálculo de pagos</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar recálculo del Periodo Actual</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción recalculará los pagos de todos los instructores para el periodo seleccionado. Los montos se
+              Esta acción recalculará los pagos de todos los instructores para los periodos seleccionados. Los montos se
               actualizarán basados en las clases impartidas y las fórmulas de cada disciplina. ¿Estás seguro de que
               deseas continuar?
             </AlertDialogDescription>

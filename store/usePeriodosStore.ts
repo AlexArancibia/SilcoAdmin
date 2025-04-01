@@ -129,6 +129,7 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
           periodosSeleccionados: nuevosSeleccionados,
           isLoading: false,
         }
+        
       })
     } catch (error) {
       set({
@@ -196,6 +197,8 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
       rangoSeleccionado: [idInicio, idFin],
       periodosSeleccionados: periodosEnRango
     })
+    console.log(get().periodosSeleccionados)
+
   },
 
   resetearSeleccion: () => {
