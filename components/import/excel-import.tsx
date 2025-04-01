@@ -95,6 +95,7 @@ export function ExcelImport() {
   const [resultado, setResultado] = useState<ResultadoImportacion | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pagosCreados, setPagosCreados] = useState<number>(0)
+  const [periodoSeleccionadoId,setPeriodoSeleccionadoId] = useState<number | null>(0)
 
   // Inicializar estados con valores por defecto
   const [instructorAnalysis, setInstructorAnalysis] = useState<InstructorAnalysis>({
@@ -114,8 +115,7 @@ export function ExcelImport() {
   // Obtener datos de los stores
   const {
     periodos,
-    periodoSeleccionadoId,
-    setPeriodoSeleccionado,
+    periodoActual,
     fetchPeriodos,
     isLoading: isLoadingPeriodos,
   } = usePeriodosStore()
@@ -123,7 +123,7 @@ export function ExcelImport() {
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
   const {formulas, fetchFormulas} = useFormulasStore()
   const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
-
+  
   // Obtener el store de pagos
   const { pagos, actualizarPago, fetchPagos, crearPago } = usePagosStore()
 
@@ -172,6 +172,11 @@ export function ExcelImport() {
     loadInitialData()
   }, [periodos.length,formulas.length, disciplinas.length, instructores.length, fetchPeriodos, fetchFormulas,fetchDisciplinas, fetchInstructores])
 
+  useEffect(()=>{
+    if (periodoActual) {
+      setPeriodoSeleccionadoId(periodoActual.id)
+    }
+  },[periodoActual])
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0])
@@ -1149,7 +1154,7 @@ export function ExcelImport() {
             </Label>
             <Select
               value={periodoSeleccionadoId?.toString() || ""}
-              onValueChange={(value) => setPeriodoSeleccionado(value ? Number.parseInt(value) : null)}
+              onValueChange={(value) => setPeriodoSeleccionadoId(value ? Number.parseInt(value) : null)}
               disabled={isLoadingPeriodos}
             >
               <SelectTrigger id="periodo" className="w-full bg-background border-muted">
