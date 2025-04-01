@@ -1,11 +1,18 @@
 "use client"
 import { PeriodSelector } from '@/components/period-selector'
 import { useAuthStore } from '@/store/useAuthStore'
-import React from 'react'
+import { redirect } from 'next/navigation'
+import { useEffect } from 'react'
 
 function page() {
-  const {user,userType} = useAuthStore()
-  console.log(user?.id,user?.nombre,userType)
+  const { user } = useAuthStore()
+
+  useEffect(() => {
+    if (!user) redirect('/login')
+  }, [user])
+
+  if (!user) return null
+
   return (
     <div><PeriodSelector /></div>
   )
