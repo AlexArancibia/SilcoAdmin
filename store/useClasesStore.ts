@@ -14,6 +14,7 @@ interface ClasesState {
     instructorId?: number
     disciplinaId?: number
     semana?: number
+    estudio?:string
     fecha?: string
   }) => Promise<void>
   fetchClase: (id: number) => Promise<void>

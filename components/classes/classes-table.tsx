@@ -24,22 +24,47 @@ interface ClassesTableProps {
   instructorId?: number
   disciplinaId?: number
   semana?: number
+  estudio?: string
 }
 
-export function ClassesTable({ periodoId, instructorId, disciplinaId, semana }: ClassesTableProps) {
+export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, estudio }: ClassesTableProps) {
   const { clases, isLoading, error, fetchClases } = useClasesStore()
   const [filteredClases, setFilteredClases] = useState<Clase[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
   useEffect(() => {
-    fetchClases({ periodoId, instructorId, disciplinaId, semana })
-  }, [fetchClases, periodoId, instructorId, disciplinaId, semana])
+    fetchClases()
+  }, [fetchClases])
 
+  // Filtrar las clases en el cliente en lugar de volver a cargarlas
   useEffect(() => {
-    setFilteredClases(clases)
+    let result = [...clases]
+
+    if (periodoId) {
+      result = result.filter(clase => clase.periodoId === periodoId)
+    }
+
+    if (instructorId) {
+      result = result.filter(clase => clase.instructorId === instructorId)
+    }
+
+    if (disciplinaId) {
+      result = result.filter(clase => clase.disciplinaId === disciplinaId)
+    }
+
+    if (semana) {
+      result = result.filter(clase => clase.semana === semana)
+    }
+
+    if (estudio) {
+      // Coincidencia exacta para el estudio
+      result = result.filter(clase => clase.estudio === estudio)
+    }
+
+    setFilteredClases(result)
     setCurrentPage(1) // Reset to first page when filters change
-  }, [clases])
+  }, [clases, periodoId, instructorId, disciplinaId, semana, estudio])
 
   const formatDate = (date: Date) => {
     return format(new Date(date), "EEEE d MMMM, yyyy", { locale: es })
@@ -48,6 +73,34 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana }: 
   // Pagination logic
   const totalPages = Math.ceil(filteredClases.length / itemsPerPage)
   const paginatedClases = filteredClases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  // Función para generar páginas visibles con ellipsis cuando sea necesario
+  const getVisiblePages = () => {
+    const delta = 2; // Número de páginas a mostrar a cada lado de la página actual
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+        range.push(i);
+      }
+    }
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
+  };
 
   if (isLoading) {
     return (
@@ -76,7 +129,7 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana }: 
         </CardHeader>
         <CardContent>
           <p className="text-destructive">{error}</p>
-          <Button onClick={() => fetchClases({ periodoId, instructorId, disciplinaId, semana })} className="mt-4">
+          <Button onClick={() => fetchClases()} className="mt-4">
             Reintentar
           </Button>
         </CardContent>
@@ -126,8 +179,10 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana }: 
                 <TableCell>
                   <Badge
                     style={{
-                      backgroundColor:  "#888",
-                      color: "#fff",
+                      backgroundColor: clase.disciplina?.color ? `${clase.disciplina.color}33` : "#88888833", // 20% de opacidad
+                      color:   "#ffffff",
+                      borderColor: clase.disciplina?.color ? `${clase.disciplina.color}80` : "#88888880", // 50% de opacidad
+                      borderWidth: "1px",
                     }}
                   >
                     {clase.disciplina?.nombre}
@@ -173,18 +228,22 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana }: 
                 />
               </PaginationItem>
 
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <PaginationItem key={i}>
-                  <PaginationLink
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setCurrentPage(i + 1)
-                    }}
-                    isActive={currentPage === i + 1}
-                  >
-                    {i + 1}
-                  </PaginationLink>
+              {getVisiblePages().map((page, index) => (
+                <PaginationItem key={index}>
+                  {page === '...' ? (
+                    <span className="mx-1 px-2">...</span>
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setCurrentPage(Number(page))
+                      }}
+                      isActive={currentPage === page}
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
                 </PaginationItem>
               ))}
 
@@ -205,4 +264,3 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana }: 
     </Card>
   )
 }
-
