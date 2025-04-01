@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import type { Instructor } from "@/types/schema";
-import { EstadoInstructor } from "@/types/schema";
+ 
 
 interface InstructorDetailProps {
   instructor: Instructor;
@@ -27,9 +27,7 @@ export function InstructorDetail({ instructor }: InstructorDetailProps) {
               <AvatarImage src={instructor.extrainfo?.foto || "/placeholder.svg?height=96&width=96"} alt={instructor.nombre} />
               <AvatarFallback className="text-lg">{instructor.nombre.substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <Badge variant={instructor.extrainfo?.estado === EstadoInstructor.ACTIVO ? "default" : "secondary"}>
-              {instructor.extrainfo?.estado === EstadoInstructor.ACTIVO ? "Activo" : "Inactivo"}
-            </Badge>
+
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
             <div>
