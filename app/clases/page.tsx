@@ -31,13 +31,7 @@ export default function ClassesPage({
         </p>
       </div>
 
-      <Tabs defaultValue="listado" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="listado">Listado de Clases</TabsTrigger>
-          <TabsTrigger value="importar">Importar Clases</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="listado" className="space-y-6">
+ 
           <Card>
             <CardHeader>
               <CardTitle>Filtros</CardTitle>
@@ -77,12 +71,7 @@ export default function ClassesPage({
               semana={semana}
             />
           </Suspense>
-        </TabsContent>
-
-        <TabsContent value="importar">
-          <ExcelImport />
-        </TabsContent>
-      </Tabs>
+ 
     </div>
   )
 }
