@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal, Search, Settings2, Plus, Download } from "lucide-react"
+import { ArrowUpDown, ChevronDown, Search, Settings2, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
@@ -21,9 +21,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -54,7 +51,7 @@ export function InstructorsTable() {
   const columns: ColumnDef<Instructor>[] = [
     {
       accessorKey: "nombre",
-      header: "Nombre",
+      header: () => <div className="text-center">Nombre</div>,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 border bg-background shadow-sm">
@@ -76,13 +73,13 @@ export function InstructorsTable() {
     },
     {
       accessorKey: "disciplinas",
-      header: "Disciplinas",
+      header: () => <div className="text-center w-full">Disciplinas</div>,
       cell: ({ row }) => {
         const disciplinas = row.original.disciplinas || []
-        if (disciplinas.length === 0) return <div className="text-muted-foreground italic">No asignadas</div>
+        if (disciplinas.length === 0) return <div className="text-muted-foreground italic text-center">No asignadas</div>
 
         return (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5 justify-center">
             {disciplinas.slice(0, 2).map((d) => (
               <Badge
                 key={d.id}
@@ -103,82 +100,35 @@ export function InstructorsTable() {
       },
     },
     {
-      accessorKey: "estado",
-      header: "Estado",
-      cell: ({ row }) => {
-        const extrainfo = row.original.extrainfo || {}
-        const estado = extrainfo.estado || "ACTIVO"
-        const activo = extrainfo.activo !== false
-        const label = activo ? (estado === "ACTIVO" ? "Activo" : estado) : "Inactivo"
-
-        return (
-          <Badge
-            variant={activo ? "default" : "secondary"}
-            className={`${activo ? "bg-green-100 text-green-800 hover:bg-green-200" : "bg-gray-100 text-gray-800 hover:bg-gray-200"} transition-colors`}
-          >
-            {label}
-          </Badge>
-        )
-      },
-    },
-    {
       accessorKey: "createdAt",
       header: ({ column }) => {
         return (
-          <Button
+          <div className="text-center">
+            <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="text-foreground group hover:text-primary"
-          >
-            Fecha Registro
-            <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-          </Button>
+            className="text-foreground group"
+            >
+              Fecha registro
+              <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+            </Button>
+          </div>
         )
       },
       cell: ({ row }) => {
         const date = new Date(row.original.createdAt!)
-        return <div className="text-muted-foreground">{date.toLocaleDateString()}</div>
+        return <div className="text-muted-foreground text-center">{date.toLocaleDateString()}</div>
       },
     },
     {
-      id: "actions",
+      id: "Detalle",
       cell: ({ row }) => {
         const instructor = row.original
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted transition-colors">
-                <span className="sr-only">Abrir menú</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 rounded-lg">
-              <DropdownMenuLabel className="text-foreground font-medium">Acciones</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => navigator.clipboard.writeText(instructor.id.toString())}
-                className="cursor-pointer hover:bg-muted transition-colors"
-              >
-                Copiar ID de instructor
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => router.push(`/instructores/${instructor.id}`)}
-                className="cursor-pointer hover:bg-muted transition-colors"
-              >
-                Ver detalles del instructor
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => router.push(`/instructores/${instructor.id}?tab=pagos`)}
-                className="cursor-pointer hover:bg-muted transition-colors"
-              >
-                Ver historial de pagos
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer hover:bg-muted transition-colors">
-                Editar instructor
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        return ( 
+            <Eye 
+              onClick={() => router.push(`/instructores/${instructor.id}`)}
+              className="cursor-pointer"  
+            />
         )
       },
     },
@@ -249,16 +199,6 @@ export function InstructorsTable() {
         <div>
           <CardTitle className="text-xl text-foreground">Instructores</CardTitle>
           <CardDescription>Gestiona los instructores y sus disciplinas</CardDescription>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="border-muted">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
-          <Button className="bg-primary hover:bg-primary/90">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Instructor
-          </Button>
         </div>
       </CardHeader>
       <CardContent className="pt-6">
