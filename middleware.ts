@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 import { jwtVerify } from "jose"
 
 // Rutas que requieren autenticación
-const protectedRoutes = ["/configuracion", "/importar", "/formulas", "/pagos"]
+const protectedRoutes = ["/configuracion", "/importar", "/formulas", "/pagos", "/instructores",""]
 
 // Rutas públicas (no requieren autenticación)
 const publicRoutes = ["/login", "/register", "/api/auth"]
