@@ -11,6 +11,8 @@ import { es } from "date-fns/locale"
 import { Calendar, DollarSign, FileText, Download, Eye } from "lucide-react"
 import { usePagosStore } from "@/store/usePagosStore"
 import type { EstadoPago, PagoInstructor } from "@/types/schema"
+import Link from "next/link"
+import { downloadPagoPDF, printPagoPDF } from "@/utils/pago-instructor-pdf"
 
 interface PagosProps {
   pagos: PagoInstructor[] | null
@@ -28,12 +30,15 @@ export function InstructorPaymentHistory({ pagos }: PagosProps) {
   }
 
   // Formatear monto
-  const formatAmount = (amount: number, currency = "MXN") => {
-    return new Intl.NumberFormat("es-MX", {
+  const formatAmount = (amount: number, currency = "PEN") => {
+    return new Intl.NumberFormat("PEN", {
       style: "currency",
       currency,
     }).format(amount)
   }
+
+
+ 
 
   // Obtener color y texto según el estado del pago
   const getStatusBadge = (estado: EstadoPago) => {
@@ -94,7 +99,7 @@ export function InstructorPaymentHistory({ pagos }: PagosProps) {
               <TableHead>Fecha</TableHead>
               <TableHead>Monto</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead className="text-right"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -125,18 +130,13 @@ export function InstructorPaymentHistory({ pagos }: PagosProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Link href={`/pagos/${pago.id}`} >
                       <Button variant="ghost" size="icon" className="h-8 w-8">
                         <Eye className="h-4 w-4" />
                         <span className="sr-only">Ver detalles</span>
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <FileText className="h-4 w-4" />
-                        <span className="sr-only">Ver recibo</span>
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Download className="h-4 w-4" />
-                        <span className="sr-only">Descargar</span>
-                      </Button>
+                      </Link>
+
                     </div>
                   </TableCell>
                 </TableRow>

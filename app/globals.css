@@ -14,19 +14,19 @@ body {
 
 @layer base {
   :root {
-    --background: 240 20% 98%; /* Blanco con un toque de azul */
+    --background: 210 17% 97%; /* Blanco con un toque de azul */
     --foreground: 240 10% 15%; /* Gris profundo y elegante */
     --card: 0 0% 100%; /* Blanco puro */
     --card-foreground: 240 10% 20%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 15%;
-    --primary: 220 30% 50%; /* Azul vibrante y moderno */
+    --primary: 120 24% 45%;  
     --primary-foreground: 0 0% 98%;
-    --secondary: 240 15% 90%; /* Gris azulado más refinado */
+    --secondary: 108 31% 66%; /* Gris azulado más refinado */
     --secondary-foreground: 240 10% 25%;
     --muted: 240 12% 80%;
     --muted-foreground: 240 8% 45%;
-    --accent: 280 70% 45%; /* Púrpura sofisticado */
+    --accent: 215 50% 28%; /* Púrpura sofisticado */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 98%;
@@ -39,7 +39,7 @@ body {
     --chart-4: 290 60% 55%;
     --chart-5: 10 85% 55%;
     --radius: 0.6rem;
-    --sidebar-background: 240 12% 95%;
+    --sidebar-background: 120 24% 40%;  
     --sidebar-foreground: 240 10% 20%;
     --sidebar-primary: 220 80% 50%;
     --sidebar-primary-foreground: 0 0% 98%;
@@ -56,13 +56,13 @@ body {
     --card-foreground: 0 0% 96%;
     --popover: 220 20% 7%;
     --popover-foreground: 0 0% 96%;
-    --primary: 205 100% 28%;
+    --primary: 120 24% 36%;
     --primary-foreground: 0 0% 10%;
-    --secondary: 220 15% 15%;
+    --secondary: 108 31% 66%; 
     --secondary-foreground: 0 0% 96%;
     --muted: 220 10% 20%;
     --muted-foreground: 220 6% 55%;
-    --accent: 220 65% 45%;
+    --accent: 215 50% 24%;
     --accent-foreground: 0 0% 96%;
     --destructive: 0 65% 45%;
     --destructive-foreground: 0 0% 96%;
@@ -92,4 +92,8 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+  .sidebaritem {
+    @apply hover:bg-accent hover:text-accent data-[active=true]:bg-white data-[active=true]:text-primary data-[active=true]:font-medium transition-colors duration-200
+  }
 }
+

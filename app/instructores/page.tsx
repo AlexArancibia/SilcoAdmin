@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/dashboard/shell"
 import { Button } from "@/components/ui/button"
 import { PlusCircle } from "lucide-react"
 import { InstructorsTable } from "@/components/instructors/instructors-table"
+import { PeriodSelector } from "@/components/period-selector"
 
 export const metadata: Metadata = {
   title: "Instructores | Sistema de Gestión de Instructores",
@@ -15,10 +16,6 @@ export default function InstructorsPage() {
   return (
     <DashboardShell>
       <DashboardHeader heading="Instructores" text="Gestiona tus instructores.">
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Añadir Instructor
-        </Button>
       </DashboardHeader>
       <div className="w-full">
         <InstructorsTable />

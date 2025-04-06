@@ -5,40 +5,39 @@ import {
   type ColumnDef,
   type ColumnFiltersState,
   type SortingState,
-  type VisibilityState,
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  flexRender,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, Search, Settings2, Eye } from "lucide-react"
+import { ArrowUpDown, Search, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import Link from "next/link"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
-import type { Instructor } from "@/types/schema"
+import type { Instructor, Disciplina } from "@/types/schema"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export function InstructorsTable() {
   const router = useRouter()
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = React.useState({})
+  const [selectedDisciplina, setSelectedDisciplina] = React.useState<string>("todas")
 
   // Obtener instructores directamente del store
   const { instructores, fetchInstructores, isLoading, error } = useInstructoresStore()
@@ -48,12 +47,34 @@ export function InstructorsTable() {
     fetchInstructores()
   }, [fetchInstructores])
 
+  // Extraer todas las disciplinas únicas para el filtro
+  const todasDisciplinas = React.useMemo(() => {
+    const disciplinasMap = new Map<number, Disciplina>()
+    
+    instructores.forEach(instructor => {
+      instructor.disciplinas?.forEach(disciplina => {
+        disciplinasMap.set(disciplina.id, disciplina)
+      })
+    })
+    
+    return Array.from(disciplinasMap.values())
+  }, [instructores])
+
+  // Filtrar instructores por disciplina seleccionada
+  const filteredInstructores = React.useMemo(() => {
+    if (selectedDisciplina === "todas") return instructores
+    
+    return instructores.filter(instructor => 
+      instructor.disciplinas?.some(d => d.id.toString() === selectedDisciplina)
+    )
+  }, [instructores, selectedDisciplina])
+
   const columns: ColumnDef<Instructor>[] = [
     {
       accessorKey: "nombre",
-      header: () => <div className="text-center">Nombre</div>,
+      header: () => <div className="text-left">Nombre</div>,
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center text-left gap-3">
           <Avatar className="h-9 w-9 border bg-background shadow-sm">
             {row.original.extrainfo?.foto ? (
               <AvatarImage src={row.original.extrainfo.foto} alt={row.getValue("nombre")} />
@@ -80,21 +101,16 @@ export function InstructorsTable() {
 
         return (
           <div className="flex flex-wrap gap-1.5 justify-center">
-            {disciplinas.slice(0, 2).map((d) => (
+            {disciplinas.map((d) => (
               <Badge
-                key={d.id}
+                key={`disciplina-${d.id}-${row.original.id}`}
                 variant="outline"
-                className="font-normal px-2 py-0.5 transition-all"
+                className="font-normal px-2 py-0.5 transition-all mb-1"
                 style={{ backgroundColor: `${d.color}20`, borderColor: `${d.color}50` }}
               >
                 {d.nombre}
               </Badge>
             ))}
-            {disciplinas.length > 2 && (
-              <Badge variant="outline" className="font-normal bg-muted/50">
-                +{disciplinas.length - 2} más
-              </Badge>
-            )}
           </div>
         )
       },
@@ -105,9 +121,9 @@ export function InstructorsTable() {
         return (
           <div className="text-center">
             <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="text-foreground group"
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="text-foreground group"
             >
               Fecha registro
               <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
@@ -125,17 +141,20 @@ export function InstructorsTable() {
       cell: ({ row }) => {
         const instructor = row.original
         return ( 
+          <div className="flex justify-center">
             <Eye 
               onClick={() => router.push(`/instructores/${instructor.id}`)}
-              className="cursor-pointer"  
+              className="cursor-pointer hover:text-primary transition-colors"  
+              size={18}
             />
+          </div>
         )
       },
     },
   ]
 
   const table = useReactTable({
-    data: instructores,
+    data: filteredInstructores,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -143,13 +162,9 @@ export function InstructorsTable() {
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
     state: {
       sorting,
       columnFilters,
-      columnVisibility,
-      rowSelection,
     },
   })
 
@@ -175,9 +190,6 @@ export function InstructorsTable() {
           </div>
         </div>
         <Card>
-          <CardHeader className="pb-0">
-            <Skeleton className="h-5 w-32" />
-          </CardHeader>
           <CardContent className="p-0">
             <div className="rounded-md border mt-4">
               <div className="h-[400px] w-full relative">
@@ -195,48 +207,42 @@ export function InstructorsTable() {
 
   return (
     <Card className="w-full border shadow-sm">
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="text-xl text-foreground">Instructores</CardTitle>
-          <CardDescription>Gestiona los instructores y sus disciplinas</CardDescription>
-        </div>
-      </CardHeader>
       <CardContent className="pt-6">
-        <div className="flex items-center justify-between pb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4">
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Filtrar instructores..."
+              placeholder="Filtrar por nombre..."
               value={(table.getColumn("nombre")?.getFilterValue() as string) ?? ""}
               onChange={(event) => table.getColumn("nombre")?.setFilterValue(event.target.value)}
               className="pl-9 max-w-sm border-muted bg-background"
             />
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="ml-auto flex items-center gap-1 border-muted">
-                <Settings2 className="h-4 w-4 text-muted-foreground" />
-                Columnas <ChevronDown className="ml-1 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40 rounded-lg">
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          
+          <div className="w-full sm:w-auto">
+            <Select
+              value={selectedDisciplina}
+              onValueChange={setSelectedDisciplina}
+            >
+              <SelectTrigger className="w-full sm:w-[200px] border-muted">
+                <SelectValue placeholder="Filtrar por disciplina" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas las disciplinas</SelectItem>
+                {todasDisciplinas.map((disciplina) => (
+                  <SelectItem key={`select-disciplina-${disciplina.id}`} value={disciplina.id.toString()}>
+                    <div className="flex items-center">
+                      <div 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: disciplina.color }} 
+                      />
+                      {disciplina.nombre}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="w-full rounded-lg border bg-card shadow-sm overflow-hidden">
@@ -259,7 +265,6 @@ export function InstructorsTable() {
                 table.getRowModel().rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
                     className="hover:bg-muted/20 transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
@@ -280,8 +285,7 @@ export function InstructorsTable() {
       </CardContent>
       <CardFooter className="flex items-center justify-between py-4 border-t bg-muted/10">
         <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} de {table.getFilteredRowModel().rows.length} fila(s)
-          seleccionada(s).
+          Mostrando {filteredInstructores.length} instructor(es)
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -310,4 +314,3 @@ export function InstructorsTable() {
     </Card>
   )
 }
-

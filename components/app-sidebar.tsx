@@ -1,19 +1,36 @@
-// components/AppSidebar.js
 "use client"
-import Link from "next/link";
-import { Sidebar, SidebarContent, SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarGroup, SidebarGroupLabel, SidebarGroupContent } from "@/components/ui/sidebar";
-import { BarChart3, Users, CalendarDays, DollarSign, FileSpreadsheet, Settings, LogOut, Calculator, Home, User, Clock, BookOpen, CreditCard , Sliders, File } from "lucide-react";
-import { ModeToggle } from "@/components/mode-toggle";
-import { PeriodSelector } from "@/components/period-selector";
-import { useAuthStore } from "@/store/useAuthStore";
-import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link"
+import type React from "react"
+
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarRail,
+  useSidebar,
+} from "@/components/ui/sidebar"
+import { CalendarDays, LogOut, Calculator, Home, User, CreditCard, Sliders, File } from "lucide-react"
+import { useAuthStore } from "@/store/useAuthStore"
+import { useRouter } from "next/navigation"
+import { Separator } from "@/components/ui/separator"
+import { usePathname } from "next/navigation"
+import { ModeToggle } from "./mode-toggle"
 
 export function AppSidebar() {
   const { user, userType, isAuthenticated, logout } = useAuthStore()
   const router = useRouter()
+  const pathname = usePathname()
+  const { state } = useSidebar()
+  const isCollapsed = state === "collapsed"
+  const claseitem = "text-white hover:bg-secondary hover:text-gray-800 data-[active=true]:bg-card/90 dark:data-[active=true]:bg-background data-[active=true]:text-primary data-[active=true]:font-semibold transition-colors duration-200"
+
 
   if (!isAuthenticated || !user) return null
 
@@ -26,36 +43,35 @@ export function AppSidebar() {
     router.push("/login")
   }
 
-  return (
-    <Sidebar variant="sidebar" collapsible="offcanvas" className="bg-gradient-to-b from-primary/5 to-background border-r">
-      <SidebarHeader className="px-4 py-6 pb-2">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 border-2 border-primary">
-              <AvatarFallback className="bg-primary/10 font-medium">
-                {user.nombre?.charAt(0).toUpperCase() || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold truncate">Silco Admin</h1>
- 
-            </div>
-          </div>
-          
-          <Separator className="my-1" />
-          
-          <div className="flex items-center gap-2">
-  {!isInstructor() && (
-    <>
-      <div className="flex flex-col">
-        <PeriodSelector />
-      </div>
-      <div>
-      <ModeToggle /></div>
-    </>
-  )}
-</div>
+  // Check if a path is active
+  const isActive = (path: string) => {
+    if (path === "/") {
+      return pathname === path
+    }
+    return pathname.startsWith(path)
+  }
 
+  return (
+    <Sidebar
+      variant="sidebar"
+      collapsible="icon"
+      className="bg-primary border-r"
+    >
+      <SidebarHeader className="px-5 pt-3.5 pb-3.5 border-b border-border/40">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-left">
+            {isCollapsed ? (
+              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
+                S
+              </div>
+            ) : (
+              <div className="flex justify-between items-center w-full">
+                <h1 className="text-xl font-bold items-start text-white">Siclo Admin </h1>
+                <ModeToggle />
+              </div>
+            )}
+          </div>
+     
         </div>
       </SidebarHeader>
 
@@ -65,10 +81,11 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton 
-                  asChild 
+                <SidebarMenuButton
+                  asChild
                   tooltip="Mi perfil"
-                  className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
+                  isActive={isActive("/instructores")}
+                  className={claseitem}
                 >
                   <Link href="/instructores">
                     <User className="h-5 w-5" />
@@ -81,31 +98,31 @@ export function AppSidebar() {
         ) : (
           // Vista para administradores y otros roles
           <>
- 
-
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground px-3">
-                Gestión
+              <SidebarGroupLabel className="text-xs font-semibold   text-white/70">
+                GESTIÓN
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip="Panel de Control"
-                    className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
-                  >
-                    <Link href="/">
-                      <Home className="h-5 w-5" />
-                      <span>Panel de Control</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Panel de Control"
+                      isActive={isActive("/")}
+                      className={claseitem}
+                    >
+                      <Link href="/">
+                        <Home className="h-5 w-5" />
+                        <span>Panel de Control</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
                       tooltip="Instructores"
-                      className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
+                      isActive={isActive("/instructores")}
+                      className={claseitem}
                     >
                       <Link href="/instructores">
                         <User className="h-5 w-5" />
@@ -114,10 +131,11 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
+                    <SidebarMenuButton
+                      asChild
                       tooltip="Clases"
-                      className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
+                      isActive={isActive("/clases")}
+                      className={claseitem}
                     >
                       <Link href="/clases">
                         <CalendarDays className="h-5 w-5" />
@@ -125,23 +143,22 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
- 
-
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
 
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground px-3">
-                Finanzas
+              <SidebarGroupLabel className="text-xs font-semibold   text-white/70">
+                FINANZAS
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
+                    <SidebarMenuButton
+                      asChild
                       tooltip="Pagos"
-                      className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
+                      isActive={isActive("/pagos")}
+                      className={claseitem}
                     >
                       <Link href="/pagos">
                         <CreditCard className="h-5 w-5" />
@@ -150,10 +167,11 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
+                    <SidebarMenuButton
+                      asChild
                       tooltip="Importar Datos"
-                      className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
+                      isActive={isActive("/importar")}
+                      className={claseitem}
                     >
                       <Link href="/importar">
                         <File className="h-5 w-5" />
@@ -162,10 +180,11 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton 
-                      asChild 
+                    <SidebarMenuButton
+                      asChild
                       tooltip="Fórmulas"
-                      className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
+                      isActive={isActive("/formulas")}
+                      className={claseitem}
                     >
                       <Link href="/formulas">
                         <Calculator className="h-5 w-5" />
@@ -179,16 +198,17 @@ export function AppSidebar() {
 
             {(isAdmin() || isSuperAdmin()) && (
               <SidebarGroup>
-                <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground px-3">
-                  Administración
+                <SidebarGroupLabel className="text-xs font-semibold   text-white/70">
+                  ADMINISTRACIÓN
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
-                      <SidebarMenuButton 
-                        asChild 
+                      <SidebarMenuButton
+                        asChild
                         tooltip="Configuración"
-                        className="hover:bg-primary/10 data-[active=true]:bg-primary/10"
+                        isActive={isActive("/configuracion")}
+                        className={claseitem}
                       >
                         <Link href="/configuracion">
                           <Sliders className="h-5 w-5" />
@@ -204,13 +224,13 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t">
-        <SidebarMenu>
+      <SidebarFooter className="p-4 border-t border-border/40 ">
+        <SidebarMenu className="">
           <SidebarMenuItem>
-            <SidebarMenuButton 
+            <SidebarMenuButton
               onClick={handleLogout}
               tooltip="Cerrar Sesión"
-              className="hover:bg-destructive/10 text-destructive hover:text-destructive"
+              className="hover:bg-destructive/10 text-accent font-bold hover:text-destructive transition-colors duration-200"
             >
               <LogOut className="h-5 w-5" />
               <span>Cerrar Sesión</span>
@@ -218,6 +238,8 @@ export function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
-  );
+  )
 }
+

@@ -34,6 +34,8 @@ import {
   BookOpen,
   Star,
   Percent,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { evaluarFormula } from "@/lib/formula-evaluator"
@@ -43,6 +45,8 @@ import { useFormulasStore } from "@/store/useFormulaStore"
 import { Progress } from "@/components/ui/progress"
 import { PeriodSelector } from "@/components/period-selector"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DashboardShell } from "@/components/dashboard/shell"
+import { IconLeft, IconRight } from "react-day-picker"
 
 export default function InstructorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params)
@@ -61,6 +65,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
   const [clasesPeriodo, setClasesPeriodo] = useState<Clase[]>([])
   const [pagosPeriodo, setPagosPeriodo] = useState<PagoInstructor[]>([])
   const dataLoaded = useRef(false)
+  
 
   // Load initial data
   useEffect(() => {
@@ -72,7 +77,6 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
       try {
         await Promise.all([
           fetchInstructor(instructorId),
-          fetchPeriodos(),
           fetchDisciplinas(),
           fetchFormulas(),
           fetchClases(),
@@ -84,7 +88,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
     }
 
     loadData()
-  }, [instructorId, fetchInstructor, fetchPeriodos, fetchDisciplinas, fetchFormulas, fetchClases, fetchPagos])
+  }, [instructorId, fetchInstructor, fetchDisciplinas, fetchFormulas, fetchClases, fetchPagos])
 
   // Update instructor state when instructorSeleccionado changes
   useEffect(() => {
@@ -182,69 +186,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
     calculatePayments()
   }, [calculatePayments])
 
-  const handleUpdatePayment = async () => {
-    if (!instructor || !periodosSeleccionados || periodosSeleccionados.length === 0) {
-      toast({
-        title: "Error",
-        description: "No se puede actualizar el pago sin instructor o periodo seleccionado",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsUpdatingPayment(true)
-    try {
-      const totalMonto = paymentDetails.reduce((sum, detail) => sum + detail.montoCalculado, 0)
-      const existingPago = pagosPeriodo.find((p) => 
-        p.instructorId === instructorId && 
-        periodosSeleccionados.some(periodo => periodo.id === p.periodoId))
-      
-      if (!existingPago) {
-        toast({
-          title: "Error",
-          description: "No se encontró un pago existente para actualizar",
-          variant: "destructive",
-        })
-        return
-      }
-
-      const pagoData: Partial<PagoInstructor> = {
-        monto: totalMonto,
-        detalles: {
-          clases: paymentDetails.map((detail) => ({
-            claseId: detail.claseId,
-            monto: detail.montoCalculado,
-            fecha: detail.fecha,
-            disciplina: detail.disciplina,
-          })),
-        },
-        retencion: existingPago.retencion,
-        reajuste: existingPago.reajuste,
-        tipoReajuste: existingPago.tipoReajuste,
-        pagoFinal: existingPago.pagoFinal,
-      }
-
-      await actualizarPago(existingPago.id, pagoData)
-
-      toast({
-        title: "Pago actualizado",
-        description: `Se ha actualizado el pago por un monto de ${formatAmount(totalMonto)}`,
-        variant: "default",
-      })
-
-      await fetchPagos({ instructorId })
-      setUltimaActualizacion(new Date())
-    } catch (error) {
-      console.error("Error al actualizar pago:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar el pago. Intente nuevamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUpdatingPayment(false)
-    }
-  }
+ 
 
   const formatDate = (date: Date | undefined) => {
     if (!date) return "N/A"
@@ -277,14 +219,20 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
   const biografia = instructor?.extrainfo?.biografia || "Sin biografia"
   const experiencia = instructor?.extrainfo?.experiencia || 0
   const disciplinasInstructor = instructor?.disciplinas?.map((d) => d.nombre || `Disciplina ${d.id}`) || []
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 10;
 
+  const totalPages = Math.ceil(paymentDetails.length / itemsPerPage);
+  const startIndex = currentPage * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPayments = paymentDetails.slice(startIndex, endIndex);
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <DashboardShell>
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-primary/5 to-card rounded-xl p-6 border shadow-sm">
+      <div className="bg-card rounded-xl p-6 border ">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex items-start gap-4">
-            <Avatar className="h-16 w-16 border-2 border-primary">
+            <Avatar className="h-16 w-16 border-2 border-accent">
               <AvatarImage src={foto} alt={instructor?.nombre} />
               <AvatarFallback className="text-xl font-bold bg-primary/10">
                 {instructor?.nombre?.substring(0, 2).toUpperCase()}
@@ -351,12 +299,12 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
 
       {/* Main Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-2 w-full bg-muted/50">
-          <TabsTrigger value="clases-pagos" className="data-[state=active]:bg-primary/10">
+        <TabsList className="  bg-transparent ">
+          <TabsTrigger value="clases-pagos" className="px-10 py-3 rounded-none data-[state=active]:border-b-[3px] data-[state=active]:border-accent ">
             <Calendar className="h-4 w-4 mr-2" />
             Clases y Pagos
           </TabsTrigger>
-          <TabsTrigger value="rendimiento" className="data-[state=active]:bg-primary/10">
+          <TabsTrigger value="rendimiento" className="px-10 py-3 rounded-none data-[state=active]:border-b-[3px] data-[state=active]:border-accent ">
             <BarChart3 className="h-4 w-4 mr-2" />
             Rendimiento
           </TabsTrigger>
@@ -399,7 +347,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                 />
               ) : (
                 <>
-                  <div className="flex justify-between items-center mb-4 bg-gradient-to-r from-primary/5 to-background p-4 rounded-lg border">
+                  {/* <div className="flex justify-between items-center mb-4 bg-gradient-to-r from-primary/5 to-background p-4 rounded-lg border">
                     <div className="flex items-center gap-4">
                       <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                         <DollarSign className="h-6 w-6 text-primary" />
@@ -415,7 +363,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                         Total de clases: <span className="font-medium">{totalClases}</span>
                       </p>
                     </div>
-                  </div>
+                  </div> */}
                   
                   <div className="rounded-lg border overflow-hidden">
                     <div className="overflow-x-auto">
@@ -426,11 +374,11 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                             <TableHead>Disciplina</TableHead>
                             <TableHead>Estudio</TableHead>
                             <TableHead>Ocupación</TableHead>
-                            <TableHead className="text-right">Monto</TableHead>
+                            <TableHead className="">Monto</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {paymentDetails.map((detail) => (
+                          {currentPayments.map((detail) => (
                             <TableRow key={detail.claseId}>
                               <TableCell className="whitespace-nowrap">
                                 <div className="flex items-center">
@@ -439,9 +387,9 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <Badge variant="secondary" className="whitespace-nowrap">
+ 
                                   {detail.disciplina}
-                                </Badge>
+                         
                               </TableCell>
                               <TableCell>{detail.estudio}</TableCell>
                               <TableCell>
@@ -464,7 +412,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                                   </Tooltip>
                                 </TooltipProvider>
                               </TableCell>
-                              <TableCell className="text-right font-medium whitespace-nowrap">
+                              <TableCell className="text-rght font-medium whitespace-nowrap">
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger className="flex items-center justify-end gap-1">
@@ -499,39 +447,47 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                           ))}
                         </TableBody>
                       </Table>
+                      
                     </div>
+                    
                   </div>
+                  <div className="flex items-center justify-end space-x-2 py-4">
+                  <div className="flex items-center justify-end gap-4 py-4">
+    <div className="flex items-center gap-2">
+      <button
+        className="p-2 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed hover:text-white"
+        onClick={() => setCurrentPage(old => Math.max(old - 1, 0))}
+        disabled={currentPage === 0}
+        aria-label="Página anterior"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      
+      <span className="text-sm text-muted-foreground">
+        {currentPage + 1} / {totalPages}
+      </span>
+
+      <button
+        className="p-2 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed hover:text-white"
+        onClick={() => setCurrentPage(old => old + 1)}
+        disabled={currentPage >= totalPages - 1}
+        aria-label="Siguiente página"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
+ 
+  </div>
                 </>
               )}
             </CardContent>
             
-            <CardFooter className="flex justify-between border-t pt-6">
-              <div>
-                {/* Espacio para información adicional si es necesario */}
-              </div>
               
-              <Button
-                onClick={handleUpdatePayment}
-                disabled={isUpdatingPayment || !periodosSeleccionados.length || clasesPeriodo.length === 0}
-                className="flex items-center gap-2"
-              >
-                {isUpdatingPayment ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Actualizando pago...
-                  </>
-                ) : (
-                  <>
-                    <DollarSign className="h-4 w-4" />
-                    Actualizar pago
-                  </>
-                )}
-              </Button>
-            </CardFooter>
           </Card>
 
           {/* Payment Status Card */}
-          <Card className="border-none shadow-sm">
+          {/* <Card className="border-none shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-primary" />
@@ -555,7 +511,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
               ) : (
                 <div className="space-y-4">
                   {pagosPeriodo.map((pago) => (
-                    <div key={pago.id} className="bg-gradient-to-r from-primary/5 to-background p-4 rounded-lg border">
+                    <div key={pago.id} className="bg-gradient-to-r from-secondary/5 to-secondary/5 p-4 rounded-lg border">
                       <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
                           {pago.estado === "APROBADO" ? (
@@ -606,7 +562,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* Payment History Card */}
           <Card className="border-none shadow-sm">
@@ -705,7 +661,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+      </DashboardShell>
   )
 }
 
@@ -719,7 +675,7 @@ function StatCard({ icon, title, value, description, color }: {
   color?: string 
 }) {
   return (
-    <div className="bg-background rounded-lg p-4 border flex items-center gap-3 hover:shadow-sm transition-shadow">
+    <div className="bg-background/20 rounded-lg p-4 border flex items-center gap-3 hover:shadow-sm transition-shadow">
       <div className={`h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center ${color}`}>
         {icon}
       </div>
