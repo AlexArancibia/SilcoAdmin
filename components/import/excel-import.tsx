@@ -35,7 +35,7 @@ import * as XLSX from "xlsx"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Badge } from "@/components/ui/badge"
-import { type Instructor, type Disciplina, type Periodo, type Clase, EstadoPago } from "@/types/schema"
+import type { Instructor, Disciplina, Periodo, Clase } from "@/types/schema"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { clasesApi } from "@/lib/api/clases-api"
@@ -57,6 +57,7 @@ interface InstructorAnalysis {
   }>
 }
 
+// Modify the DisciplineAnalysis interface to add a new property for VS detection
 interface DisciplineAnalysis {
   total: number
   existing: number
@@ -67,14 +68,11 @@ interface DisciplineAnalysis {
     count: number
     mappedTo?: string
     matchedDiscipline?: Disciplina
+    matchedInstructor?: Instructor
   }>
 }
 
-// Asegurarnos de importar la función evaluarFormula
-import { evaluarFormula } from "@/lib/formula-evaluator"
 import { useFormulasStore } from "@/store/useFormulaStore"
-import { ResultadoFormula } from "@/types/formula"
-import { retencionValor } from "@/utils/const"
 
 export function ExcelImport() {
   // Función para obtener el nombre del periodo
@@ -95,7 +93,10 @@ export function ExcelImport() {
   const [resultado, setResultado] = useState<ResultadoImportacion | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pagosCreados, setPagosCreados] = useState<number>(0)
-  const [periodoSeleccionadoId,setPeriodoSeleccionadoId] = useState<number | null>(0)
+  const [periodoSeleccionadoId, setPeriodoSeleccionadoId] = useState<number | null>(0)
+
+  // Add a new state for status messages
+  const [statusMessage, setStatusMessage] = useState<string>("")
 
   // Inicializar estados con valores por defecto
   const [instructorAnalysis, setInstructorAnalysis] = useState<InstructorAnalysis>({
@@ -112,20 +113,27 @@ export function ExcelImport() {
     disciplines: [],
   })
 
+  // Modify the VS instructors state to include options for keeping/discarding instructors
+  const [vsInstructors, setVsInstructors] = useState<
+    Array<{
+      originalName: string
+      instructor1: string
+      instructor2: string
+      count: number
+      keepInstructor1: boolean
+      keepInstructor2: boolean
+    }>
+  >([])
+
   // Obtener datos de los stores
-  const {
-    periodos,
-    periodoActual,
-    fetchPeriodos,
-    isLoading: isLoadingPeriodos,
-  } = usePeriodosStore()
+  const { periodos, periodoActual, fetchPeriodos, isLoading: isLoadingPeriodos } = usePeriodosStore()
 
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
-  const {formulas, fetchFormulas} = useFormulasStore()
+  const { formulas, fetchFormulas } = useFormulasStore()
   const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
-  
+
   // Obtener el store de pagos
-  const { pagos, actualizarPago, fetchPagos, crearPago } = usePagosStore()
+  const {} = usePagosStore() // No longer needed
 
   // Cargar datos iniciales si están vacíos
   useEffect(() => {
@@ -140,12 +148,9 @@ export function ExcelImport() {
       if (formulas.length === 0) {
         promises.push(fetchFormulas())
       }
-
-
       if (disciplinas.length === 0) {
         promises.push(fetchDisciplinas())
       }
-
       if (instructores.length === 0) {
         promises.push(fetchInstructores())
       }
@@ -170,13 +175,23 @@ export function ExcelImport() {
     }
 
     loadInitialData()
-  }, [periodos.length,formulas.length, disciplinas.length, instructores.length, fetchPeriodos, fetchFormulas,fetchDisciplinas, fetchInstructores])
+  }, [
+    periodos.length,
+    formulas.length,
+    disciplinas.length,
+    instructores.length,
+    fetchPeriodos,
+    fetchFormulas,
+    fetchDisciplinas,
+    fetchInstructores,
+  ])
 
-  useEffect(()=>{
+  useEffect(() => {
     if (periodoActual) {
       setPeriodoSeleccionadoId(periodoActual.id)
     }
-  },[periodoActual])
+  }, [periodoActual])
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0])
@@ -229,6 +244,7 @@ export function ExcelImport() {
 
             // Asegurarse de que los campos numéricos sean números
             const numericFields = [
+              "ID_clase",
               "Reservas Totales",
               "Listas de Espera",
               "Cortesias",
@@ -285,24 +301,79 @@ export function ExcelImport() {
     }
   }
 
+  // Modify the analyzeInstructors function to detect "vs" in instructor names
   const analyzeInstructors = (data: DatosExcelClase[]) => {
     // Obtener todos los instructores únicos del archivo y sus disciplinas
     const instructorInfo: Record<string, { count: number; disciplines: Set<string> }> = {}
+    const vsInstructorsData: Array<{
+      originalName: string
+      instructor1: string
+      instructor2: string
+      count: number
+      keepInstructor1: boolean
+      keepInstructor2: boolean
+    }> = []
 
     data.forEach((row) => {
       const instructor = row.Instructor
       const discipline = row.Disciplina
 
-      if (!instructorInfo[instructor]) {
-        instructorInfo[instructor] = {
-          count: 0,
-          disciplines: new Set<string>(),
-        }
-      }
+      // Check if instructor name contains "vs" or "VS"
+      if (instructor.toLowerCase().includes(" vs ")) {
+        const parts = instructor.split(/\s+vs\s+/i)
+        if (parts.length === 2) {
+          const instructor1 = parts[0].trim()
+          const instructor2 = parts[1].trim()
 
-      instructorInfo[instructor].count += 1
-      instructorInfo[instructor].disciplines.add(discipline)
+          // Add individual instructors to instructorInfo instead of the VS name
+          if (!instructorInfo[instructor1]) {
+            instructorInfo[instructor1] = {
+              count: 0,
+              disciplines: new Set<string>(),
+            }
+          }
+          instructorInfo[instructor1].count += 1
+          instructorInfo[instructor1].disciplines.add(discipline)
+
+          if (!instructorInfo[instructor2]) {
+            instructorInfo[instructor2] = {
+              count: 0,
+              disciplines: new Set<string>(),
+            }
+          }
+          instructorInfo[instructor2].count += 1
+          instructorInfo[instructor2].disciplines.add(discipline)
+
+          // Check if this vs instructor is already in our list
+          const existingIndex = vsInstructorsData.findIndex((vi) => vi.originalName === instructor)
+          if (existingIndex === -1) {
+            vsInstructorsData.push({
+              originalName: instructor,
+              instructor1: instructor1,
+              instructor2: instructor2,
+              count: 1,
+              keepInstructor1: true,
+              keepInstructor2: true,
+            })
+          } else {
+            vsInstructorsData[existingIndex].count++
+          }
+        }
+      } else {
+        // Regular instructor
+        if (!instructorInfo[instructor]) {
+          instructorInfo[instructor] = {
+            count: 0,
+            disciplines: new Set<string>(),
+          }
+        }
+        instructorInfo[instructor].count += 1
+        instructorInfo[instructor].disciplines.add(discipline)
+      }
     })
+
+    // Set the VS instructors state
+    setVsInstructors(vsInstructorsData)
 
     // Filtrar solo instructores activos
     const activeInstructores = instructores.filter(
@@ -311,7 +382,7 @@ export function ExcelImport() {
 
     // Crear el análisis
     const instructorsAnalysis = Object.keys(instructorInfo).map((name) => {
-      // Buscar si existe un instructor con este nombre
+      // Buscar si existe un instructor con este nombre - preserve case when searching
       const matchedInstructor = activeInstructores.find((i) => i.nombre.toLowerCase() === name.toLowerCase())
 
       return {
@@ -397,10 +468,10 @@ export function ExcelImport() {
     setResultado(null)
     setError(null)
     setPagosCreados(0)
+    setStatusMessage("")
   }
 
   // Función para crear un instructor y devolver su ID
-  // Modificar la función createInstructor para agregar logs
   const logObject = (obj: any) => {
     return JSON.stringify(obj, null, 2)
   }
@@ -433,13 +504,26 @@ export function ExcelImport() {
     }
   }
 
+  // Modify the createInstructor function to include default values for the new fields
   const createInstructor = async (nombre: string, disciplinaIds?: number[]): Promise<number> => {
+    // Check if the name contains "vs" - if so, don't create the instructor
+    if (nombre.toLowerCase().includes(" vs ")) {
+      console.error(`No se puede crear un instructor con "vs" en el nombre: ${nombre}`)
+      throw new Error(`No se puede crear un instructor con "vs" en el nombre: ${nombre}`)
+    }
+
+    // Capitalize each word in the instructor name
+    const capitalizedName = nombre
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+
     console.log(
-      `Intentando crear instructor: ${nombre}${disciplinaIds ? ` con disciplinas: ${disciplinaIds.join(", ")}` : ""}`,
+      `Intentando crear instructor: ${capitalizedName}${disciplinaIds ? ` con disciplinas: ${disciplinaIds.join(", ")}` : ""}`,
     )
 
     try {
-      // Generar la contraseña basada en el patrón definido
+      // Generar la contraseña basada en el patrón definido - use lowercase only for password generation
       const nombreSinEspacios = nombre.replace(/\s+/g, "").toLowerCase()
       const cantidadLetras = nombreSinEspacios.length
       const simbolo = cantidadLetras % 2 === 0 ? "#" : "%"
@@ -447,8 +531,9 @@ export function ExcelImport() {
       const hashedPassword = await hash(patternPassword, 10)
 
       // Crear el instructor usando la nueva API con disciplinaIds y contraseña
+      // Use the capitalized name
       const nuevoInstructor = await instructoresApi.crearInstructor({
-        nombre,
+        nombre: capitalizedName, // Use capitalized name
         password: hashedPassword, // Agregar la contraseña hasheada
         extrainfo: {
           estado: "ACTIVO",
@@ -457,112 +542,23 @@ export function ExcelImport() {
           passwordTemporal: patternPassword, // Guardar la contraseña temporal en extrainfo
         },
         disciplinaIds: disciplinaIds || [], // Agregar disciplinaIds al crear el instructor
+        cumpleLineamientos: false, // Valor por defecto
+        dobleteos: 0, // Valor por defecto
+        horariosNoPrime: 0, // Valor por defecto
+        participacionEventos: false, // Valor por defecto
       })
 
       console.log(
-        `Instructor creado exitosamente: ${nombre}, ID: ${nuevoInstructor.id}, contraseña temporal: ${patternPassword}`,
+        `Instructor creado exitosamente: ${capitalizedName}, ID: ${nuevoInstructor.id}, contraseña temporal: ${patternPassword}`,
       )
       return nuevoInstructor.id
     } catch (error) {
-      console.error(`Error al crear instructor ${nombre}:`, error)
+      console.error(`Error al crear instructor ${capitalizedName}:`, error)
       throw error
-    }
-}
-
-  // Modificar la función crearPagoParaInstructor para calcular el monto basado en las clases
-  // Modify the crearPagoParaInstructor function to add more console logs
-  // Corregir template literals en toda la función y ajustar lógica de actualización
-  const crearPagoParaInstructor = async (
-    instructorId: number,
-    periodoId: number,
-    pagosExistentes: Record<string, boolean>,
-  ): Promise<boolean> => {
-    const pagoKey = `${instructorId}-${periodoId}` // Usar backticks
-
-    console.log(`=== INICIANDO CREACIÓN/ACTUALIZACIÓN DE PAGO PARA INSTRUCTOR ID ${instructorId} ===`)
-    console.log(`Periodo ID: ${periodoId}, Clave de pago: ${pagoKey}`)
-    console.log(`Pago existente: ${pagosExistentes[pagoKey] ? "Sí" : "No"}`)
-
-    try {
-      const clasesInstructor = await clasesApi.getClases({ instructorId, periodoId })
-      console.log(`Encontradas ${clasesInstructor.length} clases para el instructor ID ${instructorId}`)
-
-      if (clasesInstructor.length === 0) {
-        console.log(`No hay clases para el instructor ID ${instructorId}`)
-        return false
-      }
-
-      let montoTotal = 0
-      const detallesClases: { claseId: number; fecha: Date; disciplina: string; montoCalculado: number; detalleCalculo: ResultadoFormula }[] = []
-
-      for (const clase of clasesInstructor) {
-        const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
-        if (!disciplina) continue
-
-        const formula = formulas.filter(f => f.disciplinaId === disciplina.id && f.periodoId === periodoId)[0]
-        if (!formula) continue
-
-        try {
-          const resultado = evaluarFormula(formula.parametros.formula, {
-            reservaciones: clase.reservasTotales,
-            listaEspera: clase.listasEspera,
-            cortesias: clase.cortesias,
-            capacidad: clase.lugares,
-            reservasPagadas: clase.reservasPagadas,
-            lugares: clase.lugares,
-          })
-
-          montoTotal += resultado.valor || 0
-          detallesClases.push({
-            claseId: clase.id,
-            fecha: clase.fecha,
-            disciplina: disciplina.nombre,
-            montoCalculado: resultado.valor,
-            detalleCalculo: resultado,
-          })
-        } catch (error) {
-          console.error(`Error en clase ${clase.id}:`, error)
-        }
-      }
-
-      // Si no hay montos válidos, no crear pago
-      if (montoTotal <= 0 && detallesClases.length === 0) {
-        console.log(`No hay montos válidos para crear pago (Instructor ${instructorId})`)
-        return false
-      }
-
-      // Lógica simplificada de creación/actualización
-      if (pagosExistentes[pagoKey]) {
-        const pagoExistente = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoId)
-        if (pagoExistente) {
-          await actualizarPago(instructorId, { ...pagoExistente, monto: montoTotal, retencion:montoTotal*retencionValor })
-          console.log(`Pago actualizado para instructor ${instructorId}`)
-        }
-      } else {
- 
-        await crearPago({
-          instructorId,
-          periodoId,
-          monto: montoTotal,
-          estado: "PENDIENTE",
-          detalles: { clases: detallesClases },
-          retencion: montoTotal*retencionValor,
-          reajuste: 0,
-          tipoReajuste: "FIJO",
-          pagoFinal:montoTotal-retencionValor 
-        })
-        pagosExistentes[pagoKey] = true
-        console.log(`Pago creado para instructor ${instructorId}`)
-      }
-
-      return true
-    } catch (error) {
-      console.error(`Error procesando pago instructor ${instructorId}:`, error)
-      return false
     }
   }
 
-  // Modificar la función handleSubmit para mejorar la depuración y adaptarla al nuevo schema
+  // Modify the handleSubmit function to remove payment creation
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -595,55 +591,13 @@ export function ExcelImport() {
 
     try {
       setIsImporting(true)
+      setStatusMessage("Iniciando proceso de importación...")
       setProgress(5)
       setError(null)
       setPagosCreados(0)
       console.log("=== INICIANDO PROCESO DE IMPORTACIÓN ===")
       console.log(`Periodo seleccionado: ${periodoSeleccionadoId}, Semana: ${selectedWeek}`)
 
-      // Cargar pagos existentes para el periodo
-      console.log(`Cargando pagos existentes para el periodo ${periodoSeleccionadoId}`)
-      await fetchPagos({ periodoId: periodoSeleccionadoId })
-
-      // Crear un mapa para rastrear los pagos existentes
-      const pagosExistentes: Record<string, boolean> = {}
-
-      // Llenar el mapa con los pagos existentes
-      pagos.forEach((pago) => {
-        const key = `${pago.instructorId}-${pago.periodoId}`
-        pagosExistentes[key] = true
-      })
-
-      console.log(`Se encontraron ${Object.keys(pagosExistentes).length} pagos existentes para el periodo`)
-
-      // 1. Eliminar clases existentes para el periodo y semana seleccionados
-      const weekNumber = Number.parseInt(selectedWeek)
-      console.log(`Buscando clases existentes para periodo ${periodoSeleccionadoId} y semana ${weekNumber}`)
-
-      // Obtener clases existentes para el periodo y semana
-      const clasesExistentes = await clasesApi.getClases({
-        periodoId: periodoSeleccionadoId,
-        semana: weekNumber,
-      })
-      console.log(`Se encontraron ${clasesExistentes.length} clases existentes para eliminar`)
-
-      setProgress(15)
-
-      // Eliminar clases existentes
-      let clasesEliminadas = 0
-      if (clasesExistentes.length > 0) {
-        console.log("Eliminando clases existentes...")
-        for (const clase of clasesExistentes) {
-          console.log(`Eliminando clase ID: ${clase.id}`)
-          await clasesApi.deleteClase(clase.id)
-          clasesEliminadas++
-        }
-        console.log(`Se eliminaron ${clasesEliminadas} clases existentes`)
-      }
-
-      setProgress(30)
-
-      // 2. Procesar y crear nuevas clases
       // Aplicar mapeos de disciplinas si existen
       console.log("Aplicando mapeos de disciplinas...")
       const processedData = parsedData.map((row) => {
@@ -655,16 +609,9 @@ export function ExcelImport() {
         return row
       })
 
-      // Crear nuevas clases
-      const errores: ErrorImportacion[] = []
-      let clasesCreadas = 0
-      let registrosConError = 0
-      let instructoresCreados = 0
-
-      // Modificar la función handleSubmit para manejar correctamente múltiples disciplinas por instructor
-      // Específicamente, vamos a modificar la parte donde se procesan los instructores y disciplinas
-
-      // Dentro de la función handleSubmit, reemplazar la sección de procesamiento de instructores y disciplinas with this code:
+      // 1. PASO 1: VERIFICAR Y CREAR INSTRUCTORES
+      setStatusMessage("Verificando y creando instructores...")
+      setProgress(10)
 
       // Caché de instructores para evitar búsquedas repetidas
       const instructoresCache: Record<string, number> = {}
@@ -701,7 +648,100 @@ export function ExcelImport() {
         console.log(`Instructor ${instructor} necesita las disciplinas: ${Array.from(disciplinaIds).join(", ")}`)
       })
 
-      console.log(`Total de registros a procesar: ${processedData.length}`)
+      // Crear o actualizar instructores
+      let instructoresCreados = 0
+      const errores: ErrorImportacion[] = []
+
+      // Modify the section in handleSubmit where instructors are processed
+      for (const [instructorNombre, disciplinaIdsSet] of Object.entries(instructorDisciplinas)) {
+        try {
+          const disciplinaIdsArray = Array.from(disciplinaIdsSet)
+
+          // Verificar si ya existe el instructor - use case-insensitive comparison but preserve original case
+          const instructorNombreLower = instructorNombre.toLowerCase()
+          if (Object.keys(instructoresCache).some((name) => name.toLowerCase() === instructorNombreLower)) {
+            // Find the exact key with case preserved
+            const exactKey = Object.keys(instructoresCache).find((name) => name.toLowerCase() === instructorNombreLower)
+            const instructorId = instructoresCache[exactKey!]
+            console.log(`Instructor encontrado en caché: ${instructorNombre} (ID: ${instructorId})`)
+
+            // Actualizar disciplinas si es necesario
+            const instructorExistente = instructores.find((i) => i.id === instructorId)
+            if (instructorExistente) {
+              const disciplinasActuales = instructorExistente.disciplinas?.map((d) => d.id) || []
+
+              // Filtrar solo las disciplinas que no tiene asignadas
+              const nuevasDisciplinas = disciplinaIdsArray.filter((id) => !disciplinasActuales.includes(id))
+
+              if (nuevasDisciplinas.length > 0) {
+                await instructoresApi.actualizarInstructor(instructorId, {
+                  disciplinaIds: [...disciplinasActuales, ...nuevasDisciplinas],
+                })
+                console.log(
+                  `Disciplinas asignadas al instructor existente ${instructorNombre}: ${nuevasDisciplinas.join(", ")}`,
+                )
+              }
+            }
+
+            instructoresUnicos.add(instructorId)
+          } else {
+            // Crear nuevo instructor - preserve original case
+            console.log(`Creando nuevo instructor: ${instructorNombre}`)
+            const instructorId = await createInstructor(
+              instructorNombre,
+              disciplinaIdsArray.length > 0 ? disciplinaIdsArray : undefined,
+            )
+
+            // Store with original case preserved
+            instructoresCache[instructorNombre] = instructorId
+            instructoresCreados++
+            instructoresUnicos.add(instructorId)
+            console.log(`Instructor creado: ${instructorNombre} (ID: ${instructorId})`)
+          }
+        } catch (error) {
+          console.error(`Error al procesar instructor ${instructorNombre}:`, error)
+          errores.push({
+            fila: 0, // No podemos saber la fila exacta aquí
+            mensaje: `Error al procesar instructor "${instructorNombre}": ${error instanceof Error ? error.message : "Error desconocido"}`,
+          })
+        }
+      }
+
+      setProgress(25)
+
+      // 2. PASO 2: ELIMINAR CLASES EXISTENTES
+      setStatusMessage("Buscando y eliminando clases existentes...")
+
+      const weekNumber = Number.parseInt(selectedWeek)
+      console.log(`Buscando clases existentes para periodo ${periodoSeleccionadoId} y semana ${weekNumber}`)
+
+      // Obtener clases existentes para el periodo y semana
+      const clasesExistentes = await clasesApi.getClases({
+        periodoId: periodoSeleccionadoId,
+        semana: weekNumber,
+      })
+      console.log(`Se encontraron ${clasesExistentes.length} clases existentes para eliminar`)
+
+      // Eliminar clases existentes
+      let clasesEliminadas = 0
+      if (clasesExistentes.length > 0) {
+        console.log("Eliminando clases existentes...")
+        for (const clase of clasesExistentes) {
+          console.log(`Eliminando clase ID: ${clase.id}`)
+          await clasesApi.deleteClase(clase.id)
+          clasesEliminadas++
+        }
+        console.log(`Se eliminaron ${clasesEliminadas} clases existentes`)
+      }
+
+      setProgress(40)
+
+      // 3. PASO 3: CREAR NUEVAS CLASES
+      setStatusMessage("Creando nuevas clases...")
+
+      let clasesCreadas = 0
+      let registrosConError = 0
+
       for (let i = 0; i < processedData.length; i++) {
         try {
           const row = processedData[i]
@@ -711,7 +751,7 @@ export function ExcelImport() {
           )
 
           // Actualizar progreso
-          setProgress(30 + Math.floor((i / processedData.length) * 50)) // Ajustado para dejar espacio para el procesamiento de pagos
+          setProgress(40 + Math.floor((i / processedData.length) * 60)) // Ajustado para llegar a 100% sin el paso de pagos
 
           // Buscar disciplina
           const disciplina = disciplinas.find((d) => d.nombre.toLowerCase() === row.Disciplina.toLowerCase())
@@ -727,123 +767,145 @@ export function ExcelImport() {
           }
           console.log(`Disciplina encontrada: ${disciplina.nombre} (ID: ${disciplina.id})`)
 
-          // Buscar o crear instructor
-          let instructorId: number | undefined
-          const instructorNombre = row.Instructor
-          const instructorNombreLower = instructorNombre.toLowerCase()
+          // Check if this is a VS instructor
+          const isVsInstructor = row.Instructor.toLowerCase().includes(" vs ")
+          const instructorIds: number[] = []
 
-          console.log(`Buscando instructor: ${instructorNombre}`)
+          // Modify the section in handleSubmit where VS instructors are processed
+          if (isVsInstructor) {
+            // Split the instructor name
+            const parts = row.Instructor.split(/\s+vs\s+/i)
+            if (parts.length === 2) {
+              const instructor1Name = parts[0].trim()
+              const instructor2Name = parts[1].trim()
 
-          // Verificar si ya tenemos el ID en caché
-          if (instructoresCache[instructorNombreLower]) {
-            instructorId = instructoresCache[instructorNombreLower]
-            console.log(`Instructor encontrado en caché: ${instructorNombre} (ID: ${instructorId})`)
+              // Get the VS instructor configuration
+              const vsInstructorConfig = vsInstructors.find((vi) => vi.originalName === row.Instructor)
 
-            // Si el instructor existe, asignarle todas las disciplinas recopiladas
-            if (!instructoresUnicos.has(instructorId)) {
-              // Solo hacemos esto la primera vez que encontramos este instructor
-              const instructorExistente = instructores.find((i) => i.id === instructorId)
-              if (instructorExistente) {
-                const disciplinaIdsArray = Array.from(instructorDisciplinas[instructorNombreLower] || [])
-                if (disciplinaIdsArray.length > 0) {
+              // Check which instructors to keep
+              const keepInstructor1 = vsInstructorConfig?.keepInstructor1 ?? true
+              const keepInstructor2 = vsInstructorConfig?.keepInstructor2 ?? true
+
+              // Get or create both instructors
+              if (keepInstructor1) {
+                // Look for instructor1 in cache (case-insensitive search but preserve original case)
+                const instructor1NameLower = instructor1Name.toLowerCase()
+                const exactKey1 = Object.keys(instructoresCache).find(
+                  (name) => name.toLowerCase() === instructor1NameLower,
+                )
+
+                if (exactKey1) {
+                  instructorIds.push(instructoresCache[exactKey1])
+                } else {
+                  // Create new instructor with original case
+                  // Also add an additional check in the section where VS instructors are processed
+                  // to ensure we never create an instructor with "vs" in the name
+                  if (instructor1Name.toLowerCase().includes(" vs ")) {
+                    console.error(`No se puede crear un instructor con "vs" en el nombre: ${instructor1Name}`)
+                    errores.push({
+                      fila: i + 1,
+                      mensaje: `No se puede crear un instructor con "vs" en el nombre: ${instructor1Name}`,
+                    })
+                    continue
+                  }
                   try {
-                    // Obtener las disciplinas actuales del instructor
-                    const disciplinasActuales = instructorExistente.disciplinas?.map((d) => d.id) || []
+                    console.log(`Creando nuevo instructor desde VS: ${instructor1Name}`)
+                    const disciplinaIdsArray = disciplina ? [disciplina.id] : []
+                    const instructorId = await createInstructor(
+                      instructor1Name,
+                      disciplinaIdsArray.length > 0 ? disciplinaIdsArray : undefined,
+                    )
 
-                    // Filtrar solo las disciplinas que no tiene asignadas
-                    const nuevasDisciplinas = disciplinaIdsArray.filter((id) => !disciplinasActuales.includes(id))
-
-                    if (nuevasDisciplinas.length > 0) {
-                      // Actualizar el instructor con todas sus disciplinas (actuales + nuevas)
-                      await instructoresApi.actualizarInstructor(instructorId, {
-                        disciplinaIds: [...disciplinasActuales, ...nuevasDisciplinas],
-                      })
-                      console.log(
-                        `Disciplinas asignadas al instructor existente ${instructorNombre}: ${nuevasDisciplinas.join(", ")}`,
-                      )
-                    } else {
-                      console.log(`El instructor ${instructorNombre} ya tiene todas las disciplinas necesarias`)
-                    }
+                    instructoresCache[instructor1Name] = instructorId
+                    instructoresCreados++
+                    instructoresUnicos.add(instructorId)
+                    instructorIds.push(instructorId)
+                    console.log(`Instructor creado desde VS: ${instructor1Name} (ID: ${instructorId})`)
                   } catch (error) {
-                    console.error(`Error al asignar disciplinas al instructor existente:`, error)
-                    // Continuamos con la importación aunque falle la asignación
+                    console.error(`Error al crear instructor desde VS ${instructor1Name}:`, error)
+                    errores.push({
+                      fila: i + 1,
+                      mensaje: `Error al crear instructor desde VS "${instructor1Name}": ${error instanceof Error ? error.message : "Error desconocido"}`,
+                    })
+                    continue
                   }
                 }
               }
-              instructoresUnicos.add(instructorId)
+
+              if (keepInstructor2) {
+                // Look for instructor2 in cache (case-insensitive search but preserve original case)
+                const instructor2NameLower = instructor2Name.toLowerCase()
+                const exactKey2 = Object.keys(instructoresCache).find(
+                  (name) => name.toLowerCase() === instructor2NameLower,
+                )
+
+                if (exactKey2) {
+                  instructorIds.push(instructoresCache[exactKey2])
+                } else {
+                  // Create new instructor with original case
+                  // Also add an additional check in the section where VS instructors are processed
+                  // to ensure we never create an instructor with "vs" in the name
+                  if (instructor2Name.toLowerCase().includes(" vs ")) {
+                    console.error(`No se puede crear un instructor con "vs" en el nombre: ${instructor2Name}`)
+                    errores.push({
+                      fila: i + 1,
+                      mensaje: `No se puede crear un instructor con "vs" en el nombre: ${instructor2Name}`,
+                    })
+                    continue
+                  }
+                  try {
+                    console.log(`Creando nuevo instructor desde VS: ${instructor2Name}`)
+                    const disciplinaIdsArray = disciplina ? [disciplina.id] : []
+                    const instructorId = await createInstructor(
+                      instructor2Name,
+                      disciplinaIdsArray.length > 0 ? disciplinaIdsArray : undefined,
+                    )
+
+                    instructoresCache[instructor2Name] = instructorId
+                    instructoresCreados++
+                    instructoresUnicos.add(instructorId)
+                    instructorIds.push(instructorId)
+                    console.log(`Instructor creado desde VS: ${instructor2Name} (ID: ${instructorId})`)
+                  } catch (error) {
+                    console.error(`Error al crear instructor desde VS ${instructor2Name}:`, error)
+                    errores.push({
+                      fila: i + 1,
+                      mensaje: `Error al crear instructor desde VS "${instructor2Name}": ${error instanceof Error ? error.message : "Error desconocido"}`,
+                    })
+                    continue
+                  }
+                }
+              }
+            } else {
+              // Invalid VS format
+              console.error(`Formato inválido de instructor VS: "${row.Instructor}"`)
+              errores.push({
+                fila: i + 1,
+                mensaje: `Formato inválido de instructor VS: "${row.Instructor}"`,
+              })
+              registrosConError++
+              continue
             }
           } else {
-            // Si no está en caché, intentar crearlo con todas las disciplinas recopiladas
-            console.log(`Instructor no encontrado en caché, intentando crear: ${instructorNombre}`)
-            try {
-              // Obtener todas las disciplinas para este instructor
-              const disciplinaIdsArray = Array.from(instructorDisciplinas[instructorNombreLower] || [])
-              console.log(`Creando instructor con disciplinas: ${disciplinaIdsArray.join(", ")}`)
+            // Regular instructor
+            const instructorNombre = row.Instructor
+            const instructorNombreLower = instructorNombre.toLowerCase()
 
-              // Crear el instructor con todas sus disciplinas
-              instructorId = await createInstructor(
-                instructorNombre,
-                disciplinaIdsArray.length > 0 ? disciplinaIdsArray : undefined,
-              )
-              instructoresCache[instructorNombreLower] = instructorId
-              instructoresCreados++
-              instructoresUnicos.add(instructorId)
-              console.log(`Instructor creado y agregado a caché: ${instructorNombre} (ID: ${instructorId})`)
-            } catch (error) {
-              console.error(`Error al crear instructor, intentando buscar de nuevo: ${instructorNombre}`, error)
-              // Si hay un error al crear (por ejemplo, ya existe), intentar buscarlo de nuevo
-              await fetchInstructores()
-              const instructorCreado = instructores.find((i) => i.nombre.toLowerCase() === instructorNombreLower)
+            // Find the exact key with case preserved
+            const exactKey = Object.keys(instructoresCache).find((name) => name.toLowerCase() === instructorNombreLower)
 
-              if (instructorCreado) {
-                instructorId = instructorCreado.id
-                instructoresCache[instructorNombreLower] = instructorId
-                console.log(`Instructor encontrado después de recargar: ${instructorNombre} (ID: ${instructorId})`)
-
-                // Si encontramos el instructor, asignarle todas las disciplinas recopiladas
-                if (!instructoresUnicos.has(instructorId)) {
-                  const disciplinaIdsArray = Array.from(instructorDisciplinas[instructorNombreLower] || [])
-                  if (disciplinaIdsArray.length > 0) {
-                    try {
-                      // Obtener las disciplinas actuales del instructor
-                      const disciplinasActuales = instructorCreado.disciplinas?.map((d) => d.id) || []
-
-                      // Filtrar solo las disciplinas que no tiene asignadas
-                      const nuevasDisciplinas = disciplinaIdsArray.filter((id) => !disciplinasActuales.includes(id))
-
-                      if (nuevasDisciplinas.length > 0) {
-                        // Actualizar el instructor con todas sus disciplinas (actuales + nuevas)
-                        await instructoresApi.actualizarInstructor(instructorId, {
-                          disciplinaIds: [...disciplinasActuales, ...nuevasDisciplinas],
-                        })
-                        console.log(
-                          `Disciplinas asignadas al instructor encontrado ${instructorNombre}: ${nuevasDisciplinas.join(", ")}`,
-                        )
-                      } else {
-                        console.log(`El instructor ${instructorNombre} ya tiene todas las disciplinas necesarias`)
-                      }
-                    } catch (error) {
-                      console.error(`Error al asignar disciplinas al instructor encontrado:`, error)
-                      // Continuamos con la importación aunque falle la asignación
-                    }
-                  }
-                  instructoresUnicos.add(instructorId)
-                }
-              } else {
-                console.error(`No se pudo encontrar ni crear el instructor: ${instructorNombre}`)
-                errores.push({
-                  fila: i + 1,
-                  mensaje: `Error al crear el instructor "${instructorNombre}": ${error instanceof Error ? error.message : "Error desconocido"}`,
-                })
-                registrosConError++
-                continue
-              }
+            if (!exactKey) {
+              console.error(`No se encontró el instructor "${instructorNombre}" en caché`)
+              errores.push({
+                fila: i + 1,
+                mensaje: `No se encontró el instructor "${instructorNombre}"`,
+              })
+              registrosConError++
+              continue
             }
-          }
 
-          // Si encontramos o creamos un instructor, lo agregamos al conjunto de instructores únicos
-          if (instructorId) {
-            instructoresUnicos.add(instructorId)
+            instructorIds.push(instructoresCache[exactKey])
+            console.log(`Instructor encontrado: ${instructorNombre} (ID: ${instructoresCache[exactKey]})`)
           }
 
           // Convertir fecha
@@ -894,39 +956,145 @@ export function ExcelImport() {
             continue
           }
 
-          // Crear objeto de clase según el nuevo schema
-          const nuevaClase: Partial<Clase> = {
-            periodoId: periodoSeleccionadoId,
-            disciplinaId: disciplina.id,
-            instructorId: instructorId,
-            pais: row.País || "México",
-            ciudad: row.Ciudad || "Ciudad de México",
-            estudio: row.Estudio || "",
-            salon: row.Salon || "",
-            fecha: fecha,
-            reservasTotales: row["Reservas Totales"] || 0,
-            listasEspera: row["Listas de Espera"] || 0,
-            cortesias: row.Cortesias || 0,
-            lugares: Number(row.Lugares || 0),
-            reservasPagadas: row["Reservas Pagadas"] || 0,
-            textoEspecial: row["Texto espcial"] || "",
-            semana: weekNumber,
-          }
+          // For VS instructors, create two classes with split reservations
+          // Modify the section in handleSubmit where VS instructors are processed
+          if (isVsInstructor && instructorIds.length > 0) {
+            // Get the VS instructor configuration
+            const vsInstructorConfig = vsInstructors.find((vi) => vi.originalName === row.Instructor)
 
-          console.log(`Objeto de clase a crear:`, logObject(nuevaClase))
+            // Check which instructors to keep
+            const keepInstructor1 = vsInstructorConfig?.keepInstructor1 ?? true
+            const keepInstructor2 = vsInstructorConfig?.keepInstructor2 ?? true
 
-          // Crear clase
-          try {
-            const claseCreada = await clasesApi.createClase(nuevaClase as Clase)
-            console.log(`Clase creada exitosamente, ID: ${claseCreada.id}`)
-            clasesCreadas++
-          } catch (error) {
-            console.error(`Error al crear clase:`, error)
-            errores.push({
-              fila: i + 1,
-              mensaje: `Error al crear clase: ${error instanceof Error ? error.message : "Error desconocido"}`,
-            })
-            registrosConError++
+            // Always calculate split values regardless of which instructors are kept
+            const totalReservas = row["Reservas Totales"] || 0
+            const splitReservas = Math.ceil(totalReservas / 2)
+
+            // Split lugares (capacity) as well
+            const totalLugares = Number(row.Lugares || 0)
+            const splitLugares = Math.ceil(totalLugares / 2)
+
+            // Get the original class ID and create two new IDs
+            const originalId = row.ID_clase ? String(row.ID_clase) : undefined
+            const classId1 = originalId ? `${originalId}a` : undefined
+            const classId2 = originalId ? `${originalId}b` : undefined
+
+            // Create base class object
+            const baseClase: Partial<Clase> = {
+              periodoId: periodoSeleccionadoId,
+              disciplinaId: disciplina.id,
+              pais: row.País || "México",
+              ciudad: row.Ciudad || "Ciudad de México",
+              estudio: row.Estudio || "",
+              salon: row.Salon || "",
+              fecha: fecha,
+              listasEspera: row["Listas de Espera"] || 0,
+              cortesias: row.Cortesias || 0,
+              textoEspecial: row["Texto espcial"] || "",
+              semana: weekNumber,
+            }
+
+            // Create first class if instructor1 should be kept
+            if (keepInstructor1 && instructorIds.length > 0) {
+              try {
+                const clase1: Partial<Clase> = {
+                  ...baseClase,
+                  id: classId1,
+                  instructorId: instructorIds[0],
+                  reservasTotales: splitReservas,
+                  lugares: splitLugares,
+                  reservasPagadas: Math.ceil((row["Reservas Pagadas"] || 0) / 2),
+                }
+
+                console.log(`Objeto de clase A a crear:`, logObject(clase1))
+                const claseCreada1 = await clasesApi.createClase(clase1 as Clase)
+                console.log(`Clase A creada exitosamente, ID: ${claseCreada1.id}`)
+                clasesCreadas++
+              } catch (error) {
+                console.error(`Error al crear clase A:`, error)
+                errores.push({
+                  fila: i + 1,
+                  mensaje: `Error al crear clase A: ${error instanceof Error ? error.message : "Error desconocido"}`,
+                })
+                registrosConError++
+              }
+            }
+
+            // Create second class if instructor2 should be kept
+            if (keepInstructor2 && instructorIds.length > 1) {
+              try {
+                const clase2: Partial<Clase> = {
+                  ...baseClase,
+                  id: classId2,
+                  instructorId: instructorIds[1],
+                  reservasTotales: splitReservas,
+                  lugares: splitLugares,
+                  reservasPagadas: Math.ceil((row["Reservas Pagadas"] || 0) / 2),
+                }
+
+                console.log(`Objeto de clase B a crear:`, logObject(clase2))
+                const claseCreada2 = await clasesApi.createClase(clase2 as Clase)
+                console.log(`Clase B creada exitosamente, ID: ${claseCreada2.id}`)
+                clasesCreadas++
+              } catch (error) {
+                console.error(`Error al crear clase B:`, error)
+                errores.push({
+                  fila: i + 1,
+                  mensaje: `Error al crear clase B: ${error instanceof Error ? error.message : "Error desconocido"}`,
+                })
+                registrosConError++
+              }
+            }
+
+            // If neither instructor is kept, skip this class
+            if (!keepInstructor1 && !keepInstructor2) {
+              console.log(`Ambos instructores descartados para ${row.Instructor}, saltando clase`)
+            }
+          } else {
+            // Regular class creation (non-VS instructor)
+            // Crear objeto de clase
+            const nuevaClase: Partial<Clase> = {
+              id: row.ID_clase ? String(row.ID_clase) : undefined, // Usar ID del Excel como string
+              periodoId: periodoSeleccionadoId,
+              disciplinaId: disciplina.id,
+              instructorId: instructorIds[0],
+              pais: row.País || "México",
+              ciudad: row.Ciudad || "Ciudad de México",
+              estudio: row.Estudio || "",
+              salon: row.Salon || "",
+              fecha: fecha,
+              reservasTotales: row["Reservas Totales"] || 0,
+              listasEspera: row["Listas de Espera"] || 0,
+              cortesias: row.Cortesias || 0,
+              lugares: Number(row.Lugares || 0),
+              reservasPagadas: row["Reservas Pagadas"] || 0,
+              textoEspecial: row["Texto espcial"] || "",
+              semana: weekNumber,
+            }
+
+            console.log(`Objeto de clase a crear:`, logObject(nuevaClase))
+
+            // Crear clase
+            try {
+              let claseCreada
+              if (nuevaClase.id) {
+                console.log(`Usando ID de clase del Excel: ${nuevaClase.id}`)
+                // Intentar crear con el ID específico
+                claseCreada = await clasesApi.createClase(nuevaClase as Clase)
+              } else {
+                // Si no hay ID, crear con ID autogenerado
+                claseCreada = await clasesApi.createClase(nuevaClase as Clase)
+              }
+              console.log(`Clase creada exitosamente, ID: ${claseCreada.id}`)
+              clasesCreadas++
+            } catch (error) {
+              console.error(`Error al crear clase:`, error)
+              errores.push({
+                fila: i + 1,
+                mensaje: `Error al crear clase: ${error instanceof Error ? error.message : "Error desconocido"}`,
+              })
+              registrosConError++
+            }
           }
         } catch (error) {
           console.error(`Error general al procesar fila ${i + 1}:`, error)
@@ -938,61 +1106,14 @@ export function ExcelImport() {
         }
       }
 
-      // Ahora procesamos los pagos una vez por instructor único
-      console.log(`=== INICIANDO PROCESAMIENTO DE PAGOS ===`)
-      console.log(`Total de instructores únicos: ${instructoresUnicos.size}`)
-
-      let pagosNuevosCreados = 0
-      let pagosActualizados = 0
-
-      // Convertir el conjunto a un array para poder iterar
-      const instructoresArray = Array.from(instructoresUnicos)
-
-      // Procesar pagos para cada instructor único
-      for (let j = 0; j < instructoresArray.length; j++) {
-        const instructorId = instructoresArray[j]
-
-        // Actualizar progreso para la fase de procesamiento de pagos
-        setProgress(80 + Math.floor((j / instructoresArray.length) * 20))
-
-        // Buscar el nombre del instructor para los logs
-        const instructor = instructores.find((i) => i.id === instructorId)
-        const instructorNombre = instructor ? instructor.nombre : `ID: ${instructorId}`
-
-        console.log(`Procesando pago para instructor: ${instructorNombre} (${j + 1}/${instructoresArray.length})`)
-
-        try {
-          // Verificar si ya existe un pago para este instructor en este periodo
-          const pagoKey = `${instructorId}-${periodoSeleccionadoId}`
-          const pagoExistente = pagosExistentes[pagoKey] === true
-
-          const pagoCreado = await crearPagoParaInstructor(instructorId, periodoSeleccionadoId, pagosExistentes)
-          if (pagoCreado) {
-            if (pagoExistente) {
-              pagosActualizados++
-              console.log(`Pago actualizado exitosamente para instructor: ${instructorNombre}`)
-            } else {
-              pagosNuevosCreados++
-              console.log(`Pago creado exitosamente para instructor: ${instructorNombre}`)
-            }
-          } else {
-            console.log(`No se creó pago para instructor: ${instructorNombre} (posiblemente sin clases en el periodo)`)
-          }
-        } catch (error) {
-          console.error(`Error al procesar pago para instructor ${instructorNombre}:`, error)
-        }
-      }
-
-      setPagosCreados(pagosNuevosCreados)
       setProgress(100)
+      setStatusMessage("Importación completada con éxito")
       console.log("=== PROCESO DE IMPORTACIÓN COMPLETADO ===")
       console.log(`Clases creadas: ${clasesCreadas}`)
       console.log(`Instructores creados: ${instructoresCreados}`)
-      console.log(`Pagos nuevos creados: ${pagosNuevosCreados}`)
-      console.log(`Pagos actualizados: ${pagosActualizados}`)
       console.log(`Registros con error: ${registrosConError}`)
 
-      // 4. Preparar resultado
+      // Preparar resultado
       const resultadoImportacion: ResultadoImportacion = {
         totalRegistros: processedData.length,
         registrosImportados: clasesCreadas,
@@ -1001,15 +1122,15 @@ export function ExcelImport() {
         clasesCreadas,
         clasesEliminadas,
         instructoresCreados,
-        pagosCreados: pagosNuevosCreados,
-        pagosActualizados, // Agregar esta propiedad al tipo ResultadoImportacion si no existe
+        pagosCreados: 0, // Ya no se crean pagos
+        pagosActualizados: 0, // Ya no se actualizan pagos
       }
 
       setResultado(resultadoImportacion)
 
       toast({
         title: "Importación completada",
-        description: `Se importaron ${clasesCreadas} de ${processedData.length} registros. Se crearon ${pagosNuevosCreados} y actualizaron ${pagosActualizados} pagos.`,
+        description: `Se importaron ${clasesCreadas} de ${processedData.length} registros. Se crearon ${instructoresCreados} instructores nuevos.`,
       })
     } catch (error) {
       console.error("Error general en la importación:", error)
@@ -1022,6 +1143,22 @@ export function ExcelImport() {
     } finally {
       setIsImporting(false)
     }
+  }
+
+  // Add a function to toggle the keep status of VS instructors
+  const toggleKeepVsInstructor = (originalName: string, instructorNumber: 1 | 2) => {
+    setVsInstructors((prev) =>
+      prev.map((instructor) => {
+        if (instructor.originalName === originalName) {
+          if (instructorNumber === 1) {
+            return { ...instructor, keepInstructor1: !instructor.keepInstructor1 }
+          } else {
+            return { ...instructor, keepInstructor2: !instructor.keepInstructor2 }
+          }
+        }
+        return instructor
+      }),
+    )
   }
 
   // Paginación
@@ -1474,6 +1611,76 @@ export function ExcelImport() {
           </div>
         </div>
 
+        {vsInstructors.length > 0 && (
+          <div className="mt-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <h4 className="font-medium text-primary">Instructores con VS detectados</h4>
+              <div className="text-sm text-muted-foreground">Selecciona qué instructores mantener en cada par VS</div>
+            </div>
+
+            <Alert className="bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-amber-800">Atención: Instructores VS detectados</AlertTitle>
+              <AlertDescription className="text-amber-700">
+                Se han detectado {vsInstructors.length} instructores con formato "VS". Puedes elegir qué instructores
+                mantener en cada par. Si un instructor es invitado y no pertenece a la organización, puedes desmarcarlo.
+              </AlertDescription>
+            </Alert>
+
+            <div className="bg-background rounded-lg border overflow-hidden shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left py-3 px-4 font-medium text-primary">Nombre Original</th>
+                    <th className="text-left py-3 px-4 font-medium text-primary">Instructor 1</th>
+                    <th className="text-left py-3 px-4 font-medium text-primary">Instructor 2</th>
+                    <th className="text-left py-3 px-4 font-medium text-primary">Clases</th>
+                    <th className="text-left py-3 px-4 font-medium text-primary">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vsInstructors.map((instructor, index) => (
+                    <tr key={index} className="border-b hover:bg-amber-50 transition-colors">
+                      <td className="py-3 px-4 font-medium">{instructor.originalName}</td>
+                      <td className="py-3 px-4">{instructor.instructor1}</td>
+                      <td className="py-3 px-4">{instructor.instructor2}</td>
+                      <td className="py-3 px-4">{instructor.count}</td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`keep-instructor1-${index}`}
+                              checked={instructor.keepInstructor1}
+                              onChange={() => toggleKeepVsInstructor(instructor.originalName, 1)}
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <label htmlFor={`keep-instructor1-${index}`} className="text-xs">
+                              Mantener instructor 1
+                            </label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`keep-instructor2-${index}`}
+                              checked={instructor.keepInstructor2}
+                              onChange={() => toggleKeepVsInstructor(instructor.originalName, 2)}
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <label htmlFor={`keep-instructor2-${index}`} className="text-xs">
+                              Mantener instructor 2
+                            </label>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between mt-6">
           <Button variant="outline" onClick={() => setCurrentStep(1)} className="border-muted">
             <ArrowLeft className="mr-2 h-4 w-4" /> Anterior
@@ -1685,6 +1892,9 @@ export function ExcelImport() {
               <span className="text-sm text-primary font-medium">{progress}%</span>
             </div>
             <Progress value={progress} className="h-2" />
+            {isImporting && statusMessage && (
+              <div className="mt-2 text-sm text-center font-medium text-primary">{statusMessage}</div>
+            )}
           </div>
         )}
 
@@ -1740,18 +1950,6 @@ export function ExcelImport() {
                     <div className="bg-card p-4 rounded-lg border shadow-sm">
                       <div className="text-sm text-muted-foreground">Instructores nuevos creados</div>
                       <div className="text-2xl font-bold text-purple-600">{resultado.instructoresCreados}</div>
-                    </div>
-                  )}
-                  {resultado.pagosCreados !== undefined && (
-                    <div className="bg-card p-4 rounded-lg border shadow-sm">
-                      <div className="text-sm text-muted-foreground">Pagos creados</div>
-                      <div className="text-2xl font-bold text-green-600">{resultado.pagosCreados}</div>
-                    </div>
-                  )}
-                  {resultado.pagosActualizados !== undefined && (
-                    <div className="bg-card p-4 rounded-lg border shadow-sm">
-                      <div className="text-sm text-muted-foreground">Pagos actualizados</div>
-                      <div className="text-2xl font-bold text-green-600">{resultado.pagosActualizados}</div>
                     </div>
                   )}
                 </div>
@@ -1878,31 +2076,3 @@ function obtenerDiaSemana(fecha: Date): string {
   const diasSemana = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"]
   return diasSemana[fecha.getDay()]
 }
-
-// Función para evaluar una fórmula con los datos de la clase
-function evaluarFormulaInterna(formula: string, datos: any): any {
-  try {
-    // Reemplazar los nombres de las variables en la fórmula con los valores correspondientes
-    let expresion = formula
-    for (const key in datos) {
-      const valor = datos[key]
-      expresion = expresion.replace(new RegExp(key, "g"), valor)
-    }
-
-    // Evaluar la expresión
-    const valor = eval(expresion)
-
-    return {
-      valor,
-      expresion,
-    }
-  } catch (error) {
-    console.error("Error al evaluar la fórmula:", error)
-    return {
-      valor: 0,
-      expresion: formula,
-      error: error instanceof Error ? error.message : "Error desconocido",
-    }
-  }
-}
-

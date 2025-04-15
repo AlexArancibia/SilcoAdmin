@@ -52,6 +52,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         monto,
         retencion,
         reajuste,
+        bono: body.bono,
         tipoReajuste:body.tipoReajuste,
         pagoFinal,
         estado: body.estado || existingPago.estado,

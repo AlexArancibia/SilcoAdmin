@@ -17,10 +17,10 @@ interface ClasesState {
     estudio?:string
     fecha?: string
   }) => Promise<void>
-  fetchClase: (id: number) => Promise<void>
-  crearClase: (clase: Omit<Clase, "id" | "createdAt" | "updatedAt">) => Promise<Clase>
-  actualizarClase: (id: number, clase: Partial<Clase>) => Promise<Clase>
-  eliminarClase: (id: number) => Promise<void>
+  fetchClase: (id: string) => Promise<void>
+  crearClase: (clase: Omit<Clase, "createdAt" | "updatedAt">) => Promise<Clase>
+  actualizarClase: (id: string, clase: Partial<Clase>) => Promise<Clase>
+  eliminarClase: (id: string) => Promise<void>
   setClaseSeleccionada: (clase: Clase | null) => void
   resetClases: () => void
 }
@@ -45,7 +45,7 @@ export const useClasesStore = create<ClasesState>((set, get) => ({
     }
   },
 
-  fetchClase: async (id: number) => {
+  fetchClase: async (id: string) => {
     set({ isLoading: true, error: null })
     try {
       const clase = await clasesApi.getClaseById(id)

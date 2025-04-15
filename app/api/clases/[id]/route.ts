@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = Number.parseInt(params.id)
+    const id = params.id
 
     const clase = await prisma.clase.findUnique({
       where: { id },
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = Number.parseInt(params.id)
+    const id = (params.id)
     const body = await request.json()
 
     // Parse numeric fields
@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     numericFields.forEach((field) => {
       if (body[field] !== undefined) {
-        body[field] = Number.parseInt(body[field])
+        body[field] = (body[field])
       }
     })
 
@@ -101,7 +101,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = Number.parseInt(params.id)
+    const id = (params.id)
 
     await prisma.clase.delete({
       where: { id },

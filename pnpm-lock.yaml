@@ -168,7 +168,7 @@ importers:
         specifier: latest
         version: 11.11.4(@types/react@19.0.12)(immer@10.1.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       recharts:
-        specifier: latest
+        specifier: ^2.15.1
         version: 2.15.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       sonner:
         specifier: ^1.7.1
@@ -208,7 +208,7 @@ importers:
         specifier: ^22
         version: 22.13.11
       '@types/react':
-        specifier: ^19
+        specifier: ^19.0.12
         version: 19.0.12
       '@types/react-dom':
         specifier: ^19

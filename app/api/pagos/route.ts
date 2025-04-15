@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         estado: body.estado || "PENDIENTE",
         instructorId: body.instructorId,
         periodoId: body.periodoId,
+        bono:body.bono,
         detalles: body.detalles || {},
         retencion: body.retencion || 0,
         reajuste: body.reajuste || 0,

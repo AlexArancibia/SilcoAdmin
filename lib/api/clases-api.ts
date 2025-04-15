@@ -16,19 +16,19 @@ export class ClasesApi extends ApiClient {
     return this.get<Clase[]>("/clases", params)
   }
 
-  async getClaseById(id: number): Promise<Clase> {
+  async getClaseById(id: string): Promise<Clase> {
     return this.get<Clase>(`/clases/${id}`)
   }
 
-  async createClase(clase: Omit<Clase, "id" | "createdAt" | "updatedAt">): Promise<Clase> {
+  async createClase(clase: Omit<Clase,   "createdAt" | "updatedAt">): Promise<Clase> {
     return this.post<Omit<Clase, "id" | "createdAt" | "updatedAt">, Clase>("/clases", clase)
   }
 
-  async updateClase(id: number, clase: Partial<Clase>): Promise<Clase> {
+  async updateClase(id: string, clase: Partial<Clase>): Promise<Clase> {
     return this.put<Partial<Clase>, Clase>(`/clases/${id}`, clase)
   }
 
-  async deleteClase(id: number): Promise<{ success: boolean }> {
+  async deleteClase(id: string): Promise<{ success: boolean }> {
     return this.delete(`/clases/${id}`)
   }
 

@@ -32,15 +32,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    const body = await request.json().catch(() => {
-      throw new Error("Error al parsear el cuerpo de la solicitud")
-    })
+    const body = await request.json()
 
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Cuerpo de solicitud inválido" }, { status: 400 })
     }
 
-    // Verificar si el periodo existe
     const periodoExistente = await prisma.periodo.findUnique({
       where: { id },
     })
@@ -49,15 +46,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Periodo no encontrado" }, { status: 404 })
     }
 
-    // Preparar datos para actualización
     const datosActualizados: any = {}
 
     if (body.nombre !== undefined) datosActualizados.nombre = body.nombre
+    if (body.numero !== undefined) datosActualizados.numero = Number(body.numero)
+    if (body.año !== undefined) datosActualizados.año = Number(body.año)
     if (body.fechaInicio !== undefined) datosActualizados.fechaInicio = new Date(body.fechaInicio)
     if (body.fechaFin !== undefined) datosActualizados.fechaFin = new Date(body.fechaFin)
     if (body.fechaPago !== undefined) datosActualizados.fechaPago = new Date(body.fechaPago)
+    if (body.bonoCalculado !== undefined) datosActualizados.bonoCalculado = Boolean(body.bonoCalculado)
 
-    // Actualizar el periodo
     const periodoActualizado = await prisma.periodo.update({
       where: { id },
       data: datosActualizados,
@@ -78,7 +76,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "ID inválido" }, { status: 400 })
     }
 
-    // Verificar si el periodo existe
     const periodoExistente = await prisma.periodo.findUnique({
       where: { id },
     })
@@ -87,7 +84,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Periodo no encontrado" }, { status: 404 })
     }
 
-    // Eliminar el periodo
     await prisma.periodo.delete({
       where: { id },
     })
@@ -98,4 +94,3 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     return NextResponse.json({ error: "Error al eliminar periodo" }, { status: 500 })
   }
 }
-

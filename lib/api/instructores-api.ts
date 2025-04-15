@@ -15,7 +15,6 @@ export class InstructoresApi extends ApiClient {
   }): Promise<Instructor[]> {
     console.log(`[InstructoresApi] Iniciando getInstructores con parámetros:`, params)
     try {
-      // Construir la URL con los parámetros de consulta
       let url = "/instructores"
       if (params) {
         const searchParams = new URLSearchParams()
@@ -24,11 +23,8 @@ export class InstructoresApi extends ApiClient {
         if (params.especialidad) searchParams.append("especialidad", params.especialidad)
         if (params.activo !== undefined) searchParams.append("activo", params.activo.toString())
         if (params.disciplinaId) searchParams.append("disciplinaId", params.disciplinaId.toString())
-
         const queryString = searchParams.toString()
-        if (queryString) {
-          url += `?${queryString}`
-        }
+        if (queryString) url += `?${queryString}`
       }
 
       const instructores = await this.get<Instructor[]>(url)
@@ -55,8 +51,14 @@ export class InstructoresApi extends ApiClient {
   async crearInstructor(instructor: {
     nombre: string
     password?: string
-    extrainfo?: any
+    extrainfo?: Record<string, any>
+    ultimoBono?: Record<number, number> // { [disciplinaId]: periodoId }
+    cumpleLineamientos?: boolean
+    dobleteos?: number
+    horariosNoPrime?: number
+    participacionEventos?: boolean
     disciplinaIds?: number[]
+    categoriasIds?: number[]
   }): Promise<Instructor> {
     console.log(`[InstructoresApi] Iniciando crearInstructor:`, instructor)
     try {
@@ -74,8 +76,20 @@ export class InstructoresApi extends ApiClient {
     instructor: {
       nombre?: string
       password?: string
-      extrainfo?: any
+      extrainfo?: Record<string, any>
+      ultimoBono?: Record<number, number>
       disciplinaIds?: number[]
+      categoriasIds?: number[]
+      categorias?: Array<{
+        disciplinaId: number
+        periodoId: number
+        categoria: string
+        metricas?: Record<string, any>
+      }>
+      cumpleLineamientos?: boolean
+      dobleteos?: number
+      horariosNoPrime?: number
+      participacionEventos?: boolean
     },
   ): Promise<Instructor> {
     console.log(`[InstructoresApi] Iniciando actualizarInstructor para ID ${id}:`, instructor)
@@ -89,7 +103,6 @@ export class InstructoresApi extends ApiClient {
     }
   }
 
-  // Corregir el método eliminarInstructor
   async eliminarInstructor(id: number): Promise<{ message: string }> {
     console.log(`[InstructoresApi] Iniciando eliminarInstructor para ID: ${id}`)
     try {
@@ -102,7 +115,6 @@ export class InstructoresApi extends ApiClient {
     }
   }
 
-  // Métodos de utilidad para trabajar con disciplinas
   async asignarDisciplinasInstructor(instructorId: number, disciplinaIds: number[]): Promise<Instructor> {
     console.log(`[InstructoresApi] Asignando disciplinas al instructor ${instructorId}:`, disciplinaIds)
     try {
@@ -128,6 +140,5 @@ export class InstructoresApi extends ApiClient {
   }
 }
 
-// Instancia singleton para usar en toda la aplicación
+// Instancia singleton
 export const instructoresApi = new InstructoresApi()
-

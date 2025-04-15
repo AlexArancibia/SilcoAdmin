@@ -9,6 +9,7 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 model Usuario {
   id        Int      @id @default(autoincrement())
   nombre    String
@@ -25,13 +26,17 @@ model Instructor {
   nombre     String   @unique
   password   String?
   extrainfo  Json?
+  ultimoBono Json?    // Nuevo campo JSON para almacenar {disciplinaId: periodoId}
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  // Relaciones
+  cumpleLineamientos Boolean?
+  dobleteos Int?  // Relaciones
+  horariosNoPrime Int?
+  participacionEventos Boolean?
   clases      Clase[]
   pagos       PagoInstructor[]
   disciplinas Disciplina[]
+  categorias  CategoriaInstructor[] // Nueva relación para categorías
 }
 
 model Disciplina {
@@ -44,10 +49,10 @@ model Disciplina {
   updatedAt   DateTime @updatedAt
 
   // Relaciones
-  clases   Clase[]
-  formulas Formula[]
-
-  Instructor Instructor[]
+  clases      Clase[]
+  formulas    Formula[]
+  instructores Instructor[]
+  categorias  CategoriaInstructor[] // Nueva relación para categorías
 }
 
 model Periodo {
@@ -59,20 +64,28 @@ model Periodo {
   fechaPago   DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  bonoCalculado Boolean? @default(false)
 
   // Relaciones
-  clases   Clase[]
-  pagos    PagoInstructor[]
-  formulas Formula[]
+  clases     Clase[]
+  pagos      PagoInstructor[]
+  formulas   Formula[]
+  categorias CategoriaInstructor[] // Nueva relación para categorías
 }
 
 model Formula {
-  id          Int      @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   disciplinaId Int
-  periodoId   Int
-  parametros  Json    // Incluye parámetros y fórmula de la disciplina
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  periodoId    Int
+  
+ 
+  // Requisitos para categorías (ocupación, clases, etc.)
+  requisitosCategoria Json // Almacena los requisitos para cada categoría (Instructor, Embajador Junior, etc.)
+  // Parámetros de pago por categoría
+  parametrosPago Json // Almacena los parámetros de pago para cada categoría (mínimo garantizado, tarifas, máximo)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relaciones
   disciplina Disciplina @relation(fields: [disciplinaId], references: [id])
@@ -82,8 +95,31 @@ model Formula {
   @@unique([disciplinaId, periodoId])
 }
 
+// Nuevo modelo para asignar categorías a instructores por disciplina
+model CategoriaInstructor {
+  id           Int      @id @default(autoincrement())
+  instructorId Int
+  disciplinaId Int
+  periodoId    Int
+  categoria    String   // Valores: "INSTRUCTOR", "EMBAJADOR_JUNIOR", "EMBAJADOR", "EMBAJADOR_SENIOR"
+  
+  // Métricas de rendimiento actuales (opcionales)
+  metricas     Json?    // Almacena las métricas actuales del instructor (ocupación, clases, etc.)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  instructor Instructor @relation(fields: [instructorId], references: [id])
+  disciplina Disciplina @relation(fields: [disciplinaId], references: [id])
+  periodo    Periodo    @relation(fields: [periodoId], references: [id])
+
+  // Restricción de unicidad para evitar duplicados
+  @@unique([instructorId, disciplinaId, periodoId])
+}
+
 model Clase {
-  id              Int      @id @default(autoincrement())
+  id              String      @id  
   pais            String
   ciudad          String
   disciplinaId    Int
@@ -106,31 +142,32 @@ model Clase {
   instructor  Instructor @relation(fields: [instructorId], references: [id])
   disciplina  Disciplina @relation(fields: [disciplinaId], references: [id])
   periodo     Periodo    @relation(fields: [periodoId], references: [id])
-}
+  }
 
-model PagoInstructor {
-  id          Int      @id @default(autoincrement())
-  monto       Float
-  estado      String   @default("PENDIENTE")
-  instructorId Int
-  periodoId   Int
-  detalles    Json?
+  model PagoInstructor {
+    id          Int      @id @default(autoincrement())
+    monto       Float
+    estado      String   @default("PENDIENTE")
+    instructorId Int
+    periodoId   Int
+    detalles    Json?
 
-  // Nuevos campos
-  retencion   Float   @default(0.0) // Monto retenido
-  reajuste    Float   @default(0.0) // Ajuste aplicado al pago
-  tipoReajuste String @default("FIJO") // Puede ser "FIJO" o "PORCENTAJE"
+    // Campos actualizados
+    retencion   Float   @default(0.0) // Monto retenido
+    reajuste    Float   @default(0.0) // Ajuste aplicado al pago
+    tipoReajuste String @default("FIJO") // Puede ser "FIJO" o "PORCENTAJE"
+    bono        Float?  // Monto del bono
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  pagoFinal Float 
-  // Relaciones
-  instructor  Instructor @relation(fields: [instructorId], references: [id])
-  periodo     Periodo    @relation(fields: [periodoId], references: [id])
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    pagoFinal Float 
+    // Relaciones
+    instructor  Instructor @relation(fields: [instructorId], references: [id])
+    periodo     Periodo    @relation(fields: [periodoId], references: [id])
 
-  // Restricción de unicidad
-  @@unique([instructorId, periodoId])
-}
+    // Restricción de unicidad
+    @@unique([instructorId, periodoId])
+  }
 
 model Archivo {
   id Int @id @default(autoincrement())
