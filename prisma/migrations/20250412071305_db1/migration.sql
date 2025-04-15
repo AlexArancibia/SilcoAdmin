@@ -18,6 +18,7 @@ CREATE TABLE "Instructor" (
     "nombre" TEXT NOT NULL,
     "password" TEXT,
     "extrainfo" JSONB,
+    "ultimoBono" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -56,11 +57,26 @@ CREATE TABLE "Formula" (
     "id" SERIAL NOT NULL,
     "disciplinaId" INTEGER NOT NULL,
     "periodoId" INTEGER NOT NULL,
-    "parametros" JSONB NOT NULL,
+    "requisitosCategoria" JSONB NOT NULL,
+    "parametrosPago" JSONB NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Formula_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CategoriaInstructor" (
+    "id" SERIAL NOT NULL,
+    "instructorId" INTEGER NOT NULL,
+    "disciplinaId" INTEGER NOT NULL,
+    "periodoId" INTEGER NOT NULL,
+    "categoria" TEXT NOT NULL,
+    "metricas" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "CategoriaInstructor_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -98,6 +114,7 @@ CREATE TABLE "PagoInstructor" (
     "retencion" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "reajuste" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "tipoReajuste" TEXT NOT NULL DEFAULT 'FIJO',
+    "bono" DOUBLE PRECISION,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "pagoFinal" DOUBLE PRECISION NOT NULL,
@@ -139,6 +156,9 @@ CREATE UNIQUE INDEX "Disciplina_nombre_key" ON "Disciplina"("nombre");
 CREATE UNIQUE INDEX "Formula_disciplinaId_periodoId_key" ON "Formula"("disciplinaId", "periodoId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "CategoriaInstructor_instructorId_disciplinaId_periodoId_key" ON "CategoriaInstructor"("instructorId", "disciplinaId", "periodoId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PagoInstructor_instructorId_periodoId_key" ON "PagoInstructor"("instructorId", "periodoId");
 
 -- CreateIndex
@@ -149,6 +169,15 @@ ALTER TABLE "Formula" ADD CONSTRAINT "Formula_disciplinaId_fkey" FOREIGN KEY ("d
 
 -- AddForeignKey
 ALTER TABLE "Formula" ADD CONSTRAINT "Formula_periodoId_fkey" FOREIGN KEY ("periodoId") REFERENCES "Periodo"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CategoriaInstructor" ADD CONSTRAINT "CategoriaInstructor_instructorId_fkey" FOREIGN KEY ("instructorId") REFERENCES "Instructor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CategoriaInstructor" ADD CONSTRAINT "CategoriaInstructor_disciplinaId_fkey" FOREIGN KEY ("disciplinaId") REFERENCES "Disciplina"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CategoriaInstructor" ADD CONSTRAINT "CategoriaInstructor_periodoId_fkey" FOREIGN KEY ("periodoId") REFERENCES "Periodo"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Clase" ADD CONSTRAINT "Clase_instructorId_fkey" FOREIGN KEY ("instructorId") REFERENCES "Instructor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

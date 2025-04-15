@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
 
     const clase = await prisma.clase.create({
       data: {
+        id:body.id,
         pais: body.pais,
         ciudad: body.ciudad,
         disciplinaId: body.disciplinaId,

@@ -1,8 +1,9 @@
 import { create } from "zustand"
 import { FormulasApi } from "@/lib/api/formulas-api"
-import type { Formula } from "@/types/formula"
-import { FormulaDB } from "@/types/schema"
+ 
+import type { FormulaDB, RequisitosCategoria, ParametrosPago } from "@/types/schema"
 
+// Actualizar la interfaz FormulasState para usar el tipo CategoriaInstructor en lugar de string
 interface FormulasState {
   formulas: FormulaDB[]
   formulaSeleccionada: FormulaDB | null
@@ -13,15 +14,8 @@ interface FormulasState {
   fetchFormulasPorPeriodo: (periodoId: number) => Promise<void>
   fetchFormulaPorDisciplinaYPeriodo: (disciplinaId: number, periodoId: number) => Promise<FormulaDB | null>
   seleccionarFormula: (formula: FormulaDB | null) => void
-  crearFormula: (formula: {
-    disciplinaId: number
-    periodoId: number
-    parametros: {
-      formula: Formula
-      [key: string]: any
-    }
-  }) => Promise<FormulaDB>
-  actualizarFormula: (id: number, parametros: any) => Promise<FormulaDB>
+  crearFormula: (formula: Omit<FormulaDB, "id">) => Promise<FormulaDB>
+  actualizarFormula: (id: number,formula: Partial<FormulaDB>  ) => Promise<FormulaDB>
   eliminarFormula: (id: number) => Promise<void>
 }
 
@@ -112,11 +106,11 @@ export const useFormulasStore = create<FormulasState>((set, get) => ({
     }
   },
 
-  actualizarFormula: async (id, parametros) => {
+  actualizarFormula: async (id, datos) => {
     set({ isLoading: true, error: null })
     try {
       // Usamos el endpoint general con el ID en el cuerpo
-      const formulaActualizada = await formulasApi.actualizarFormula(id, parametros)
+      const formulaActualizada = await formulasApi.actualizarFormula(id, datos)
       set((state) => ({
         formulas: state.formulas.map((f) => (f.id === id ? formulaActualizada : f)),
         formulaSeleccionada: state.formulaSeleccionada?.id === id ? formulaActualizada : state.formulaSeleccionada,
@@ -151,4 +145,3 @@ export const useFormulasStore = create<FormulasState>((set, get) => ({
     }
   },
 }))
-

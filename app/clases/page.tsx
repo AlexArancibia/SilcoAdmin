@@ -30,9 +30,9 @@ export default function ClassesPage({
   const estudio = searchParams.estudio || undefined
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="  p-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Clases</h1>
+        <h1 className="text-3xl text-accent font-bold tracking-tight">Clases</h1>
         <p className="text-muted-foreground">
           Gestiona las clases de los instructores, filtra por periodo, semana, instructor, disciplina o estudio.
         </p>

@@ -16,32 +16,38 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => {
-      throw new Error("Error al parsear el cuerpo de la solicitud")
-    })
+    const body = await request.json()
 
     if (!body || typeof body !== "object") {
       return NextResponse.json({ error: "Cuerpo de solicitud inválido" }, { status: 400 })
     }
 
+    const { numero, año, fechaInicio, fechaFin, fechaPago, bonoCalculado } = body
+
     // Validar campos requeridos
-    if (!body.nombre || !body.fechaInicio || !body.fechaFin || !body.fechaPago) {
+    if (
+      numero === undefined ||
+      año === undefined ||
+      !fechaInicio ||
+      !fechaFin ||
+      !fechaPago
+    ) {
       return NextResponse.json(
         {
-          error: "Faltan campos requeridos (nombre, fechaInicio, fechaFin, fechaPago)",
+          error: "Faltan campos requeridos (numero, año, fechaInicio, fechaFin, fechaPago)",
         },
         { status: 400 },
       )
     }
 
-    // Crear el nuevo periodo
     const nuevoPeriodo = await prisma.periodo.create({
       data: {
-        numero: body.numero,
-        año:body.año,
-        fechaInicio: new Date(body.fechaInicio),
-        fechaFin: new Date(body.fechaFin),
-        fechaPago: new Date(body.fechaPago),
+        numero: Number(numero),
+        año: Number(año),
+        fechaInicio: new Date(fechaInicio),
+        fechaFin: new Date(fechaFin),
+        fechaPago: new Date(fechaPago),
+        bonoCalculado: bonoCalculado !== undefined ? Boolean(bonoCalculado) : false,
       },
     })
 
@@ -51,4 +57,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Error al crear periodo" }, { status: 500 })
   }
 }
-

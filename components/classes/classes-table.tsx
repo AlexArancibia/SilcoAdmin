@@ -180,7 +180,7 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
                   <Badge
                     style={{
                       backgroundColor: clase.disciplina?.color ? `${clase.disciplina.color}33` : "#88888833", // 20% de opacidad
-                      color:   "#ffffff",
+                      color:   "#555",
                       borderColor: clase.disciplina?.color ? `${clase.disciplina.color}80` : "#88888880", // 50% de opacidad
                       borderWidth: "1px",
                     }}
