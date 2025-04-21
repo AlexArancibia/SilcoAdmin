@@ -29,10 +29,6 @@ model Instructor {
   ultimoBono Json?    // Nuevo campo JSON para almacenar {disciplinaId: periodoId}
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  cumpleLineamientos Boolean?
-  dobleteos Int?  // Relaciones
-  horariosNoPrime Int?
-  participacionEventos Boolean?
   clases      Clase[]
   pagos       PagoInstructor[]
   disciplinas Disciplina[]
@@ -151,6 +147,10 @@ model Clase {
     instructorId Int
     periodoId   Int
     detalles    Json?
+    cumpleLineamientos Boolean?
+    dobleteos Int?  // Relaciones
+    horariosNoPrime Int?
+    participacionEventos Boolean?
 
     // Campos actualizados
     retencion   Float   @default(0.0) // Monto retenido
