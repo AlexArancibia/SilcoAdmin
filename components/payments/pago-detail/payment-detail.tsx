@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Check, Edit, Loader2, X, Calendar, Users, Percent } from "lucide-react"
 import type { Instructor, PagoInstructor, Periodo, TipoReajuste, Disciplina, EstadoPago, Clase } from "@/types/schema"
+import { retencionValor } from "@/utils/const"
 
 // Modificar la interfaz PaymentDetailsProps para tipar correctamente clasesInstructor
 interface PaymentDetailsProps {
@@ -391,9 +392,15 @@ export function PaymentDetails({
                     </span>
                   </div>
                   <div className="flex flex-col col-span-2">
-                    <span className="text-xs text-muted-foreground">Monto</span>
-                    <span className="text-base font-bold text-primary mt-1">{formatCurrency(disciplina.monto)}</span>
-                  </div>
+                  <span className="text-xs text-muted-foreground">Monto (con retención)</span>
+                    <div>
+                      <span className="text-base font-bold text-primary">
+                        {formatCurrency(disciplina.monto * (1 - retencionValor))}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        (Bruto: {formatCurrency(disciplina.monto)})
+                      </span>
+                    </div></div>
                 </div>
               </CardContent>
             </Card>

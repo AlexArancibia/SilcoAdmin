@@ -225,6 +225,17 @@ export default function PagoDetallePage() {
     fetchFormulas()
   }, [pagoId, fetchPago, fetchInstructores, fetchPeriodos, fetchDisciplinas, fetchFormulas])
 
+
+  useEffect(() => {
+    if (
+      activeTab === "categoria" &&
+      disciplinas.length > 0 &&
+      !disciplinas.some((d) => mostrarCategoriaVisual(d.nombre))
+    ) {
+      setActiveTab("detalles")
+    }
+  }, [activeTab, disciplinas])
+  
   // Set instructor and period when data is loaded
   useEffect(() => {
     if (pagoSeleccionado && instructores.length > 0 && periodos.length > 0) {
@@ -269,19 +280,6 @@ export default function PagoDetallePage() {
       )
     }
   }, [clases, pagoSeleccionado])
-
-
-  // Ensure we don't stay on the categoria tab if it's not available
-useEffect(() => {
-  if (
-    activeTab === "categoria" &&
-    disciplinas.length > 0 &&
-    !disciplinas.some((d) => mostrarCategoriaVisual(d.nombre))
-  ) {
-    setActiveTab("detalles")
-  }
-}, [activeTab, disciplinas])
-
 
   // Helper functions
   const formatCurrency = (amount: number): string => {
@@ -627,11 +625,15 @@ useEffect(() => {
         horariosNoPrime: currentHorariosNoPrime,
       }
 
+      console.log("Actualizando pago con factores:", pagoActualizado)
+
       // Update the payment using the pagosStore
       await actualizarPago(pagoSeleccionado.id, pagoActualizado)
+      console.log("Pago actualizado exitosamente")
 
       // Fetch the updated payment to refresh the UI
       await fetchPago(pagoSeleccionado.id)
+      console.log("Pago recargado exitosamente")
 
       toast({
         title: "Factores actualizados",
@@ -640,9 +642,22 @@ useEffect(() => {
 
       setEditandoCategoria(false)
 
-      // Re-evaluate categories with the updated payment data
-      await reevaluarTodasCategorias()
+      // Re-evaluate categories with the updated payment data in a separate try/catch
+      try {
+        console.log("Iniciando reevaluación de categorías")
+        await reevaluarTodasCategorias()
+        console.log("Reevaluación de categorías completada")
+      } catch (categoryError) {
+        console.error("Error al reevaluar categorías:", categoryError)
+        toast({
+          title: "Advertencia",
+          description:
+            "Los factores se actualizaron pero hubo un error al reevaluar las categorías. Por favor, intente reevaluar manualmente.",
+          variant: "destructive",
+        })
+      }
     } catch (error) {
+      console.error("Error al actualizar factores:", error)
       toast({
         title: "Error al actualizar factores",
         description: error instanceof Error ? error.message : "Error desconocido al actualizar factores",
@@ -1029,3 +1044,4 @@ useEffect(() => {
   )
 }
 
+// Ensure we don't stay on the categoria tab if it's not available

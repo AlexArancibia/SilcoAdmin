@@ -334,7 +334,7 @@ export function useExcelImport() {
       const discipline = row.Disciplina
 
       // Update the check to include "vs." format
-      if (instructor.toLowerCase().includes(" vs ") || instructor.toLowerCase().includes(" vs. ")) {
+      if (instructor.toLowerCase().includes(" vs") || instructor.toLowerCase().includes(" vs. ")) {
         // Update the split pattern to handle both "vs" and "vs." formats
         const parts = instructor.split(/\s+vs\.?\s+/i)
         if (parts.length === 2) {

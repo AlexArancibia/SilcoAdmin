@@ -48,6 +48,7 @@ CREATE TABLE "Periodo" (
     "fechaPago" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "bonoCalculado" BOOLEAN DEFAULT false,
 
     CONSTRAINT "Periodo_pkey" PRIMARY KEY ("id")
 );
@@ -81,7 +82,7 @@ CREATE TABLE "CategoriaInstructor" (
 
 -- CreateTable
 CREATE TABLE "Clase" (
-    "id" SERIAL NOT NULL,
+    "id" TEXT NOT NULL,
     "pais" TEXT NOT NULL,
     "ciudad" TEXT NOT NULL,
     "disciplinaId" INTEGER NOT NULL,
@@ -111,6 +112,10 @@ CREATE TABLE "PagoInstructor" (
     "instructorId" INTEGER NOT NULL,
     "periodoId" INTEGER NOT NULL,
     "detalles" JSONB,
+    "cumpleLineamientos" BOOLEAN,
+    "dobleteos" INTEGER,
+    "horariosNoPrime" INTEGER,
+    "participacionEventos" BOOLEAN,
     "retencion" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "reajuste" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "tipoReajuste" TEXT NOT NULL DEFAULT 'FIJO',

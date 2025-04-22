@@ -149,7 +149,7 @@ model Clase {
     detalles    Json?
     cumpleLineamientos Boolean?
     dobleteos Int?  // Relaciones
-    horariosNoPrime Int?
+    horariosNoPrime Float?
     participacionEventos Boolean?
 
     // Campos actualizados

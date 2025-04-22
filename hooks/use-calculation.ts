@@ -231,27 +231,40 @@ export function useCalculation(
     }
   }
 
-  // Update the determinarCategoria function to get properties from pagoInstructor instead of instructor
+  // Fix the determinarCategoria function to correctly compare boolean values
   const determinarCategoria = (
     instructorId: number,
     disciplinaId: number,
     periodoId: number,
     formula: FormulaDB,
   ): CategoriaInstructor => {
+    console.log(
+      `\n[CATEGORIA] Evaluando categoría para instructor ID ${instructorId}, disciplina ID ${disciplinaId}, periodo ID ${periodoId}`,
+    )
+
     // Get instructor's classes for this discipline and period
     const clasesInstructor = clases.filter(
       (c) => c.instructorId === instructorId && c.disciplinaId === disciplinaId && c.periodoId === periodoId,
     )
+    console.log(`[CATEGORIA] Encontradas ${clasesInstructor.length} clases para esta disciplina`)
 
     // Get instructor data
     const instructor = instructores.find((i) => i.id === instructorId)
-    if (!instructor) return "INSTRUCTOR"
+    if (!instructor) {
+      console.log(`[CATEGORIA] ❌ ERROR: Instructor ID ${instructorId} no encontrado`)
+      return "INSTRUCTOR"
+    }
+    console.log(`[CATEGORIA] Evaluando instructor: ${instructor.nombre}`)
 
     // Buscar el pago del instructor para este periodo (para obtener los campos que ahora están en PagoInstructor)
     const pagoInstructor = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoId)
+    if (!pagoInstructor) {
+      console.log(`[CATEGORIA] ⚠️ No se encontró pago para este instructor en este periodo, usando valores por defecto`)
+    }
 
     // Calculate metrics
     const totalClases = clasesInstructor.length
+    console.log(`[CATEGORIA] Total clases: ${totalClases}`)
 
     // Calculate occupancy rate (reservas / lugares)
     let totalReservas = 0
@@ -261,11 +274,13 @@ export function useCalculation(
       totalLugares += clase.lugares
     })
     const ocupacion = totalLugares > 0 ? (totalReservas / totalLugares) * 100 : 0
+    console.log(`[CATEGORIA] Ocupación: ${ocupacion.toFixed(2)}% (${totalReservas}/${totalLugares})`)
 
     // Count unique locations in Lima
     const localesEnLima = new Set(
       clasesInstructor.filter((c) => c.ciudad.toLowerCase().includes("lima")).map((c) => c.estudio),
     ).size
+    console.log(`[CATEGORIA] Locales en Lima: ${localesEnLima}`)
 
     // Get instructor metrics - ahora desde pagoInstructor en lugar de instructor
     const dobleteos = pagoInstructor?.dobleteos || 0
@@ -273,10 +288,40 @@ export function useCalculation(
     const participacionEventos = pagoInstructor?.participacionEventos || false
     const cumpleLineamientos = pagoInstructor?.cumpleLineamientos || false
 
+    console.log(`[CATEGORIA] Factores adicionales:`)
+    console.log(`[CATEGORIA] - Dobleteos: ${dobleteos}`)
+    console.log(`[CATEGORIA] - Horarios No Prime: ${horariosNoPrime}`)
+    console.log(`[CATEGORIA] - Participación Eventos: ${participacionEventos ? "Sí" : "No"}`)
+    console.log(`[CATEGORIA] - Cumple Lineamientos: ${cumpleLineamientos ? "Sí" : "No"}`)
+
     // Check requirements for each category from highest to lowest
     const requisitos = formula.requisitosCategoria
+    console.log(`[CATEGORIA] Evaluando requisitos de categorías según fórmula ID ${formula.id}`)
 
     // Check EMBAJADOR_SENIOR requirements
+    console.log(`[CATEGORIA] Evaluando requisitos para EMBAJADOR_SENIOR:`)
+    console.log(
+      `[CATEGORIA] - Ocupación: ${ocupacion.toFixed(2)}% >= ${requisitos.EMBAJADOR_SENIOR.ocupacion}% ? ${ocupacion >= requisitos.EMBAJADOR_SENIOR.ocupacion}`,
+    )
+    console.log(
+      `[CATEGORIA] - Total Clases: ${totalClases} >= ${requisitos.EMBAJADOR_SENIOR.clases} ? ${totalClases >= requisitos.EMBAJADOR_SENIOR.clases}`,
+    )
+    console.log(
+      `[CATEGORIA] - Locales en Lima: ${localesEnLima} >= ${requisitos.EMBAJADOR_SENIOR.localesEnLima} ? ${localesEnLima >= requisitos.EMBAJADOR_SENIOR.localesEnLima}`,
+    )
+    console.log(
+      `[CATEGORIA] - Dobleteos: ${dobleteos} >= ${requisitos.EMBAJADOR_SENIOR.dobleteos} ? ${dobleteos >= requisitos.EMBAJADOR_SENIOR.dobleteos}`,
+    )
+    console.log(
+      `[CATEGORIA] - Horarios No Prime: ${horariosNoPrime} >= ${requisitos.EMBAJADOR_SENIOR.horariosNoPrime} ? ${horariosNoPrime >= requisitos.EMBAJADOR_SENIOR.horariosNoPrime}`,
+    )
+    console.log(
+      `[CATEGORIA] - Participación Eventos: ${participacionEventos} || !${requisitos.EMBAJADOR_SENIOR.participacionEventos} ? ${participacionEventos || !requisitos.EMBAJADOR_SENIOR.participacionEventos}`,
+    )
+    console.log(
+      `[CATEGORIA] - Cumple Lineamientos: ${cumpleLineamientos} || !${requisitos.EMBAJADOR_SENIOR.lineamientos} ? ${cumpleLineamientos || !requisitos.EMBAJADOR_SENIOR.lineamientos}`,
+    )
+
     if (
       requisitos.EMBAJADOR_SENIOR &&
       ocupacion >= requisitos.EMBAJADOR_SENIOR.ocupacion &&
@@ -284,13 +329,40 @@ export function useCalculation(
       localesEnLima >= requisitos.EMBAJADOR_SENIOR.localesEnLima &&
       dobleteos >= requisitos.EMBAJADOR_SENIOR.dobleteos &&
       horariosNoPrime >= requisitos.EMBAJADOR_SENIOR.horariosNoPrime &&
+      // Fix boolean comparison for participacionEventos
       (participacionEventos || !requisitos.EMBAJADOR_SENIOR.participacionEventos) &&
+      // Fix boolean comparison for cumpleLineamientos
       (cumpleLineamientos || !requisitos.EMBAJADOR_SENIOR.lineamientos)
     ) {
+      console.log(`[CATEGORIA] ✅ Cumple requisitos para EMBAJADOR_SENIOR`)
       return "EMBAJADOR_SENIOR"
     }
+    console.log(`[CATEGORIA] ❌ No cumple requisitos para EMBAJADOR_SENIOR`)
 
     // Check EMBAJADOR requirements
+    console.log(`[CATEGORIA] Evaluando requisitos para EMBAJADOR:`)
+    console.log(
+      `[CATEGORIA] - Ocupación: ${ocupacion.toFixed(2)}% >= ${requisitos.EMBAJADOR.ocupacion}% ? ${ocupacion >= requisitos.EMBAJADOR.ocupacion}`,
+    )
+    console.log(
+      `[CATEGORIA] - Total Clases: ${totalClases} >= ${requisitos.EMBAJADOR.clases} ? ${totalClases >= requisitos.EMBAJADOR.clases}`,
+    )
+    console.log(
+      `[CATEGORIA] - Locales en Lima: ${localesEnLima} >= ${requisitos.EMBAJADOR.localesEnLima} ? ${localesEnLima >= requisitos.EMBAJADOR.localesEnLima}`,
+    )
+    console.log(
+      `[CATEGORIA] - Dobleteos: ${dobleteos} >= ${requisitos.EMBAJADOR.dobleteos} ? ${dobleteos >= requisitos.EMBAJADOR.dobleteos}`,
+    )
+    console.log(
+      `[CATEGORIA] - Horarios No Prime: ${horariosNoPrime} >= ${requisitos.EMBAJADOR.horariosNoPrime} ? ${horariosNoPrime >= requisitos.EMBAJADOR.horariosNoPrime}`,
+    )
+    console.log(
+      `[CATEGORIA] - Participación Eventos: ${participacionEventos} || !${requisitos.EMBAJADOR.participacionEventos} ? ${participacionEventos || !requisitos.EMBAJADOR.participacionEventos}`,
+    )
+    console.log(
+      `[CATEGORIA] - Cumple Lineamientos: ${cumpleLineamientos} || !${requisitos.EMBAJADOR.lineamientos} ? ${cumpleLineamientos || !requisitos.EMBAJADOR.lineamientos}`,
+    )
+
     if (
       requisitos.EMBAJADOR &&
       ocupacion >= requisitos.EMBAJADOR.ocupacion &&
@@ -298,13 +370,40 @@ export function useCalculation(
       localesEnLima >= requisitos.EMBAJADOR.localesEnLima &&
       dobleteos >= requisitos.EMBAJADOR.dobleteos &&
       horariosNoPrime >= requisitos.EMBAJADOR.horariosNoPrime &&
+      // Fix boolean comparison for participacionEventos
       (participacionEventos || !requisitos.EMBAJADOR.participacionEventos) &&
+      // Fix boolean comparison for cumpleLineamientos
       (cumpleLineamientos || !requisitos.EMBAJADOR.lineamientos)
     ) {
+      console.log(`[CATEGORIA] ✅ Cumple requisitos para EMBAJADOR`)
       return "EMBAJADOR"
     }
+    console.log(`[CATEGORIA] ❌ No cumple requisitos para EMBAJADOR`)
 
     // Check EMBAJADOR_JUNIOR requirements
+    console.log(`[CATEGORIA] Evaluando requisitos para EMBAJADOR_JUNIOR:`)
+    console.log(
+      `[CATEGORIA] - Ocupación: ${ocupacion.toFixed(2)}% >= ${requisitos.EMBAJADOR_JUNIOR.ocupacion}% ? ${ocupacion >= requisitos.EMBAJADOR_JUNIOR.ocupacion}`,
+    )
+    console.log(
+      `[CATEGORIA] - Total Clases: ${totalClases} >= ${requisitos.EMBAJADOR_JUNIOR.clases} ? ${totalClases >= requisitos.EMBAJADOR_JUNIOR.clases}`,
+    )
+    console.log(
+      `[CATEGORIA] - Locales en Lima: ${localesEnLima} >= ${requisitos.EMBAJADOR_JUNIOR.localesEnLima} ? ${localesEnLima >= requisitos.EMBAJADOR_JUNIOR.localesEnLima}`,
+    )
+    console.log(
+      `[CATEGORIA] - Dobleteos: ${dobleteos} >= ${requisitos.EMBAJADOR_JUNIOR.dobleteos} ? ${dobleteos >= requisitos.EMBAJADOR_JUNIOR.dobleteos}`,
+    )
+    console.log(
+      `[CATEGORIA] - Horarios No Prime: ${horariosNoPrime} >= ${requisitos.EMBAJADOR_JUNIOR.horariosNoPrime} ? ${horariosNoPrime >= requisitos.EMBAJADOR_JUNIOR.horariosNoPrime}`,
+    )
+    console.log(
+      `[CATEGORIA] - Participación Eventos: ${participacionEventos} || !${requisitos.EMBAJADOR_JUNIOR.participacionEventos} ? ${participacionEventos || !requisitos.EMBAJADOR_JUNIOR.participacionEventos}`,
+    )
+    console.log(
+      `[CATEGORIA] - Cumple Lineamientos: ${cumpleLineamientos} || !${requisitos.EMBAJADOR_JUNIOR.lineamientos} ? ${cumpleLineamientos || !requisitos.EMBAJADOR_JUNIOR.lineamientos}`,
+    )
+
     if (
       requisitos.EMBAJADOR_JUNIOR &&
       ocupacion >= requisitos.EMBAJADOR_JUNIOR.ocupacion &&
@@ -312,13 +411,18 @@ export function useCalculation(
       localesEnLima >= requisitos.EMBAJADOR_JUNIOR.localesEnLima &&
       dobleteos >= requisitos.EMBAJADOR_JUNIOR.dobleteos &&
       horariosNoPrime >= requisitos.EMBAJADOR_JUNIOR.horariosNoPrime &&
+      // Fix boolean comparison for participacionEventos
       (participacionEventos || !requisitos.EMBAJADOR_JUNIOR.participacionEventos) &&
+      // Fix boolean comparison for cumpleLineamientos
       (cumpleLineamientos || !requisitos.EMBAJADOR_JUNIOR.lineamientos)
     ) {
+      console.log(`[CATEGORIA] ✅ Cumple requisitos para EMBAJADOR_JUNIOR`)
       return "EMBAJADOR_JUNIOR"
     }
+    console.log(`[CATEGORIA] ❌ No cumple requisitos para EMBAJADOR_JUNIOR`)
 
     // Default to INSTRUCTOR
+    console.log(`[CATEGORIA] ⚠️ No cumple requisitos para ninguna categoría especial, asignando INSTRUCTOR`)
     return "INSTRUCTOR"
   }
 
@@ -329,15 +433,32 @@ export function useCalculation(
     periodoId: number,
     formula: any,
   ): Promise<CategoriaInstructor> => {
+    console.log(
+      `\n[CATEGORIA_INSTRUCTOR] Obteniendo/creando categoría para instructor ID ${instructorId}, disciplina ID ${disciplinaId}, periodo ID ${periodoId}`,
+    )
+
     // Find the instructor
     const instructor = instructores.find((i) => i.id === instructorId)
     if (!instructor) {
+      console.log(`[CATEGORIA_INSTRUCTOR] ⚠️ Instructor ID ${instructorId} no encontrado`)
       addProcessLog(`⚠️ Instructor ID ${instructorId} no encontrado`)
       return "INSTRUCTOR" // Default category if instructor not found
     }
+    console.log(`[CATEGORIA_INSTRUCTOR] Instructor encontrado: ${instructor.nombre} (ID: ${instructor.id})`)
 
     // Buscar el pago del instructor para este periodo (para obtener los campos que ahora están en PagoInstructor)
     const pagoInstructor = pagos.find((p) => p.instructorId === instructorId && p.periodoId === periodoId)
+    if (!pagoInstructor) {
+      console.log(`[CATEGORIA_INSTRUCTOR] ⚠️ No se encontró pago para este instructor en este periodo`)
+    } else {
+      console.log(`[CATEGORIA_INSTRUCTOR] Pago encontrado: ID ${pagoInstructor.id}, Monto: ${pagoInstructor.monto}`)
+      console.log(
+        `[CATEGORIA_INSTRUCTOR] Factores del pago: Dobleteos: ${pagoInstructor.dobleteos}, Horarios No Prime: ${pagoInstructor.horariosNoPrime}`,
+      )
+      console.log(
+        `[CATEGORIA_INSTRUCTOR] Participación Eventos: ${pagoInstructor.participacionEventos ? "Sí" : "No"}, Cumple Lineamientos: ${pagoInstructor.cumpleLineamientos ? "Sí" : "No"}`,
+      )
+    }
 
     // Check if instructor already has a category for this specific discipline and period
     const existingCategoria = instructor.categorias?.find(
@@ -345,17 +466,24 @@ export function useCalculation(
     )
 
     if (existingCategoria) {
+      console.log(
+        `[CATEGORIA_INSTRUCTOR] ✅ Instructor ${instructor.nombre} ya tiene categoría para disciplina ${disciplinaId}: ${existingCategoria.categoria}`,
+      )
       addProcessLog(`✓ Instructor ${instructor.nombre} ya tiene categoría para disciplina ${disciplinaId}`)
       return existingCategoria.categoria
     }
+    console.log(`[CATEGORIA_INSTRUCTOR] ⚠️ No se encontró categoría existente, calculando nueva categoría...`)
 
     // Determine appropriate category based on metrics
+    console.log(`[CATEGORIA_INSTRUCTOR] Llamando a determinarCategoria para calcular categoría...`)
     const categoriaCalculada = determinarCategoria(instructorId, disciplinaId, periodoId, formula)
+    console.log(`[CATEGORIA_INSTRUCTOR] Categoría calculada: ${categoriaCalculada}`)
 
     // Get instructor's classes for this discipline and period
     const clasesInstructor = clases.filter(
       (c) => c.instructorId === instructorId && c.disciplinaId === disciplinaId && c.periodoId === periodoId,
     )
+    console.log(`[CATEGORIA_INSTRUCTOR] Encontradas ${clasesInstructor.length} clases para esta disciplina`)
 
     // Calculate metrics for storing
     const totalClases = clasesInstructor.length
@@ -368,14 +496,21 @@ export function useCalculation(
       totalLugares += clase.lugares
     })
     const ocupacion = totalLugares > 0 ? (totalReservas / totalLugares) * 100 : 0
+    console.log(
+      `[CATEGORIA_INSTRUCTOR] Métricas calculadas: Ocupación: ${ocupacion.toFixed(2)}%, Clases: ${totalClases}`,
+    )
 
     // Count unique locations in Lima
     const localesEnLima = new Set(
       clasesInstructor.filter((c) => c.ciudad.toLowerCase().includes("lima")).map((c) => c.estudio),
     ).size
+    console.log(`[CATEGORIA_INSTRUCTOR] Locales en Lima: ${localesEnLima}`)
 
     // Create new category
     try {
+      console.log(
+        `[CATEGORIA_INSTRUCTOR] ⏳ Creando categoría para ${instructor.nombre} en disciplina ${disciplinaId}...`,
+      )
       addProcessLog(`⏳ Creando categoría para ${instructor.nombre} en disciplina ${disciplinaId}...`)
 
       // Prepare the new category object according to the schema
@@ -394,36 +529,51 @@ export function useCalculation(
           participacionEventos: pagoInstructor?.participacionEventos || false,
         },
       }
+      console.log(`[CATEGORIA_INSTRUCTOR] Nueva categoría preparada:`, nuevaCategoria)
 
       // Importante: Obtener el instructor más actualizado antes de modificar sus categorías
+      console.log(`[CATEGORIA_INSTRUCTOR] Obteniendo instructor actualizado desde API...`)
       const instructorActualizado = await instructoresApi.getInstructor(instructorId)
+      console.log(`[CATEGORIA_INSTRUCTOR] Instructor actualizado obtenido: ${instructorActualizado.nombre}`)
+      console.log(`[CATEGORIA_INSTRUCTOR] Categorías actuales: ${instructorActualizado.categorias?.length || 0}`)
 
       // Get existing categories or initialize empty array
       const categorias = instructorActualizado.categorias || []
+      console.log(`[CATEGORIA_INSTRUCTOR] Categorías existentes: ${categorias.length}`)
 
       // Make sure we're not duplicating categories
       const categoriaIndex = categorias.findIndex((c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId)
+      console.log(`[CATEGORIA_INSTRUCTOR] Índice de categoría existente: ${categoriaIndex}`)
 
       const updatedCategorias = [...categorias]
 
       if (categoriaIndex >= 0) {
         // Replace existing category
+        console.log(`[CATEGORIA_INSTRUCTOR] Reemplazando categoría existente en índice ${categoriaIndex}`)
         updatedCategorias[categoriaIndex] = { ...updatedCategorias[categoriaIndex], ...nuevaCategoria }
       } else {
         // Add new category
+        console.log(`[CATEGORIA_INSTRUCTOR] Agregando nueva categoría`)
         updatedCategorias.push(nuevaCategoria)
       }
+      console.log(`[CATEGORIA_INSTRUCTOR] Total categorías después de actualización: ${updatedCategorias.length}`)
 
       // Update instructor with the new category
+      console.log(`[CATEGORIA_INSTRUCTOR] Actualizando instructor con nuevas categorías...`)
       await actualizarInstructor(instructorId, {
         categorias: updatedCategorias,
       })
+      console.log(`[CATEGORIA_INSTRUCTOR] ✅ Instructor actualizado exitosamente`)
 
       addProcessLog(`✓ Categoría creada para ${instructor.nombre} en disciplina ${disciplinaId}: ${categoriaCalculada}`)
+      console.log(
+        `[CATEGORIA_INSTRUCTOR] ✅ Categoría creada para ${instructor.nombre} en disciplina ${disciplinaId}: ${categoriaCalculada}`,
+      )
 
       // Return the newly created category
       return categoriaCalculada
     } catch (error) {
+      console.error(`[CATEGORIA_INSTRUCTOR] ❌ ERROR al crear categoría:`, error)
       addProcessLog(
         `❌ Error al crear categoría para ${instructor.nombre} en disciplina ${disciplinaId}: ${error instanceof Error ? error.message : "Error desconocido"}`,
       )
@@ -461,14 +611,13 @@ export function useCalculation(
     setProcessLogs([])
     setShowProcessLogsDialog(true)
 
-    addProcessLog("🚀 Iniciando cálculo de pagos...")
+    addProcessLog("🚀 Iniciando proceso de cálculo de pagos...")
+    addProcessLog("📊 PASO 1: Evaluando y actualizando categorías de instructores...")
 
     setIsCalculatingPayments(true)
     setShowCalculateDialog(false)
 
     try {
-      addProcessLog(`📅 Calculando pagos para periodo ID: ${periodoId}`)
-
       // Get all instructors with classes in this period
       const instructoresConClases = [
         ...new Set(clases.filter((c) => c.periodoId === periodoId).map((c) => c.instructorId)),
@@ -477,6 +626,208 @@ export function useCalculation(
 
       addProcessLog(`👥 Total instructores con clases: ${todosInstructores.length}`)
 
+      // PASO 1: Evaluar y actualizar categorías de todos los instructores
+      let categoriasActualizadas = 0
+
+      // Helper function to calculate metrics
+      const calcularMetricas = (clasesInstructor: any[], disciplinaId: number) => {
+        const clasesDisciplina = clasesInstructor.filter((c) => c.disciplinaId === disciplinaId)
+        const totalClases = clasesDisciplina.length
+
+        let totalReservas = 0
+        let totalLugares = 0
+        clasesDisciplina.forEach((clase) => {
+          totalReservas += clase.reservasTotales
+          totalLugares += clase.lugares
+        })
+        const ocupacion = totalLugares > 0 ? (totalReservas / totalLugares) * 100 : 0
+
+        const localesEnLima = new Set(
+          clasesDisciplina.filter((c) => c.ciudad.toLowerCase().includes("lima")).map((c) => c.estudio),
+        ).size
+
+        return { ocupacion, clases: totalClases, localesEnLima }
+      }
+
+      // Primero, evaluar y actualizar categorías para todos los instructores
+      for (const instructor of todosInstructores) {
+        addProcessLog(`Evaluando categorías para ${instructor.nombre}`, instructor.id)
+
+        // Get classes for this instructor in this period
+        const clasesInstructor = clases.filter(
+          (clase) => clase.instructorId === instructor.id && clase.periodoId === periodoId,
+        )
+
+        if (clasesInstructor.length === 0) {
+          addProcessLog(`Sin clases, omitiendo`, instructor.id)
+          continue
+        }
+
+        // Get the payment for this instructor in this period
+        const pagoInstructor = pagos.find((p) => p.instructorId === instructor.id && p.periodoId === periodoId)
+
+        if (!pagoInstructor) {
+          addProcessLog(`Sin pago registrado, creando valores por defecto`, instructor.id)
+          // Podemos continuar sin pago existente, se creará uno nuevo
+        }
+
+        // Get unique disciplines taught by the instructor
+        const disciplinasInstructor = [...new Set(clasesInstructor.map((c) => c.disciplinaId))]
+
+        // Obtener el instructor actualizado para tener sus categorías actuales
+        const instructorActualizado = await instructoresApi.getInstructor(instructor.id)
+        const categoriasActuales = instructorActualizado.categorias || []
+
+        // Valores manuales a preservar o valores por defecto
+        const valoresManuales = {
+          dobleteos: pagoInstructor?.dobleteos || 0,
+          participacionEventos: pagoInstructor?.participacionEventos || false,
+          cumpleLineamientos: pagoInstructor?.cumpleLineamientos || false,
+          horariosNoPrime: pagoInstructor?.horariosNoPrime || 0,
+        }
+
+        // Array para almacenar las categorías actualizadas
+        const nuevasCategorias = [...categoriasActuales]
+        let cambiosRealizados = false
+
+        // Evaluar cada disciplina
+        for (const disciplinaId of disciplinasInstructor) {
+          const disciplina = disciplinas.find((d) => d.id === disciplinaId)
+          if (!disciplina) continue
+
+          // Skip disciplines that don't have visual categories
+          if (!mostrarCategoriaVisual(disciplina.nombre)) {
+            continue
+          }
+
+          // Get formula for this discipline
+          const formula = formulas.find((f) => f.disciplinaId === disciplinaId && f.periodoId === periodoId)
+          if (!formula) {
+            addProcessLog(`No se encontró fórmula para ${disciplina.nombre}, omitiendo`, instructor.id)
+            continue
+          }
+
+          // Calculate metrics for this discipline
+          const metricasBase = calcularMetricas(clasesInstructor, disciplinaId)
+
+          // Determinar la categoría máxima posible
+          // Primero verificamos EMBAJADOR_SENIOR, luego EMBAJADOR, luego EMBAJADOR_JUNIOR
+          let nuevaCategoria: CategoriaInstructor = "INSTRUCTOR"
+          const requisitos = formula.requisitosCategoria
+
+          // Verificar si cumple requisitos para EMBAJADOR_SENIOR
+          if (
+            requisitos.EMBAJADOR_SENIOR &&
+            metricasBase.ocupacion >= requisitos.EMBAJADOR_SENIOR.ocupacion &&
+            metricasBase.clases >= requisitos.EMBAJADOR_SENIOR.clases &&
+            metricasBase.localesEnLima >= requisitos.EMBAJADOR_SENIOR.localesEnLima &&
+            valoresManuales.dobleteos >= requisitos.EMBAJADOR_SENIOR.dobleteos &&
+            valoresManuales.horariosNoPrime >= requisitos.EMBAJADOR_SENIOR.horariosNoPrime &&
+            (valoresManuales.participacionEventos || !requisitos.EMBAJADOR_SENIOR.participacionEventos) &&
+            (valoresManuales.cumpleLineamientos || !requisitos.EMBAJADOR_SENIOR.lineamientos)
+          ) {
+            nuevaCategoria = "EMBAJADOR_SENIOR"
+          }
+          // Si no cumple para SENIOR, verificar EMBAJADOR
+          else if (
+            requisitos.EMBAJADOR &&
+            metricasBase.ocupacion >= requisitos.EMBAJADOR.ocupacion &&
+            metricasBase.clases >= requisitos.EMBAJADOR.clases &&
+            metricasBase.localesEnLima >= requisitos.EMBAJADOR.localesEnLima &&
+            valoresManuales.dobleteos >= requisitos.EMBAJADOR.dobleteos &&
+            valoresManuales.horariosNoPrime >= requisitos.EMBAJADOR.horariosNoPrime &&
+            (valoresManuales.participacionEventos || !requisitos.EMBAJADOR.participacionEventos) &&
+            (valoresManuales.cumpleLineamientos || !requisitos.EMBAJADOR.lineamientos)
+          ) {
+            nuevaCategoria = "EMBAJADOR"
+          }
+          // Si no cumple para EMBAJADOR, verificar EMBAJADOR_JUNIOR
+          else if (
+            requisitos.EMBAJADOR_JUNIOR &&
+            metricasBase.ocupacion >= requisitos.EMBAJADOR_JUNIOR.ocupacion &&
+            metricasBase.clases >= requisitos.EMBAJADOR_JUNIOR.clases &&
+            metricasBase.localesEnLima >= requisitos.EMBAJADOR_JUNIOR.localesEnLima &&
+            valoresManuales.dobleteos >= requisitos.EMBAJADOR_JUNIOR.dobleteos &&
+            valoresManuales.horariosNoPrime >= requisitos.EMBAJADOR_JUNIOR.horariosNoPrime &&
+            (valoresManuales.participacionEventos || !requisitos.EMBAJADOR_JUNIOR.participacionEventos) &&
+            (valoresManuales.cumpleLineamientos || !requisitos.EMBAJADOR_JUNIOR.lineamientos)
+          ) {
+            nuevaCategoria = "EMBAJADOR_JUNIOR"
+          }
+
+          // Buscar si ya existe una categoría para esta disciplina y periodo
+          const categoriaExistente = categoriasActuales.find(
+            (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
+          )
+
+          // Si la categoría ha cambiado o no existe, actualizarla
+          if (!categoriaExistente || categoriaExistente.categoria !== nuevaCategoria) {
+            addProcessLog(
+              `🔄 Actualizando categoría para ${disciplina.nombre}: ${categoriaExistente?.categoria || "No asignada"} -> ${nuevaCategoria}`,
+              instructor.id,
+            )
+
+            // Crear objeto de categoría
+            const categoriaActualizada = {
+              id: categoriaExistente?.id || Date.now(),
+              instructorId: instructor.id,
+              disciplinaId,
+              periodoId,
+              categoria: nuevaCategoria,
+              metricas: {
+                ocupacion: metricasBase.ocupacion,
+                clases: metricasBase.clases,
+                localesEnLima: metricasBase.localesEnLima,
+                dobleteos: valoresManuales.dobleteos,
+                horariosNoPrime: valoresManuales.horariosNoPrime,
+                participacionEventos: valoresManuales.participacionEventos,
+              },
+            }
+
+            // Actualizar el array de categorías
+            if (categoriaExistente) {
+              // Reemplazar categoría existente
+              const index = nuevasCategorias.findIndex(
+                (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
+              )
+              if (index >= 0) {
+                nuevasCategorias[index] = { ...nuevasCategorias[index], ...categoriaActualizada }
+              }
+            } else {
+              // Añadir nueva categoría
+              nuevasCategorias.push(categoriaActualizada)
+            }
+
+            cambiosRealizados = true
+            categoriasActualizadas++
+          } else {
+            addProcessLog(
+              `✓ Categoría ya correcta para ${disciplina.nombre}: ${categoriaExistente.categoria}`,
+              instructor.id,
+            )
+          }
+        }
+
+        // Si se realizaron cambios, actualizar el instructor
+        if (cambiosRealizados) {
+          try {
+            await actualizarInstructor(instructor.id, {
+              categorias: nuevasCategorias,
+            })
+            addProcessLog(`✅ Categorías actualizadas exitosamente`, instructor.id)
+          } catch (error) {
+            addProcessLog(
+              `❌ Error al actualizar categorías: ${error instanceof Error ? error.message : "Error desconocido"}`,
+              instructor.id,
+            )
+          }
+        }
+      }
+
+      addProcessLog(`📊 Categorías actualizadas: ${categoriasActualizadas}`)
+      addProcessLog(`📊 PASO 2: Calculando pagos con las categorías actualizadas...`)
+
+      // PASO 2: Ahora que las categorías están actualizadas, calcular los pagos
       // Get existing payments for this period
       const pagosPeriodo = pagos.filter((p) => p.periodoId === periodoId)
       const instructoresConPago = new Set(pagosPeriodo.map((p) => p.instructorId))
@@ -485,7 +836,9 @@ export function useCalculation(
 
       let pagosCreados = 0
       let pagosActualizados = 0
-      let categoriasCreadas = 0
+
+      // Array para almacenar todos los pagos que se crearán o actualizarán
+      const pagosParaActualizar = []
 
       // Process each instructor
       for (const instructor of todosInstructores) {
@@ -527,49 +880,10 @@ export function useCalculation(
           }
         }).length
 
-        // Crear un mapa para almacenar las categorías por disciplina
-        const categoriasPorDisciplina = new Map<number, CategoriaInstructor>()
+        // Obtener el instructor actualizado para tener sus categorías actualizadas
+        const instructorActualizado = await instructoresApi.getInstructor(instructor.id)
 
-        // Primero, procesar todas las categorías para cada disciplina
-        for (const disciplinaId of disciplinasUnicas) {
-          const disciplina = disciplinas.find((d) => d.id === disciplinaId)
-
-          if (!disciplina) {
-            addProcessLog(`Disciplina ID ${disciplinaId} no encontrada, omitiendo`, instructor.id)
-            continue
-          }
-
-          // Get formula for this discipline
-          const formula = formulas.find((f) => f.disciplinaId === disciplinaId && f.periodoId === periodoId)
-
-          if (!formula) {
-            addProcessLog(`No se encontró fórmula para ${disciplina.nombre}, omitiendo`, instructor.id)
-            continue
-          }
-
-          // Crear o obtener la categoría para esta disciplina específica
-          try {
-            const categoriaInstructor = await getOrCreateInstructorCategoria(
-              instructor.id,
-              disciplinaId,
-              periodoId,
-              formula,
-            )
-            categoriasPorDisciplina.set(disciplinaId, categoriaInstructor)
-            categoriasCreadas++
-
-            addProcessLog(`✅ Categoría para ${disciplina.nombre}: ${categoriaInstructor}`, instructor.id)
-          } catch (error) {
-            addProcessLog(
-              `❌ Error al procesar categoría para ${disciplina.nombre}: ${error instanceof Error ? error.message : "Error desconocido"}`,
-              instructor.id,
-            )
-            // Usar INSTRUCTOR como categoría por defecto en caso de error
-            categoriasPorDisciplina.set(disciplinaId, "INSTRUCTOR")
-          }
-        }
-
-        // Ahora, calcular los pagos usando las categorías asignadas
+        // Ahora, calcular los pagos usando las categorías ya actualizadas
         for (const disciplinaId of disciplinasUnicas) {
           const clasesDisciplina = clasesInstructor.filter((c) => c.disciplinaId === disciplinaId)
           const disciplina = disciplinas.find((d) => d.id === disciplinaId)
@@ -581,7 +895,10 @@ export function useCalculation(
           if (!formula) continue
 
           // Obtener la categoría asignada para esta disciplina
-          const categoriaInstructor = categoriasPorDisciplina.get(disciplinaId) || "INSTRUCTOR"
+          const categoriaInfo = instructorActualizado.categorias?.find(
+            (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
+          )
+          const categoriaInstructor = categoriaInfo?.categoria || "INSTRUCTOR"
 
           addProcessLog(
             `Calculando pagos para disciplina ${disciplina.nombre} con categoría ${categoriaInstructor}`,
@@ -593,6 +910,36 @@ export function useCalculation(
             try {
               const resultado = calcularPago(clase, categoriaInstructor, formula)
               montoTotal += resultado.montoPago
+
+              // Add detailed log about payment for this class
+              addProcessLog(
+                `💰 PAGO POR CLASE [${clase.id}]: ${disciplina.nombre} - ${new Date(clase.fecha).toLocaleDateString()} ${obtenerHora(clase.fecha)}` +
+                  `\n   Monto: ${resultado.montoPago.toFixed(2)} | Categoría: ${categoriaInstructor}` +
+                  `\n   Reservas: ${clase.reservasTotales}/${clase.lugares} (${Math.round((clase.reservasTotales / clase.lugares) * 100)}% ocupación)` +
+                  `\n   Detalle: ${resultado.detalleCalculo}`,
+                instructor.id,
+              )
+
+              // Check if this is a non-prime hour class
+              const hora = obtenerHora(clase.fecha)
+              const estudio = clase.estudio || ""
+              let esNoPrime = false
+
+              // Check if this is a non-prime hour
+              for (const [estudioConfig, horarios] of Object.entries(HORARIOS_NO_PRIME)) {
+                if (estudio.toLowerCase().includes(estudioConfig.toLowerCase()) && horarios[hora]) {
+                  esNoPrime = true
+                  break
+                }
+              }
+
+              if (esNoPrime) {
+                addProcessLog(
+                  `⏱️ HORARIO NO PRIME: ${disciplina.nombre} - ${new Date(clase.fecha).toLocaleDateString()} ${hora}` +
+                    `\n   Estudio: ${estudio} | Hora: ${hora}`,
+                  instructor.id,
+                )
+              }
 
               detallesClases.push({
                 claseId: clase.id,
@@ -609,8 +956,23 @@ export function useCalculation(
           }
         }
 
-        // Recargar el instructor para obtener las categorías actualizadas
-        const instructorActualizado = await instructoresApi.getInstructor(instructor.id)
+        // Add a summary of metrics for the instructor
+        const totalClases = clasesInstructor.length
+        const totalReservas = clasesInstructor.reduce((sum, c) => sum + c.reservasTotales, 0)
+        const totalCapacidad = clasesInstructor.reduce((sum, c) => sum + c.lugares, 0)
+        const ocupacionPromedio = totalCapacidad > 0 ? (totalReservas / totalCapacidad) * 100 : 0
+        const disciplinasUnicasCount = new Set(clasesInstructor.map((c) => c.disciplinaId)).size
+        const estudiosUnicos = new Set(clasesInstructor.map((c) => c.estudio)).size
+        const clasesNoPrime = clasesInstructor.filter((clase) => {
+          const hora = obtenerHora(clase.fecha)
+          const estudio = clase.estudio || ""
+          for (const [estudioConfig, horarios] of Object.entries(HORARIOS_NO_PRIME)) {
+            if (estudio.toLowerCase().includes(estudioConfig.toLowerCase()) && horarios[hora]) {
+              return true
+            }
+          }
+          return false
+        }).length
 
         // Calculate bonus if enabled
         let bonoTotal = 0
@@ -690,68 +1052,109 @@ export function useCalculation(
         const retencionCalculada = montoConBono * retencionValor
         const pagoFinal = montoConBono - retencionCalculada
 
-        // Modifiquemos la parte donde se crea o actualiza el pago
-        // Create or update payment
-        try {
-          // Preparar el objeto de pago con todos los datos necesarios
-          const pagoData = {
-            instructorId: instructor.id,
-            periodoId: periodoId,
-            monto: montoTotal,
-            bono: bonoTotal,
-            estado: "PENDIENTE" as EstadoPago,
-            retencion: retencionCalculada,
-            reajuste: 0,
-            tipoReajuste: "FIJO" as const,
-            pagoFinal: pagoFinal,
-            dobleteos: 0,
-            horariosNoPrime: horariosNoPrime,
-            participacionEventos: false,
-            cumpleLineamientos: false,
-            detalles: {
-              clases: detallesClases,
-              resumen: {
-                totalClases: detallesClases.length,
-                totalMonto: montoTotal,
-                bono: bonoTotal,
-                disciplinas: disciplinasUnicas.length,
-                categorias: disciplinasUnicas.map((disciplinaId) => {
-                  // Usar las categorías que acabamos de crear/obtener
-                  const categoria = categoriasPorDisciplina.get(disciplinaId) || "INSTRUCTOR"
-                  const disc = disciplinas.find((d) => d.id === disciplinaId)
-                  return {
-                    disciplinaId,
-                    disciplinaNombre: disc?.nombre || `Disciplina ${disciplinaId}`,
-                    categoria: categoria,
-                  }
-                }),
-                comentarios: `Calculado el ${new Date().toLocaleDateString()}`,
-              },
-            },
-          }
+        addProcessLog(
+          `RESUMEN DE MÉTRICAS:` +
+            `\n   Total Clases: ${totalClases} | Disciplinas: ${disciplinasUnicasCount} | Estudios: ${estudiosUnicos}` +
+            `\n   Ocupación Promedio: ${ocupacionPromedio.toFixed(1)}% (${totalReservas}/${totalCapacidad})` +
+            `\n   Clases en Horario No Prime: ${clasesNoPrime} (${((clasesNoPrime / totalClases) * 100).toFixed(1)}%)` +
+            `\n   Monto Total: ${montoTotal.toFixed(2)} | Bono: ${bonoTotal.toFixed(2)} | Final: ${pagoFinal.toFixed(2)}`,
+          instructor.id,
+        )
 
-          // For existing payments, preserve manual values
+        // Preparar el objeto de pago con todos los datos necesarios
+        try {
           if (pagoExistente) {
-            // Crear un objeto de actualización parcial
+            // Crear un objeto de actualización completo, incluyendo todos los campos requeridos
             const actualizacion = {
+              id: pagoExistente.id,
+              instructorId: instructor.id,
+              periodoId: periodoId,
               monto: montoTotal,
               bono: bonoTotal,
+              estado: pagoExistente.estado, // Mantener el estado existente
               retencion: retencionCalculada,
+              reajuste: pagoExistente.reajuste, // Mantener el reajuste existente
+              tipoReajuste: pagoExistente.tipoReajuste, // Mantener el tipo de reajuste existente
               pagoFinal: pagoFinal,
               // Mantener valores manuales existentes
-              horariosNoPrime: horariosNoPrime,
-              detalles: pagoData.detalles,
+              dobleteos: pagoExistente.dobleteos || 0,
+              horariosNoPrime: horariosNoPrime/4,
+              participacionEventos: pagoExistente.participacionEventos || false,
+              cumpleLineamientos: pagoExistente.cumpleLineamientos || false,
+              detalles: {
+                clases: detallesClases,
+                resumen: {
+                  totalClases: detallesClases.length,
+                  totalMonto: montoTotal,
+                  bono: bonoTotal,
+                  disciplinas: disciplinasUnicas.length,
+                  categorias: disciplinasUnicas.map((disciplinaId) => {
+                    // Usar las categorías actualizadas del instructor
+                    const categoriaInfo = instructorActualizado.categorias?.find(
+                      (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
+                    )
+                    const categoria = categoriaInfo?.categoria || "INSTRUCTOR"
+                    const disc = disciplinas.find((d) => d.id === disciplinaId)
+                    return {
+                      disciplinaId,
+                      disciplinaNombre: disc?.nombre || `Disciplina ${disciplinaId}`,
+                      categoria: categoria,
+                    }
+                  }),
+                  comentarios: `Calculado el ${new Date().toLocaleDateString()}`,
+                },
+              },
             }
 
-            // Usar el método del store para actualizar
-            await actualizarPago(pagoExistente.id, actualizacion)
+            // Agregar a la lista de pagos para actualizar
+            pagosParaActualizar.push({ id: pagoExistente.id, data: actualizacion })
             pagosActualizados++
-            addProcessLog(`✅ Pago actualizado`, instructor.id)
+            addProcessLog(`✅ Pago preparado para actualización`, instructor.id)
           } else {
-            // Usar el método del store para crear
-            await crearPago(pagoData)
+            // Preparar nuevo pago
+            const pagoData = {
+              instructorId: instructor.id,
+              periodoId: periodoId,
+              monto: montoTotal,
+              bono: bonoTotal,
+              estado: "PENDIENTE" as EstadoPago,
+              retencion: retencionCalculada,
+              reajuste: 0,
+              tipoReajuste: "FIJO" as const,
+              pagoFinal: pagoFinal,
+              dobleteos: 0,
+              horariosNoPrime: horariosNoPrime/4,
+              participacionEventos: false,
+              cumpleLineamientos: false,
+              detalles: {
+                clases: detallesClases,
+                resumen: {
+                  totalClases: detallesClases.length,
+                  totalMonto: montoTotal,
+                  bono: bonoTotal,
+                  disciplinas: disciplinasUnicas.length,
+                  categorias: disciplinasUnicas.map((disciplinaId) => {
+                    // Usar las categorías actualizadas del instructor
+                    const categoriaInfo = instructorActualizado.categorias?.find(
+                      (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
+                    )
+                    const categoria = categoriaInfo?.categoria || "INSTRUCTOR"
+                    const disc = disciplinas.find((d) => d.id === disciplinaId)
+                    return {
+                      disciplinaId,
+                      disciplinaNombre: disc?.nombre || `Disciplina ${disciplinaId}`,
+                      categoria: categoria,
+                    }
+                  }),
+                  comentarios: `Calculado el ${new Date().toLocaleDateString()}`,
+                },
+              },
+            }
+
+            // Agregar a la lista de pagos para crear
+            pagosParaActualizar.push({ id: null, data: pagoData })
             pagosCreados++
-            addProcessLog(`✅ Pago creado`, instructor.id)
+            addProcessLog(`✅ Pago preparado para creación`, instructor.id)
           }
         } catch (error) {
           addProcessLog(
@@ -760,6 +1163,31 @@ export function useCalculation(
           )
         }
       }
+
+      // Ahora, después de procesar todos los instructores, realizamos todas las actualizaciones de pagos
+      addProcessLog(`\n🔄 Actualizando base de datos con ${pagosParaActualizar.length} pagos...`)
+
+      // Procesar todos los pagos en lote
+      for (const pago of pagosParaActualizar) {
+        try {
+          if (pago.id) {
+            // Actualizar pago existente
+            // Asegurarse de que solo pasamos los campos que queremos actualizar
+            const { id, ...datosActualizacion } = pago.data
+            await actualizarPago(pago.id, datosActualizacion)
+          } else {
+            // Crear nuevo pago
+            // Asegurarse de que el objeto tiene todos los campos requeridos
+            await crearPago(pago.data as any)
+          }
+        } catch (error) {
+          addProcessLog(`❌ Error al guardar pago: ${error instanceof Error ? error.message : "Error desconocido"}`)
+        }
+      }
+
+      // Actualizar la UI con todos los pagos de una sola vez
+      await fetchPagos()
+      addProcessLog(`✅ Base de datos actualizada correctamente`)
 
       // Update period if bonuses were calculated
       if (calcularBonoEnPeriodo) {
@@ -775,9 +1203,9 @@ export function useCalculation(
 
       // Final summary
       addProcessLog("\n🏁 Proceso completado. Resumen:")
+      addProcessLog(`✅ Categorías actualizadas: ${categoriasActualizadas}`)
       addProcessLog(`✅ Pagos creados: ${pagosCreados}`)
       addProcessLog(`🔄 Pagos actualizados: ${pagosActualizados}`)
-      addProcessLog(`📊 Categorías creadas/actualizadas: ${categoriasCreadas}`)
       addProcessLog(`👥 Total instructores procesados: ${todosInstructores.length}`)
       addProcessLog(
         `💵 Total monto procesado: ${pagos
@@ -824,10 +1252,9 @@ export function useCalculation(
         `📊 Promedio de clases por instructor: ${(clases.filter((c) => c.periodoId === periodoId).length / todosInstructores.length).toFixed(1)}`,
       )
 
-      await fetchPagos()
       toast({
         title: "Cálculo completado",
-        description: `Se han creado ${pagosCreados} pagos y actualizado ${pagosActualizados}.`,
+        description: `Se han actualizado ${categoriasActualizadas} categorías, creado ${pagosCreados} pagos y actualizado ${pagosActualizados}.`,
       })
     } catch (error) {
       addProcessLog(`❌ Error en el proceso: ${error instanceof Error ? error.message : "Error desconocido"}`)
@@ -862,6 +1289,8 @@ export function useCalculation(
   // Asegúrate de que esta función esté exportada correctamente
   // Function to re-evaluate all instructor categories
   const reevaluarTodasCategorias = async () => {
+    console.log("\n[REEVALUACION] 🔄 Iniciando proceso de reevaluación de categorías...")
+
     // Clear previous logs
     setProcessLogs([])
     setShowProcessLogsDialog(true)
@@ -871,6 +1300,7 @@ export function useCalculation(
     const periodoId = selectedPeriodoId || periodoActual?.id
 
     if (!periodoId) {
+      console.log("[REEVALUACION] ❌ ERROR: No hay periodo seleccionado")
       addProcessLog("❌ Error: No hay periodo seleccionado")
       toast({
         title: "Error",
@@ -879,30 +1309,38 @@ export function useCalculation(
       })
       return
     }
+    console.log(`[REEVALUACION] Periodo seleccionado: ${periodoId}`)
 
     // Verificar si existen fórmulas para el periodo seleccionado
     if (!verificarFormulasExistentes(periodoId)) {
+      console.log("[REEVALUACION] ⚠️ No existen fórmulas para este periodo")
       // Buscar el periodo más cercano con fórmulas
       const periodoOrigen = encontrarPeriodoConFormulas(periodoId)
       setPeriodoOrigenFormulas(periodoOrigen)
+      console.log(`[REEVALUACION] Periodo origen con fórmulas encontrado: ${periodoOrigen?.id || "ninguno"}`)
 
       // Mostrar diálogo para duplicar fórmulas
       setShowFormulaDuplicationDialog(true)
       setShowCalculateDialog(false)
       return
     }
+    console.log("[REEVALUACION] ✅ Fórmulas encontradas para este periodo")
 
     setIsCalculatingPayments(true)
     setShowCalculateDialog(false)
 
     try {
       addProcessLog(`📅 Re-evaluando categorías para periodo ID: ${periodoId}`)
+      console.log(`[REEVALUACION] 📅 Re-evaluando categorías para periodo ID: ${periodoId}`)
 
       // Get all instructors with classes in this period
       const instructoresConClases = [
         ...new Set(clases.filter((c) => c.periodoId === periodoId).map((c) => c.instructorId)),
       ]
+      console.log(`[REEVALUACION] Instructores con clases en este periodo: ${instructoresConClases.length}`)
+
       const todosInstructores = instructores.filter((i) => instructoresConClases.includes(i.id))
+      console.log(`[REEVALUACION] Total instructores a procesar: ${todosInstructores.length}`)
 
       addProcessLog(`👥 Total instructores con clases: ${todosInstructores.length}`)
 
@@ -930,62 +1368,119 @@ export function useCalculation(
 
       // Process each instructor
       for (const instructor of todosInstructores) {
+        console.log(`\n[REEVALUACION] 👤 Procesando instructor: ${instructor.nombre} (ID: ${instructor.id})`)
         addProcessLog(`Procesando instructor ${instructor.nombre}`, instructor.id)
 
         // Get classes for this instructor in this period
         const clasesInstructor = clases.filter(
           (clase) => clase.instructorId === instructor.id && clase.periodoId === periodoId,
         )
+        console.log(`[REEVALUACION] Clases encontradas: ${clasesInstructor.length}`)
 
         if (clasesInstructor.length === 0) {
+          console.log(`[REEVALUACION] ⚠️ Sin clases, omitiendo instructor`)
           addProcessLog(`Sin clases, omitiendo`, instructor.id)
           continue
         }
 
         // Get the payment for this instructor in this period
         const pagoInstructor = pagos.find((p) => p.instructorId === instructor.id && p.periodoId === periodoId)
+        console.log(`[REEVALUACION] Pago encontrado: ${pagoInstructor ? "Sí" : "No"}`)
 
         if (!pagoInstructor) {
+          console.log(`[REEVALUACION] ⚠️ Sin pago registrado, omitiendo instructor`)
           addProcessLog(`Sin pago registrado, omitiendo`, instructor.id)
           continue
         }
+        console.log(`[REEVALUACION] Detalles del pago: ID ${pagoInstructor.id}, Monto: ${pagoInstructor.monto}`)
+        console.log(
+          `[REEVALUACION] Factores del pago: Dobleteos: ${pagoInstructor.dobleteos}, Horarios No Prime: ${pagoInstructor.horariosNoPrime}`,
+        )
+        console.log(
+          `[REEVALUACION] Participación Eventos: ${pagoInstructor.participacionEventos ? "Sí" : "No"}, Cumple Lineamientos: ${pagoInstructor.cumpleLineamientos ? "Sí" : "No"}`,
+        )
 
         // Get unique disciplines taught by the instructor
         const disciplinasInstructor = [...new Set(clasesInstructor.map((c) => c.disciplinaId))]
+        console.log(`[REEVALUACION] Disciplinas únicas: ${disciplinasInstructor.length}`)
+
+        // IMPORTANTE: Preservar los valores manuales del pago existente
+        // Estos valores no deben ser recalculados, sino mantenidos tal como están
+        const valoresManuales = {
+          dobleteos: pagoInstructor.dobleteos || 0,
+          participacionEventos: pagoInstructor.participacionEventos || false,
+          cumpleLineamientos: pagoInstructor.cumpleLineamientos || false,
+        }
+        console.log(`[REEVALUACION] Valores manuales preservados:`, valoresManuales)
 
         // Process each discipline the instructor has taught
         for (const disciplinaId of disciplinasInstructor) {
+          console.log(`\n[REEVALUACION] 📊 Procesando disciplina ID: ${disciplinaId}`)
+
           // Get the discipline name
           const disciplina = disciplinas.find((d) => d.id === disciplinaId)
           const nombreDisciplina = disciplina?.nombre || `Disciplina ${disciplinaId}`
+          console.log(`[REEVALUACION] Nombre de disciplina: ${nombreDisciplina}`)
 
           // Skip disciplines that don't have visual categories
           if (disciplina && !mostrarCategoriaVisual(disciplina.nombre)) {
+            console.log(`[REEVALUACION] ⚠️ Disciplina sin categoría visual, omitiendo`)
             continue
           }
 
           // Calculate real metrics for this discipline
+          console.log(`[REEVALUACION] Calculando métricas reales...`)
           const metricasBase = calcularMetricas(clasesInstructor, disciplinaId)
+          console.log(
+            `[REEVALUACION] Métricas calculadas: Ocupación: ${metricasBase.ocupacion.toFixed(2)}%, Clases: ${metricasBase.clases}, Locales: ${metricasBase.localesEnLima}`,
+          )
 
           // Get formula for this discipline
           const formula = formulas.find((f) => f.disciplinaId === disciplinaId && f.periodoId === periodoId)
+          console.log(`[REEVALUACION] Fórmula encontrada: ${formula ? "Sí" : "No"}`)
 
           if (!formula) {
+            console.log(`[REEVALUACION] ❌ No se encontró fórmula para ${nombreDisciplina}, omitiendo`)
             addProcessLog(`No se encontró fórmula para ${nombreDisciplina}, omitiendo`, instructor.id)
             continue
           }
+          console.log(`[REEVALUACION] Fórmula ID: ${formula.id}`)
 
           // Determine appropriate category based on metrics
+          // IMPORTANTE: Usar los valores manuales preservados en lugar de recalcularlos
+          console.log(`[REEVALUACION] Determinando categoría apropiada usando valores manuales preservados...`)
+          const instructorParams = {
+            dobleteos: valoresManuales.dobleteos,
+            horariosNoPrime: pagoInstructor.horariosNoPrime || 0, // Este valor se calcula automáticamente
+            participacionEventos: valoresManuales.participacionEventos,
+            cumpleLineamientos: valoresManuales.cumpleLineamientos,
+          }
+          console.log(`[REEVALUACION] Parámetros del instructor para evaluación:`, instructorParams)
+
+          // Combine base metrics with instructor parameters
+          const metricas = {
+            ...metricasBase,
+            dobleteos: instructorParams.dobleteos,
+            horariosNoPrime: instructorParams.horariosNoPrime,
+            participacionEventos: instructorParams.participacionEventos,
+          }
+
           const categoriaCalculada = determinarCategoria(instructor.id, disciplinaId, periodoId, formula)
+          console.log(`[REEVALUACION] Categoría calculada: ${categoriaCalculada}`)
 
           // Get existing category
           const existingCategoria = instructor.categorias?.find(
             (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
           )
+          console.log(`[REEVALUACION] Categoría existente: ${existingCategoria?.categoria || "No encontrada"}`)
 
           // If the category has changed, update it
           if (existingCategoria?.categoria !== categoriaCalculada) {
+            console.log(
+              `[REEVALUACION] ⚠️ Cambio de categoría detectado: ${existingCategoria?.categoria || "No asignada"} -> ${categoriaCalculada}`,
+            )
             try {
+              console.log(`[REEVALUACION] 🔄 Actualizando categoría para ${instructor.nombre} en ${nombreDisciplina}`)
               addProcessLog(
                 `🔄 Actualizando categoría para ${instructor.nombre} en ${nombreDisciplina} de ${existingCategoria?.categoria} a ${categoriaCalculada}`,
                 instructor.id,
@@ -1002,34 +1497,42 @@ export function useCalculation(
                   ocupacion: metricasBase.ocupacion,
                   clases: metricasBase.clases,
                   localesEnLima: metricasBase.localesEnLima,
-                  dobleteos: pagoInstructor.dobleteos || 0,
-                  horariosNoPrime: pagoInstructor.horariosNoPrime || 0,
-                  participacionEventos: pagoInstructor.participacionEventos || false,
+                  dobleteos: valoresManuales.dobleteos,
+                  horariosNoPrime: instructorParams.horariosNoPrime,
+                  participacionEventos: valoresManuales.participacionEventos,
                 },
               }
+              console.log(`[REEVALUACION] Nueva categoría preparada:`, nuevaCategoria)
 
               // Get existing categories or initialize empty array
               const categorias = instructor.categorias || []
+              console.log(`[REEVALUACION] Categorías existentes: ${categorias.length}`)
 
               // Find the index of the category to update
               const categoriaIndex = categorias.findIndex(
                 (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
               )
+              console.log(`[REEVALUACION] Índice de categoría existente: ${categoriaIndex}`)
 
               const updatedCategorias = [...categorias]
 
               if (categoriaIndex >= 0) {
                 // Replace existing category
+                console.log(`[REEVALUACION] Reemplazando categoría existente en índice ${categoriaIndex}`)
                 updatedCategorias[categoriaIndex] = { ...updatedCategorias[categoriaIndex], ...nuevaCategoria }
               } else {
                 // Add new category
+                console.log(`[REEVALUACION] Agregando nueva categoría`)
                 updatedCategorias.push(nuevaCategoria)
               }
+              console.log(`[REEVALUACION] Total categorías después de actualización: ${updatedCategorias.length}`)
 
               // Update instructor with the updated category
+              console.log(`[REEVALUACION] Actualizando instructor con nuevas categorías...`)
               await actualizarInstructor(instructor.id, {
                 categorias: updatedCategorias,
               })
+              console.log(`[REEVALUACION] ✅ Instructor actualizado exitosamente`)
 
               categoriasActualizadas++
               addProcessLog(
@@ -1037,6 +1540,7 @@ export function useCalculation(
                 instructor.id,
               )
             } catch (error) {
+              console.error(`[REEVALUACION] ❌ ERROR al actualizar categoría:`, error)
               addProcessLog(
                 `❌ Error al actualizar categoría para ${instructor.nombre} en ${nombreDisciplina}: ${
                   error instanceof Error ? error.message : "Error desconocido"
@@ -1045,6 +1549,9 @@ export function useCalculation(
               )
             }
           } else {
+            console.log(
+              `[REEVALUACION] ✓ Categoría sin cambios para ${instructor.nombre} en ${nombreDisciplina} (${categoriaCalculada})`,
+            )
             addProcessLog(
               `✓ Categoría sin cambios para ${instructor.nombre} en ${nombreDisciplina} (${categoriaCalculada})`,
               instructor.id,
@@ -1054,6 +1561,10 @@ export function useCalculation(
       }
 
       // Final summary
+      console.log("\n[REEVALUACION] 🏁 Proceso completado. Resumen:")
+      console.log(`[REEVALUACION] ✅ Categorías actualizadas: ${categoriasActualizadas}`)
+      console.log(`[REEVALUACION] 👥 Total instructores procesados: ${todosInstructores.length}`)
+
       addProcessLog("\n🏁 Proceso completado. Resumen:")
       addProcessLog(`✅ Categorías actualizadas: ${categoriasActualizadas}`)
       addProcessLog(`👥 Total instructores procesados: ${todosInstructores.length}`)
@@ -1064,6 +1575,7 @@ export function useCalculation(
         description: `Se han actualizado ${categoriasActualizadas} categorías de instructores.`,
       })
     } catch (error) {
+      console.error(`[REEVALUACION] ❌ ERROR en el proceso:`, error)
       addProcessLog(`❌ Error en el proceso: ${error instanceof Error ? error.message : "Error desconocido"}`)
       toast({
         title: "Error al re-evaluar categorías",
@@ -1071,6 +1583,7 @@ export function useCalculation(
         variant: "destructive",
       })
     } finally {
+      console.log("[REEVALUACION] 🏁 Finalizando proceso")
       addProcessLog("🏁 Finalizando proceso")
       setIsCalculatingPayments(false)
     }

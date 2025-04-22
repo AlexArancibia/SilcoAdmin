@@ -123,10 +123,10 @@ export function ClassesTab({ clasesInstructor, pagoSeleccionado, disciplinas, fo
                         <div className="flex items-center gap-1.5">
                           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                           <span>{hora}</span>
-                          {false && esNoPrime && (
+                          {esNoPrime && (
                             <Badge
                               variant="outline"
-                              className="bg-amber-50 text-amber-700 border-amber-200 ml-1 text-xs"
+                              className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800 ml-1 text-xs"
                             >
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               No Prime
@@ -178,7 +178,10 @@ export function ClassesTab({ clasesInstructor, pagoSeleccionado, disciplinas, fo
                       </TableCell>
                       <TableCell className="text-center">
                         {clase.listasEspera > 0 ? (
-                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                          <Badge
+                            variant="outline"
+                            className="bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800"
+                          >
                             {clase.listasEspera}
                           </Badge>
                         ) : (
@@ -187,7 +190,10 @@ export function ClassesTab({ clasesInstructor, pagoSeleccionado, disciplinas, fo
                       </TableCell>
                       <TableCell className="text-center">
                         {clase.cortesias > 0 ? (
-                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
+                          >
                             {clase.cortesias}
                           </Badge>
                         ) : (

@@ -11,7 +11,7 @@ type EstudioRecord = Record<string, HorarioRecord>
 export const HORARIOS_NO_PRIME: EstudioRecord = {
   // Formato: { estudio: { hora: boolean } }
   // Las horas deben estar en formato de 24 horas (HH:MM)
-  Reducto: {
+  "Reducto": {
     "08:00": true,
     "09:00": true,
     "13:00": true,
@@ -21,12 +21,12 @@ export const HORARIOS_NO_PRIME: EstudioRecord = {
     "09:00": true,
     "13:00": true,
   },
-  Primavera: {
+  "Primavera": {
     "09:00": true,
     "13:00": true,
     "18:00": true,
   },
-  Estancia: {
+  "Estancia": {
     "06:00": true,
     "09:15": true,
     "18:00": true,
