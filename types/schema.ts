@@ -25,10 +25,6 @@ export interface Instructor {
   password?: string
   extrainfo?: InstructorExtraInfo
   ultimoBono?: Record<string, number> // {disciplinaId: periodoId}
-  cumpleLineamientos?: boolean
-  dobleteos?: number // Relaciones
-  horariosNoPrime?: number
-  participacionEventos?: boolean  
   createdAt?: Date
   updatedAt?: Date
 
@@ -107,13 +103,13 @@ export interface CategoriaInstructorModel {
   periodoId: number
   categoria: CategoriaInstructor
   metricas?: {
-    ocupacion: number
-    clases: number
-    localesEnLima: number
-    dobleteos: number
-    horariosNoPrime: number
-    participacionEventos: boolean
-    [key: string]: any
+  ocupacion: number
+  clases: number
+  localesEnLima: number
+  dobleteos: number
+  horariosNoPrime: number
+  participacionEventos: boolean
+  [key: string]: any
   }
   createdAt?: Date
   updatedAt?: Date
@@ -157,6 +153,10 @@ export interface PagoInstructor {
   instructorId: number
   periodoId: number
   detalles?: any
+  cumpleLineamientos?: boolean
+  dobleteos?: number // Relaciones
+  horariosNoPrime?: number
+  participacionEventos?: boolean  
   retencion: number
   reajuste: number
   tipoReajuste: TipoReajuste

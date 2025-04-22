@@ -7,14 +7,12 @@ const prisma = new PrismaClient()
 interface FormulaRequest {
   disciplinaId: number
   periodoId: number
-  parametros?: any
   requisitosCategoria?: any
   parametrosPago?: any
 }
 
 interface UpdateFormulaRequest {
   id: number
-  parametros?: any
   requisitosCategoria?: any
   parametrosPago?: any
 }
@@ -42,7 +40,7 @@ export async function GET() {
 // Crear una nueva fórmula
 export async function POST(req: Request) {
   try {
-    const { disciplinaId, periodoId, parametros, requisitosCategoria, parametrosPago }: FormulaRequest =
+    const { disciplinaId, periodoId, requisitosCategoria, parametrosPago }: FormulaRequest =
       await req.json()
 
     // Si no se proporcionan requisitos o parámetros, usar los valores por defecto
@@ -53,7 +51,6 @@ export async function POST(req: Request) {
       data: {
         disciplinaId,
         periodoId,
-        parametros: parametros || {},
         requisitosCategoria: requisitos,
         parametrosPago: parametrosDePago,
       },
@@ -69,11 +66,10 @@ export async function POST(req: Request) {
 // Actualizar una fórmula
 export async function PUT(req: Request) {
   try {
-    const { id, parametros, requisitosCategoria, parametrosPago }: UpdateFormulaRequest = await req.json()
+    const { id, requisitosCategoria, parametrosPago }: UpdateFormulaRequest = await req.json()
 
     // Preparar los datos para actualizar
     const updateData: any = {}
-    if (parametros !== undefined) updateData.parametros = parametros
     if (requisitosCategoria !== undefined) updateData.requisitosCategoria = requisitosCategoria
     if (parametrosPago !== undefined) updateData.parametrosPago = parametrosPago
 

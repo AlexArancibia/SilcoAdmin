@@ -1,6 +1,5 @@
 import { FormulaDB } from "@/types/schema";
 import { ApiClient } from "./api-client";
-import type { Formula    } from "@/types/formula";
 
 export class FormulasApi extends ApiClient {
   constructor() {

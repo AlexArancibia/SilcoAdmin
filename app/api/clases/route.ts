@@ -13,54 +13,82 @@ export async function GET(request: NextRequest) {
     // Build the where clause based on the provided parameters
     const where: any = {}
 
+    // Validate and parse numeric parameters
     if (periodoId) {
-      where.periodoId = Number.parseInt(periodoId)
+      const parsedPeriodoId = parseInt(periodoId, 10)
+      if (isNaN(parsedPeriodoId)) {
+        return NextResponse.json({ error: "El periodoId debe ser un número válido" }, { status: 400 })
+      }
+      where.periodoId = parsedPeriodoId
     }
 
     if (instructorId) {
-      where.instructorId = Number.parseInt(instructorId)
+      const parsedInstructorId = parseInt(instructorId, 10)
+      if (isNaN(parsedInstructorId)) {
+        return NextResponse.json({ error: "El instructorId debe ser un número válido" }, { status: 400 })
+      }
+      where.instructorId = parsedInstructorId
     }
 
     if (disciplinaId) {
-      where.disciplinaId = Number.parseInt(disciplinaId)
+      const parsedDisciplinaId = parseInt(disciplinaId, 10)
+      if (isNaN(parsedDisciplinaId)) {
+        return NextResponse.json({ error: "El disciplinaId debe ser un número válido" }, { status: 400 })
+      }
+      where.disciplinaId = parsedDisciplinaId
     }
 
     if (semana) {
-      where.semana = Number.parseInt(semana)
+      const parsedSemana = parseInt(semana, 10)
+      if (isNaN(parsedSemana)) {
+        return NextResponse.json({ error: "La semana debe ser un número válido" }, { status: 400 })
+      }
+      where.semana = parsedSemana
     }
 
     if (fecha) {
-      // Handle date format (assuming ISO format)
-      where.fecha = new Date(fecha)
+      // Validate date format
+      const parsedDate = new Date(fecha)
+      if (isNaN(parsedDate.getTime())) {
+        return NextResponse.json({ error: "El formato de fecha no es válido" }, { status: 400 })
+      }
+      where.fecha = parsedDate
     }
 
-    try {
-      const clases = await prisma.clase.findMany({
-        where,
-        include: {
-          instructor: true,
-          disciplina: true,
-          periodo: true,
-        },
-        orderBy: {
-          fecha: "asc",
-        },
-      })
+    const clases = await prisma.clase.findMany({
+      where,
+      include: {
+        instructor: true,
+        disciplina: true,
+        periodo: true,
+      },
+      orderBy: {
+        fecha: "asc",
+      },
+    })
 
-      return NextResponse.json(clases)
-    } catch (dbError) {
-      console.error("Database query error:", dbError)
-      return NextResponse.json({ error: "Error al consultar las clases", details: dbError }, { status: 500 })
-    }
+    return NextResponse.json(clases)
   } catch (error) {
-    console.error("Server error:", error)
-    return NextResponse.json({ error: "Error interno del servidor", details: error }, { status: 500 })
+    console.error("Error en GET /api/clases:", error)
+    
+    // Safe error response that doesn't expose internal details
+    return NextResponse.json(
+      { error: "Error al consultar las clases", message: error instanceof Error ? error.message : "Error desconocido" },
+      { status: 500 }
+    )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    // Validate that the request has a body
+    const body = await request.json().catch(() => {
+      throw new Error("El cuerpo de la solicitud no es un JSON válido")
+    })
+
+    if (!body) {
+      return NextResponse.json({ error: "El cuerpo de la solicitud está vacío" }, { status: 400 })
+    }
 
     // Ensure required fields are present
     const requiredFields = [
@@ -76,13 +104,15 @@ export async function POST(request: NextRequest) {
       "fecha",
     ]
 
-    for (const field of requiredFields) {
-      if (body[field] === undefined) {
-        return NextResponse.json({ error: `El campo ${field} es requerido` }, { status: 400 })
-      }
+    const missingFields = requiredFields.filter(field => body[field] === undefined)
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        { error: "Campos requeridos faltantes", fields: missingFields },
+        { status: 400 }
+      )
     }
 
-    // Parse numeric fields
+    // Parse numeric fields with validation
     const numericFields = [
       "disciplinaId",
       "semana",
@@ -95,47 +125,68 @@ export async function POST(request: NextRequest) {
       "reservasPagadas",
     ]
 
-    numericFields.forEach((field) => {
-      if (body[field] !== undefined) {
-        body[field] = Number.parseInt(body[field])
-      }
-    })
-
-    // Handle date field
-    if (body.fecha) {
-      // Check if fecha is a string in format YYYY-MM-DD
-      if (typeof body.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.fecha)) {
-        body.fecha = new Date(body.fecha)
-      }
-      // Check if fecha is a string in format DD/MM/YYYY
-      else if (typeof body.fecha === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(body.fecha)) {
-        const [day, month, year] = body.fecha.split("/").map(Number)
-        body.fecha = new Date(year, month - 1, day)
-      }
-      // If it's already a Date object or ISO string, just use it
-      else if (typeof body.fecha === "string") {
-        body.fecha = new Date(body.fecha)
+    const parsedBody: Record<string, any> = { ...body }
+    
+    for (const field of numericFields) {
+      if (parsedBody[field] !== undefined) {
+        const parsedValue = parseInt(String(parsedBody[field]), 10)
+        if (isNaN(parsedValue)) {
+          return NextResponse.json(
+            { error: `El campo ${field} debe ser un número válido` },
+            { status: 400 }
+          )
+        }
+        parsedBody[field] = parsedValue
       }
     }
 
+    // Handle date field with validation
+    if (parsedBody.fecha) {
+      let parsedDate: Date | null = null
+      
+      // Check if fecha is a string in format YYYY-MM-DD
+      if (typeof parsedBody.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsedBody.fecha)) {
+        parsedDate = new Date(parsedBody.fecha)
+      }
+      // Check if fecha is a string in format DD/MM/YYYY
+      else if (typeof parsedBody.fecha === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(parsedBody.fecha)) {
+        const [day, month, year] = parsedBody.fecha.split("/").map(Number)
+        parsedDate = new Date(year, month - 1, day)
+      }
+      // If it's already a Date object or ISO string, just use it
+      else if (typeof parsedBody.fecha === "string") {
+        parsedDate = new Date(parsedBody.fecha)
+      }
+      
+      if (!parsedDate || isNaN(parsedDate.getTime())) {
+        return NextResponse.json(
+          { error: "El formato de fecha no es válido" },
+          { status: 400 }
+        )
+      }
+      
+      parsedBody.fecha = parsedDate
+    }
+
+    // Create the class in the database
     const clase = await prisma.clase.create({
       data: {
-        id:body.id,
-        pais: body.pais,
-        ciudad: body.ciudad,
-        disciplinaId: body.disciplinaId,
-        semana: body.semana,
-        estudio: body.estudio,
-        instructorId: body.instructorId,
-        periodoId: body.periodoId,
-        salon: body.salon,
-        reservasTotales: body.reservasTotales || 0,
-        listasEspera: body.listasEspera || 0,
-        cortesias: body.cortesias || 0,
-        lugares: body.lugares,
-        reservasPagadas: body.reservasPagadas || 0,
-        textoEspecial: body.textoEspecial || null,
-        fecha: body.fecha,
+        id: parsedBody.id,
+        pais: parsedBody.pais,
+        ciudad: parsedBody.ciudad,
+        disciplinaId: parsedBody.disciplinaId,
+        semana: parsedBody.semana,
+        estudio: parsedBody.estudio,
+        instructorId: parsedBody.instructorId,
+        periodoId: parsedBody.periodoId,
+        salon: parsedBody.salon,
+        reservasTotales: parsedBody.reservasTotales || 0,
+        listasEspera: parsedBody.listasEspera || 0,
+        cortesias: parsedBody.cortesias || 0,
+        lugares: parsedBody.lugares,
+        reservasPagadas: parsedBody.reservasPagadas || 0,
+        textoEspecial: parsedBody.textoEspecial || null,
+        fecha: parsedBody.fecha,
       },
       include: {
         instructor: true,
@@ -145,15 +196,17 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(clase)
-  } catch (error: any) {
-    console.error("Error creating class:", error)
+  } catch (error) {
+    // Safe error logging
+    console.error("Error en POST /api/clases:", error instanceof Error ? error.message : "Error desconocido")
+    
+    // Fixed the syntax error in the response
     return NextResponse.json(
       {
         error: "Error al crear la clase",
-        details: error.message || String(error),
+        message: error instanceof Error ? error.message : "Error desconocido"
       },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }
-

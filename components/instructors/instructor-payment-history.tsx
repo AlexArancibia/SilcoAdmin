@@ -77,7 +77,7 @@ export function InstructorPaymentHistory({ pagos }: PagosProps) {
       <Card>
         <CardContent className="py-8 text-center">
           <DollarSign className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
-          <h3 className="mt-4 text-lg font-medium">No hay pagos registrados</h3>
+          <h3 className="text-lg">No hay pagos registrados</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             Este instructor no tiene pagos registrados en el sistema.
           </p>

@@ -32,13 +32,13 @@ export async function POST(request: NextRequest) {
       password,
       extrainfo,
       ultimoBono,
-      cumpleLineamientos,
-      dobleteos,
-      horariosNoPrime,
-      participacionEventos,
       disciplinaIds,
       categorias,
     } = body
+
+    if (!nombre) {
+      return NextResponse.json({ error: "Instructor name is required" }, { status: 400 })
+    }
 
     // Capitalize each word in the instructor name
     const capitalizedName = nombre
@@ -46,9 +46,13 @@ export async function POST(request: NextRequest) {
       .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ")
 
-    // Check if the name contains "vs" - if so, don't create the instructor
-    if (capitalizedName.toLowerCase().includes(" vs ")) {
-      return NextResponse.json({ error: "Cannot create an instructor with 'vs' in the name" }, { status: 400 })
+    // Check if the name contains "vs" or "vs." using a regular expression
+    // This will match " vs " or " vs." regardless of case
+    const vsRegex = /\bvs\.?\b/i;
+    if (vsRegex.test(capitalizedName)) {
+      return NextResponse.json({ 
+        error: "Cannot create an instructor with 'vs' or 'vs.' in the name" 
+      }, { status: 400 })
     }
 
     const existingInstructor = await prisma.instructor.findUnique({
@@ -61,14 +65,12 @@ export async function POST(request: NextRequest) {
 
     const createData: any = {
       nombre: capitalizedName, // Use capitalized name
-      password,
-      extrainfo,
-      ultimoBono,
-      cumpleLineamientos,
-      dobleteos,
-      horariosNoPrime,
-      participacionEventos,
     }
+    
+    // Only include fields that are provided in the request
+    if (password !== undefined) createData.password = password
+    if (extrainfo !== undefined) createData.extrainfo = extrainfo
+    if (ultimoBono !== undefined) createData.ultimoBono = ultimoBono
 
     // Connect disciplines if provided
     if (Array.isArray(disciplinaIds) && disciplinaIds.length > 0) {
