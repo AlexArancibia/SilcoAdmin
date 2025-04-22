@@ -16,7 +16,7 @@ interface PagosTableProps {
   requestSort: (key: string) => void
   sortConfig: { key: string; direction: "asc" | "desc" }
   instructores: Instructor[]
-  periodos: Periodo[]
+  periodosSeleccionados: Periodo[]
   exportarPagoPDF: (pagoId: number) => void
   imprimirPagoPDF: (pagoId: number) => void
 }
@@ -26,7 +26,7 @@ export function PagosTable({
   requestSort,
   sortConfig,
   instructores,
-  periodos,
+  periodosSeleccionados,
   exportarPagoPDF,
   imprimirPagoPDF,
 }: PagosTableProps) {
@@ -45,7 +45,7 @@ export function PagosTable({
 
   // Helper functions
   const getNombrePeriodo = (periodoId: number): string => {
-    const periodo = periodos.find((p) => p.id === periodoId)
+    const periodo = periodosSeleccionados.find((p) => p.id === periodoId)
     return periodo ? `Periodo ${periodo.numero} - ${periodo.año}` : `Periodo ${periodoId}`
   }
 
@@ -74,6 +74,10 @@ export function PagosTable({
     const montoAjustado = pago.monto + reajusteCalculado + bono
     return montoAjustado - pago.retencion
   }
+
+  const filteredPaginatedPagos = paginatedPagos.filter((pago) => {
+    return periodosSeleccionados.length === 0 || periodosSeleccionados.some((periodo) => periodo.id === pago.periodoId)
+  })
 
   return (
     <div className="rounded-lg border shadow-sm overflow-hidden">
@@ -111,14 +115,14 @@ export function PagosTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {paginatedPagos.length === 0 ? (
+          {filteredPaginatedPagos.length === 0 ? (
             <TableRow>
               <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
                 No se encontraron pagos con los filtros seleccionados.
               </TableCell>
             </TableRow>
           ) : (
-            paginatedPagos.map((pago) => {
+            filteredPaginatedPagos.map((pago) => {
               const montoFinal = calcularMontoFinal(pago)
               const isEditing = editandoPagoId === pago.id
               const bono = pago.bono || 0

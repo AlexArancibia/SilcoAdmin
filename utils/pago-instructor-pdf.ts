@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import type { PagoInstructor, Instructor, Periodo, Clase, Disciplina } from "@/types/schema"
 import { dmSansBase64 } from "./dm-sans64"
+import { retencionValor } from "./const"
 
 /**
  * Genera un PDF con el comprobante de pago de un instructor
@@ -82,7 +83,7 @@ export const generatePagoPDF = (
   const occupancyRate = totalSpots > 0 ? (totalBooked / totalSpots) * 100 : 0
 
   // Cálculos de montos (según el código original)
-  const retencionMonto = (pago.monto * pago.retencion) / 100
+  const retencionMonto = (pago.monto * retencionValor) 
   const reajusteMonto = pago.tipoReajuste === "PORCENTAJE" ? (pago.monto * pago.reajuste) / 100 : pago.reajuste
   const montoFinal = pago.pagoFinal || pago.monto - retencionMonto + reajusteMonto
 
@@ -225,7 +226,7 @@ export const generatePagoPDF = (
         fillColor: [245, 245, 245],
         textColor: textColor,
         lineColor: borderColor,
-        fontSize: 9,
+        fontSize: 7, // Reducido de 9 a 7
         cellPadding: 4,
         lineWidth: 0.2,
         halign: "center",
@@ -277,7 +278,7 @@ export const generatePagoPDF = (
     head: [["CONCEPTO", "DETALLE", "MONTO"]],
     body: [
       ["Monto Base", "Por clases impartidas", formatCurrency(pago.monto)],
-      ["Retención", `Aplicada (${pago.retencion}%)`, `-${formatCurrency(retencionMonto)}`],
+      ["Retención", `Aplicada (${retencionValor*100}%)`, `-${formatCurrency(retencionMonto)}`],
       [
         "Reajuste",
         pago.tipoReajuste === "PORCENTAJE" ? `${pago.reajuste}%` : "Monto fijo",
@@ -290,7 +291,7 @@ export const generatePagoPDF = (
       fillColor: [245, 245, 245],
       textColor: textColor,
       lineColor: borderColor,
-      fontSize: 9,
+      fontSize: 7, // Reducido de 9 a 7
       cellPadding: 4,
       lineWidth: 0.2,
       halign: "center",
@@ -401,7 +402,7 @@ export const generatePagoPDF = (
           fillColor: [245, 245, 245],
           textColor: textColor,
           lineColor: borderColor,
-          fontSize: 9,
+          fontSize: 7, // Reducido de 9 a 7
           cellPadding: 3,
           lineWidth: 0.2,
           halign: "center",
