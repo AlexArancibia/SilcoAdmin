@@ -32,7 +32,6 @@ interface PaymentDetailsProps {
   totalCapacidad?: number
 }
 
- 
 export function PaymentDetails({
   pagoSeleccionado,
   instructor,
@@ -90,17 +89,16 @@ export function PaymentDetails({
     })
     .sort((a, b) => b.monto - a.monto) // Ordenar por monto de mayor a menor
 
-
-      const getEstadoColor = (estado: EstadoPago): string => {
-        switch (estado) {
-          case "APROBADO":
-            return "bg-green-100 text-green-800 hover:bg-green-200"
-          case "PENDIENTE":
-            return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-          default:
-            return "bg-gray-100 text-gray-800 hover:bg-gray-200"
-        }
-      }
+  const getEstadoColor = (estado: EstadoPago): string => {
+    switch (estado) {
+      case "APROBADO":
+        return "bg-green-100 text-green-800 hover:bg-green-200"
+      case "PENDIENTE":
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+      default:
+        return "bg-gray-100 text-gray-800 hover:bg-gray-200"
+    }
+  }
   return (
     <div className="space-y-6">
       {/* Sección de información general */}
@@ -141,24 +139,15 @@ export function PaymentDetails({
               <div className="space-y-2 bg-card p-3 rounded-md shadow-sm">
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-muted-foreground">Monto Base:</div>
-                  <div className="flex items-center gap-2">
-                    <div className="font-medium text-foreground">{formatCurrency(pagoSeleccionado.monto)}</div>
-                    {pagoSeleccionado.bono && pagoSeleccionado.bono > 0 && (
-                      <Badge
-                        variant="outline"
-                        className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                        title={`Bono: ${formatCurrency(pagoSeleccionado.bono)}`}
-                      >
-                        +{formatCurrency(pagoSeleccionado.bono)}
-                      </Badge>
-                    )}
-                  </div>
+                  <div className="font-medium text-foreground">{formatCurrency(pagoSeleccionado.monto)}</div>
                 </div>
 
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-muted-foreground">Retención:</div>
-                  <div className="text-rose-600 font-medium">-{formatCurrency(pagoSeleccionado.retencion)}</div>
-                </div>
+                {pagoSeleccionado.bono !== null && pagoSeleccionado.bono !== undefined && pagoSeleccionado.bono > 0 && (
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm text-muted-foreground">Bono:</div>
+                    <div className="text-emerald-600 font-medium">+{formatCurrency(pagoSeleccionado.bono)}</div>
+                  </div>
+                )}
 
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-muted-foreground">Reajuste:</div>
@@ -243,6 +232,29 @@ export function PaymentDetails({
                       </Button>
                     </div>
                   )}
+                </div>
+
+                {/* Subtotal (suma de monto base + bono + reajuste) */}
+                <div className="flex justify-between items-center pt-1 border-t border-dashed">
+                  <div className="text-sm font-medium text-muted-foreground">Subtotal:</div>
+                  <div className="font-medium text-foreground">
+                    {formatCurrency(
+                      pagoSeleccionado.monto +
+                        (pagoSeleccionado.bono !== null &&
+                        pagoSeleccionado.bono !== undefined &&
+                        pagoSeleccionado.bono > 0
+                          ? pagoSeleccionado.bono
+                          : 0) +
+                        (pagoSeleccionado.tipoReajuste === "PORCENTAJE"
+                          ? pagoSeleccionado.monto * (pagoSeleccionado.reajuste / 100)
+                          : pagoSeleccionado.reajuste),
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-muted-foreground">Retención:</div>
+                  <div className="text-rose-600 font-medium">-{formatCurrency(pagoSeleccionado.retencion)}</div>
                 </div>
 
                 <Separator className="my-1 bg-border" />
@@ -392,7 +404,7 @@ export function PaymentDetails({
                     </span>
                   </div>
                   <div className="flex flex-col col-span-2">
-                  <span className="text-xs text-muted-foreground">Monto (con retención)</span>
+                    <span className="text-xs text-muted-foreground">Monto (con retención)</span>
                     <div>
                       <span className="text-base font-bold text-primary">
                         {formatCurrency(disciplina.monto * (1 - retencionValor))}
@@ -400,7 +412,8 @@ export function PaymentDetails({
                       <span className="text-xs text-muted-foreground ml-1">
                         (Bruto: {formatCurrency(disciplina.monto)})
                       </span>
-                    </div></div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

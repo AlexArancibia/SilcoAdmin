@@ -986,6 +986,7 @@ export default function PagoDetallePage() {
               <ClassesTab
                 clasesInstructor={clasesInstructor}
                 pagoSeleccionado={pagoSeleccionado}
+                formulas={formulas}
                 disciplinas={disciplinas}
                 formatCurrency={formatCurrency}
               />
