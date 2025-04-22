@@ -118,7 +118,7 @@ export default function PagosPage() {
             requestSort={requestSort}
             sortConfig={sortConfig}
             instructores={instructores}
-            periodos={periodos}
+            periodosSeleccionados={periodosSeleccionados}
             exportarPagoPDF={exportarPagoPDF}
             imprimirPagoPDF={imprimirPagoPDF}
           />

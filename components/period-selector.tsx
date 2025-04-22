@@ -13,16 +13,9 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export function PeriodSelector() {
-  const {
-    periodos,
-    rangoSeleccionado,
-    setSeleccion,
-    resetearSeleccion,
-    fetchPeriodos,
-    isLoading,
-    periodoActual
-  } = usePeriodosStore()
-  
+  const { periodos, rangoSeleccionado, setSeleccion, resetearSeleccion, fetchPeriodos, isLoading, periodoActual } =
+    usePeriodosStore()
+
   const [activeTab, setActiveTab] = useState<"individual" | "rango">("individual")
   const [tempStart, setTempStart] = useState<number | null>(null)
   const [tempEnd, setTempEnd] = useState<number | null>(null)
@@ -41,7 +34,7 @@ export function PeriodSelector() {
         setIsOpen(false)
       }
     }
-    
+
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
@@ -87,16 +80,16 @@ export function PeriodSelector() {
 
   const getDisplayText = () => {
     if (!rangoSeleccionado) return "Seleccionar período"
-    
+
     const [start, end] = rangoSeleccionado
-    const startPeriod = periodos.find(p => p.id === start)
-    const endPeriod = periodos.find(p => p.id === end)
-    
+    const startPeriod = periodos.find((p) => p.id === start)
+    const endPeriod = periodos.find((p) => p.id === end)
+
     if (start === end) {
       return startPeriod ? `Periodo ${startPeriod.numero}/${startPeriod.año}` : "Período seleccionado"
     }
-    
-    return startPeriod && endPeriod 
+
+    return startPeriod && endPeriod
       ? `Periodo ${startPeriod.numero}/${startPeriod.año} → ${endPeriod.numero}/${endPeriod.año}`
       : "Rango inválido"
   }
@@ -109,11 +102,37 @@ export function PeriodSelector() {
   // Determine dialog position (right aligned instead of left)
   const getDialogPosition = () => {
     if (!buttonRef.current) return {}
-    
+
+    const buttonRect = buttonRef.current.getBoundingClientRect()
+    const dropdownWidth = 350 // Width of the dropdown (matches the w-[350px] class)
+
     return {
-      right: '0'
+      position: "fixed" as const,
+      top: `${buttonRect.bottom + window.scrollY}px`,
+      right: `${window.innerWidth - buttonRect.right}px`,
+      width: `${dropdownWidth}px`,
+      maxHeight: "80vh",
+      overflowY: "auto" as const,
     }
   }
+
+  // Add this useEffect after the other useEffects
+  useEffect(() => {
+    if (isOpen && rangoSeleccionado) {
+      // Wait for the dropdown to render
+      setTimeout(() => {
+        const selectedElement = document.querySelector(
+          activeTab === "individual"
+            ? `[data-periodo-id="${rangoSeleccionado[0]}"]`
+            : `[data-periodo-id="${tempStart || rangoSeleccionado[0]}"]`,
+        )
+
+        if (selectedElement) {
+          selectedElement.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+      }, 100)
+    }
+  }, [isOpen, activeTab, rangoSeleccionado, tempStart])
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -123,7 +142,7 @@ export function PeriodSelector() {
         className={cn(
           "w-full justify-between border transition-colors",
           rangoSeleccionado ? "border-slate-300 text-slate-700 dark:text-slate-300" : "",
-          isLoading ? "opacity-70 cursor-not-allowed" : ""
+          isLoading ? "opacity-70 cursor-not-allowed" : "",
         )}
         disabled={isLoading}
         ref={buttonRef}
@@ -134,22 +153,24 @@ export function PeriodSelector() {
         </div>
         {isLoading ? (
           <Skeleton className="h-4 w-4 rounded-full" />
+        ) : isOpen ? (
+          <ChevronUp className="h-4 w-4" />
         ) : (
-          isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4" />
         )}
       </Button>
 
       {isOpen && (
-        <Card 
-          className="absolute z-50 mt-1 w-[350px] p-4 shadow-lg border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-200"
+        <Card
+          className="absolute z-50 mt-1 p-4 shadow-lg border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-200"
           style={getDialogPosition()}
         >
           <div className="flex justify-between items-center mb-2">
             <h3 className="font-medium">Selección de periodos</h3>
             {rangoSeleccionado && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={resetSelection}
                 className="h-8 px-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
@@ -158,11 +179,15 @@ export function PeriodSelector() {
               </Button>
             )}
           </div>
-          
+
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mt-2">
             <TabsList className="grid w-full grid-cols-2 mb-2 bg-slate-100 dark:bg-slate-900">
-              <TabsTrigger value="individual" className="text-sm">Periodo individual</TabsTrigger>
-              <TabsTrigger value="rango" className="text-sm">Rango de periodos</TabsTrigger>
+              <TabsTrigger value="individual" className="text-sm">
+                Periodo individual
+              </TabsTrigger>
+              <TabsTrigger value="rango" className="text-sm">
+                Rango de periodos
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="individual" className="mt-2 pt-1">
@@ -178,25 +203,32 @@ export function PeriodSelector() {
               ) : (
                 <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 -mr-1">
                   {periodos.map((periodo) => {
-                    const isSelected = rangoSeleccionado?.[0] === periodo.id && rangoSeleccionado?.[0] === rangoSeleccionado?.[1];
-                    const isCurrent = periodo.id === periodoActual?.id;
-                    
+                    const isSelected =
+                      rangoSeleccionado?.[0] === periodo.id && rangoSeleccionado?.[0] === rangoSeleccionado?.[1]
+                    const isCurrent = periodo.id === periodoActual?.id
+
                     return (
                       <div
                         key={periodo.id}
+                        data-periodo-id={periodo.id}
                         onClick={() => handleIndividualSelect(periodo.id)}
                         className={cn(
                           "p-2.5 rounded-md cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-900 group",
                           isSelected && "bg-slate-100 dark:bg-slate-800 font-medium",
                           isCurrent && "border-l-2 border-slate-300 dark:border-slate-600",
-                          !isSelected && isCurrent && "pl-2"
+                          !isSelected && isCurrent && "pl-2",
                         )}
                       >
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">Periodo {periodo.numero}/{periodo.año}</span>
+                            <span className="text-sm font-medium">
+                              Periodo {periodo.numero}/{periodo.año}
+                            </span>
                             {isCurrent && (
-                              <Badge variant="outline" className="text-[10px] h-5 bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] h-5 bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700"
+                              >
                                 Actual
                               </Badge>
                             )}
@@ -232,31 +264,33 @@ export function PeriodSelector() {
               ) : (
                 <>
                   <div className="mb-2 text-sm text-muted-foreground">
-                    {!tempStart 
-                      ? "Selecciona un periodo inicial" 
-                      : !tempEnd 
-                        ? "Ahora selecciona un periodo final" 
-                        : `Periodo ${periodos.find(p => p.id === tempStart)?.numero}/${periodos.find(p => p.id === tempStart)?.año} → ${periodos.find(p => p.id === tempEnd)?.numero}/${periodos.find(p => p.id === tempEnd)?.año}`
-                    }
+                    {!tempStart
+                      ? "Selecciona un periodo inicial"
+                      : !tempEnd
+                        ? "Ahora selecciona un periodo final"
+                        : `Periodo ${periodos.find((p) => p.id === tempStart)?.numero}/${periodos.find((p) => p.id === tempStart)?.año} → ${periodos.find((p) => p.id === tempEnd)?.numero}/${periodos.find((p) => p.id === tempEnd)?.año}`}
                   </div>
                   <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 -mr-1">
                     {periodos.map((periodo) => {
-                      const isStart = periodo.id === tempStart;
-                      const isEnd = periodo.id === tempEnd;
-                      const isInRange = tempStart && tempEnd && 
-                        periodo.id >= Math.min(tempStart, tempEnd) && 
-                        periodo.id <= Math.max(tempStart, tempEnd);
-                      const isSelectable = tempStart === null || tempEnd === null;
-                      
+                      const isStart = periodo.id === tempStart
+                      const isEnd = periodo.id === tempEnd
+                      const isInRange =
+                        tempStart &&
+                        tempEnd &&
+                        periodo.id >= Math.min(tempStart, tempEnd) &&
+                        periodo.id <= Math.max(tempStart, tempEnd)
+                      const isSelectable = tempStart === null || tempEnd === null
+
                       return (
                         <div
                           key={periodo.id}
+                          data-periodo-id={periodo.id}
                           onClick={() => {
                             if (isSelectable) {
                               if (tempStart === null) {
-                                handleRangeStartSelect(periodo.id);
+                                handleRangeStartSelect(periodo.id)
                               } else {
-                                handleRangeEndSelect(periodo.id);
+                                handleRangeEndSelect(periodo.id)
                               }
                             }
                           }}
@@ -265,26 +299,29 @@ export function PeriodSelector() {
                             isStart && "bg-slate-100 dark:bg-slate-800",
                             isEnd && "bg-slate-200 dark:bg-slate-700",
                             isInRange && !isStart && !isEnd && "bg-slate-50 dark:bg-slate-900",
-                            isSelectable ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900" : "cursor-default",
+                            isSelectable
+                              ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900"
+                              : "cursor-default",
                             periodo.id === periodoActual?.id && "border-l-2 border-slate-300 dark:border-slate-600",
-                            periodo.id === periodoActual?.id && !isStart && !isEnd && !isInRange && "pl-2"
+                            periodo.id === periodoActual?.id && !isStart && !isEnd && !isInRange && "pl-2",
                           )}
                         >
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium">Periodo {periodo.numero}/{periodo.año}</span>
+                              <span className="text-sm font-medium">
+                                Periodo {periodo.numero}/{periodo.año}
+                              </span>
                               {periodo.id === periodoActual?.id && (
-                                <Badge variant="outline" className="text-[10px] h-5 bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] h-5 bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700"
+                                >
                                   Actual
                                 </Badge>
                               )}
                             </div>
-                            {isStart && (
-                              <Badge className="bg-slate-400 hover:bg-slate-500">Inicio</Badge>
-                            )}
-                            {isEnd && (
-                              <Badge className="bg-slate-500 hover:bg-slate-600">Fin</Badge>
-                            )}
+                            {isStart && <Badge className="bg-slate-400 hover:bg-slate-500">Inicio</Badge>}
+                            {isEnd && <Badge className="bg-slate-500 hover:bg-slate-600">Fin</Badge>}
                             {isInRange && !isStart && !isEnd && (
                               <Badge className="bg-slate-300 hover:bg-slate-400 text-slate-700">Incluido</Badge>
                             )}

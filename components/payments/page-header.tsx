@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Calculator, ChevronDown, Download, FileText, Loader2, Printer } from "lucide-react"
 import type { Periodo } from "@/types/schema"
+import { PeriodSelector } from "../period-selector"
 
 interface PageHeaderProps {
   periodosSeleccionados: Periodo[]
@@ -31,7 +32,7 @@ export function PageHeader({
         </p>
       </div>
       <div className="flex items-center gap-2">
-        <DropdownMenu>
+        {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="mr-2">
               <Download className="mr-2 h-4 w-4" />
@@ -49,7 +50,7 @@ export function PageHeader({
               Imprimir
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
 
         <Button variant="default" onClick={() => setShowCalculateDialog(true)} disabled={isCalculatingPayments}>
           {isCalculatingPayments ? (
@@ -59,6 +60,7 @@ export function PageHeader({
           )}
           Calcular Pagos
         </Button>
+        <PeriodSelector />
       </div>
     </div>
   )
