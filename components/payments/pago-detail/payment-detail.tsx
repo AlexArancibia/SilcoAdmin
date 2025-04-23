@@ -404,13 +404,13 @@ export function PaymentDetails({
                     </span>
                   </div>
                   <div className="flex flex-col col-span-2">
-                    <span className="text-xs text-muted-foreground">Monto (con retención)</span>
+                    {/* <span className="text-xs text-muted-foreground">Subtotal Disciplina</span> */}
                     <div>
                       <span className="text-base font-bold text-primary">
                         {formatCurrency(disciplina.monto * (1 - retencionValor))}
                       </span>
                       <span className="text-xs text-muted-foreground ml-1">
-                        (Bruto: {formatCurrency(disciplina.monto)})
+                        (Monto Base: {formatCurrency(disciplina.monto)})
                       </span>
                     </div>
                   </div>

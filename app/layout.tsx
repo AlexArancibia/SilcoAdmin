@@ -40,7 +40,7 @@ export default function RootLayout({
                   <div className="flex items-center gap-3">
                     <SidebarTrigger className=" hover:bg-primary/10 hover:text-primary transition-colors" />
                     <Separator orientation="vertical" className="h-4 mr-2" />
-                    <CurrentPeriodDisplay />
+                    {/* <CurrentPeriodDisplay /> */}
                   </div>
                   <div className="flex items-center gap-4">
                     <UserInfo />

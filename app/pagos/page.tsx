@@ -14,6 +14,7 @@ import { Pagination } from "@/components/payments/pagination"
 import { CalculateDialog } from "@/components/payments/dialogs/calculate-dialog"
 import { ProcessLogsDialog } from "@/components/payments/dialogs/process-logs-dialog"
 import { FormulaDuplicationDialog } from "@/components/payments/dialogs/formula-duplication-dialog"
+import { DashboardShell } from "@/components/dashboard/shell"
 
 export default function PagosPage() {
   // State for dialogs
@@ -86,7 +87,7 @@ export default function PagosPage() {
   }
 
   return (
-    <div className="p-10 space-y-6">
+    <DashboardShell>
       <PageHeader
         periodosSeleccionados={periodosSeleccionados}
         exportarTodosPagosPDF={handleExportTodosPagosPDF}
@@ -159,6 +160,6 @@ export default function PagosPage() {
         isDuplicating={isDuplicatingFormulas}
         handleDuplicateFormulas={handleDuplicateFormulas}
       />
-    </div>
+    </DashboardShell>
   )
 }
