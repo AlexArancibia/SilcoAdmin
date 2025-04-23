@@ -41,6 +41,7 @@ import {
 
 // CategoryChangeDialog component
 import { mostrarCategoriaVisual } from "@/utils/config"
+import { DashboardShell } from "@/components/dashboard/shell"
 
 interface CategoryChangeDialogProps {
   showCategoriaDialog: boolean
@@ -864,7 +865,7 @@ export default function PagoDetallePage() {
 
   // Fix the closing tag issue
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <DashboardShell>
       {/* Header */}
       <PageHeader
         instructor={instructor}
@@ -1041,7 +1042,7 @@ export default function PagoDetallePage() {
         getCategoriaValue={getCategoriaValue}
         disciplinas={disciplinas}
       />
-    </div>
+    </DashboardShell>
   )
 }
 

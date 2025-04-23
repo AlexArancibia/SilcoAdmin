@@ -79,7 +79,7 @@ export const generatePagoPDF = (
   const instructorDisciplines = disciplinas.filter((d) => instructor.disciplinas?.some((id) => id.id === d.id))
   const totalClasses = clases.length
   const totalSpots = clases.reduce((sum, c) => sum + c.lugares, 0)
-  const totalBooked = clases.reduce((sum, c) => sum + c.reservasPagadas, 0)
+  const totalBooked = clases.reduce((sum, c) => sum + c.reservasTotales, 0)
   const occupancyRate = totalSpots > 0 ? (totalBooked / totalSpots) * 100 : 0
 
   // Cálculos de montos (según el código original)
@@ -209,7 +209,7 @@ export const generatePagoPDF = (
       head: [["DISCIPLINA", "CLASES", "ASISTENCIA", "OCUPACIÓN", "MONTO"]],
       body: Object.values(clasesPorDisciplina).map(({ disciplina, clases, totalMonto }) => {
         const totalLugares = clases.reduce((sum, c) => sum + c.lugares, 0)
-        const totalReservas = clases.reduce((sum, c) => sum + c.reservasPagadas, 0)
+        const totalReservas = clases.reduce((sum, c) => sum + c.reservasTotales, 0)
         const ocupacion = totalLugares > 0 ? (totalReservas / totalLugares) * 100 : 0
 
         return [
@@ -246,10 +246,10 @@ export const generatePagoPDF = (
         textColor: textColor,
       },
       columnStyles: {
-        0: { cellWidth: tableWidth * 0.4 }, // 40% del ancho total
-        1: { cellWidth: tableWidth * 0.1, halign: "center" }, // 10% del ancho total
-        2: { cellWidth: tableWidth * 0.15, halign: "center" }, // 15% del ancho total
-        3: { cellWidth: tableWidth * 0.15, halign: "center" }, // 15% del ancho total
+        0: { cellWidth: tableWidth * 0.2 }, // 40% del ancho total
+        1: { cellWidth: tableWidth * 0.2, halign: "center" }, // 10% del ancho total
+        2: { cellWidth: tableWidth * 0.2, halign: "center" }, // 15% del ancho total
+        3: { cellWidth: tableWidth * 0.2, halign: "center" }, // 15% del ancho total
         4: { cellWidth: tableWidth * 0.2, halign: "right" }, // 20% del ancho total
       },
       margin: { left: margin, right: margin },
@@ -393,7 +393,7 @@ export const generatePagoPDF = (
             formatDate(clase.fecha),
             formatTime(clase.fecha),
             clase.estudio,
-            `${clase.reservasPagadas}/${clase.lugares}`,
+            `${clase.reservasTotales}/${clase.lugares}`,
             formatCurrency(montoClase),
           ]
         }),
@@ -415,11 +415,11 @@ export const generatePagoPDF = (
           textColor: textColor,
         },
         columnStyles: {
-          0: { cellWidth: tableWidth * 0.12, halign: "center" }, // 12% del ancho total
-          1: { cellWidth: tableWidth * 0.12, halign: "center" }, // 12% del ancho total
-          2: { cellWidth: tableWidth * 0.46 }, // 46% del ancho total
-          3: { cellWidth: tableWidth * 0.12, halign: "center" }, // 12% del ancho total
-          4: { cellWidth: tableWidth * 0.18, halign: "right" }, // 18% del ancho total
+          0: { cellWidth: tableWidth * 0.15, halign: "center" }, // 12% del ancho total
+          1: { cellWidth: tableWidth * 0.15, halign: "center" }, // 12% del ancho total
+          2: { cellWidth: tableWidth * 0.3 , halign: "center" }, // 46% del ancho total
+          3: { cellWidth: tableWidth * 0.2, halign: "center" }, // 12% del ancho total
+          4: { cellWidth: tableWidth * 0.2, halign: "right" }, // 18% del ancho total
         },
         margin: { left: margin, right: margin },
         tableWidth: tableWidth,
@@ -451,11 +451,11 @@ export const generatePagoPDF = (
           fontStyle: "bold",
         },
         columnStyles: {
-          0: { cellWidth: tableWidth * 0.12 }, // 12% del ancho total
-          1: { cellWidth: tableWidth * 0.12 }, // 12% del ancho total
-          2: { cellWidth: tableWidth * 0.46 }, // 46% del ancho total
-          3: { cellWidth: tableWidth * 0.12, halign: "right" }, // 12% del ancho total
-          4: { cellWidth: tableWidth * 0.18, halign: "right" }, // 18% del ancho total
+          0: { cellWidth: tableWidth * 0.15 }, // 12% del ancho total
+          1: { cellWidth: tableWidth * 0.15 }, // 12% del ancho total
+          2: { cellWidth: tableWidth * 0.3 }, // 46% del ancho total
+          3: { cellWidth: tableWidth * 0.2, halign: "right" }, // 12% del ancho total
+          4: { cellWidth: tableWidth * 0.2, halign: "right" }, // 18% del ancho total
         },
         margin: { left: margin, right: margin },
         tableWidth: tableWidth,
@@ -492,7 +492,7 @@ export const generatePagoPDF = (
     )
 
     // Logo o marca de agua (sutil)
-    doc.text("SISTEMA DE PAGOS", pageWidth - margin, pageHeight - 6, { align: "right" })
+    doc.text("SISTEMA DE PAGOS SICLO", pageWidth - margin, pageHeight - 6, { align: "right" })
   }
 
   return doc
