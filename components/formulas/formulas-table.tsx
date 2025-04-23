@@ -69,24 +69,8 @@ export function FormulasTable({
 
   return (
     <>
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Layers className="h-5 w-5 text-primary" />
-              Fórmulas por Disciplina y Período
-            </CardTitle>
-            <CardDescription className="mt-1">
-              Cada disciplina puede tener fórmulas personalizadas para diferentes períodos.
-            </CardDescription>
-          </div>
-          <Button onClick={onCreateFormula} size="sm" className="h-9 bg-primary hover:bg-primary/90">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nueva Fórmula
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
+       
+      <CardContent className="p-0">
         {formulas.length === 0 ? (
           <Alert>
             <AlertCircle className="h-4 w-4" />

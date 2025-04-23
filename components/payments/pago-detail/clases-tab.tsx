@@ -31,6 +31,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 // Importar la función calcularPago al inicio del archivo
 import { calcularPago } from "@/lib/formula-evaluator"
+import { useInstructoresStore } from "@/store/useInstructoresStore"
 
 // Actualizar la interfaz ClassesTabProps para recibir formulas en lugar de categoriaInstructor y formula
 interface ClassesTabProps {
@@ -123,6 +124,7 @@ export function ClassesTab({
   // Estado para mostrar/ocultar estadísticas
   const [showStats, setShowStats] = useState(false)
 
+  const {instructores} = useInstructoresStore()
   // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -1200,8 +1202,7 @@ export function ClassesTab({
                                     }
 
                                     // Obtener la categoría del instructor para esta disciplina desde el pago seleccionado
-                                    const categoriaInstructor =
-                                      pagoSeleccionado.detalles?.categoriaInstructor || "INSTRUCTOR"
+                                    const categoriaInstructor = instructores.find(i => i.id === pagoSeleccionado.instructorId)?.categorias?.find(c => c.disciplinaId === clase.disciplinaId )?.categoria || "INSTRUCTOR"
 
                                     // Usar la función calcularPago con la fórmula correcta
                                     const resultadoCalculo = calcularPago(

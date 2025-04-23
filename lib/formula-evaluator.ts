@@ -20,7 +20,7 @@ export interface ResultadoCalculo {
  */
 export function calcularPago(
   clase: Clase,
-  instructorType: CategoriaInstructor = "INSTRUCTOR",
+  instructorType: CategoriaInstructor ,
   formula: FormulaDB,
 ): ResultadoCalculo {
   try {
