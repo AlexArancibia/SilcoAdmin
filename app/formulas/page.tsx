@@ -103,7 +103,7 @@ export default function FormulasPage() {
           <AlertDescription>{error}. Por favor, intenta recargar la página.</AlertDescription>
         </Alert>
       ) : (
-        <Card>
+        <Card className="bg-transparent border-none shadow-none p-0 m-0">
           <FormulasTable
             formulas={formulas}
             disciplinas={disciplinas}
