@@ -1049,7 +1049,10 @@ export function useCalculation(
 
         // Calculate retention and final payment
         const montoConBono = montoTotal + bonoTotal
-        const retencionCalculada = montoConBono * retencionValor
+        const retencionCalculada = pagoExistente?.reajuste != null
+        ? (montoConBono + pagoExistente.reajuste) * retencionValor
+        : montoConBono * retencionValor;
+
         const pagoFinal = montoConBono - retencionCalculada
 
         addProcessLog(
