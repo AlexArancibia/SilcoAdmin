@@ -161,6 +161,7 @@ model Clase {
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
     pagoFinal Float 
+    comentarios String?
     // Relaciones
     instructor  Instructor @relation(fields: [instructorId], references: [id])
     periodo     Periodo    @relation(fields: [periodoId], references: [id])

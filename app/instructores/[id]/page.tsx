@@ -96,19 +96,8 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
 
         {/* Right Column - Classes and Payments */}
         <div className="md:col-span-2 space-y-5">
-          <InstructorClasses
-            isLoadingClases={isLoadingClases}
-            isLoadingDisciplinas={isLoadingDisciplinas}
-            clasesPeriodo={clasesPeriodo}
-            paymentDetails={paymentDetails}
-            currentPayments={currentPayments}
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            totalPages={totalPages}
-          />
 
-          {/* Payment History Card */}
-          <Card className="border shadow-sm bg-card">
+        <Card className="border shadow-sm bg-card">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-primary" />
@@ -121,6 +110,19 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
               <InstructorPaymentHistory pagos={pagosPeriodo} />
             </CardContent>
           </Card>
+          <InstructorClasses
+            isLoadingClases={isLoadingClases}
+            isLoadingDisciplinas={isLoadingDisciplinas}
+            clasesPeriodo={clasesPeriodo}
+            paymentDetails={paymentDetails}
+            currentPayments={currentPayments}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            totalPages={totalPages}
+          />
+
+          {/* Payment History Card */}
+          
         </div>
       </div>
     </DashboardShell>

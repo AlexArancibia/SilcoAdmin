@@ -61,7 +61,7 @@ export function InstructorCategories({ getCategoriesByDiscipline }: InstructorCa
           <div>
             <CardTitle className="flex items-center gap-1.5 text-lg">
               <BarChart3 className="h-4 w-4 text-primary" />
-              Categorías y métricas
+              Resumen por Disciplina
             </CardTitle>
             <CardDescription className="text-sm mt-0.5">Información por disciplina</CardDescription>
           </div>

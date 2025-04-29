@@ -617,6 +617,11 @@ export function useCalculation(
     setIsCalculatingPayments(true)
     setShowCalculateDialog(false)
 
+    // Declare variables here
+    let pagosActualizados = 0
+    const pagosParaActualizar: any[] = []
+    let pagosCreados = 0
+
     try {
       // Get all instructors with classes in this period
       const instructoresConClases = [
@@ -627,7 +632,7 @@ export function useCalculation(
       addProcessLog(`👥 Total instructores con clases: ${todosInstructores.length}`)
 
       // PASO 1: Evaluar y actualizar categorías de todos los instructores
-      let categoriasActualizadas = 0
+      const categoriasActualizadas = 0
 
       // Helper function to calculate metrics
       const calcularMetricas = (clasesInstructor: any[], disciplinaId: number) => {
@@ -664,206 +669,30 @@ export function useCalculation(
         }
 
         // Get the payment for this instructor in this period
-        const pagoInstructor = pagos.find((p) => p.instructorId === instructor.id && p.periodoId === periodoId)
+        const pagoExistente = pagos.find((p) => p.instructorId === instructor.id && p.periodoId === periodoId)
 
-        if (!pagoInstructor) {
-          addProcessLog(`Sin pago registrado, creando valores por defecto`, instructor.id)
-          // Podemos continuar sin pago existente, se creará uno nuevo
-        }
-
-        // Get unique disciplines taught by the instructor
-        const disciplinasInstructor = [...new Set(clasesInstructor.map((c) => c.disciplinaId))]
-
-        // Obtener el instructor actualizado para tener sus categorías actuales
-        const instructorActualizado = await instructoresApi.getInstructor(instructor.id)
-        const categoriasActuales = instructorActualizado.categorias || []
-
-        // Valores manuales a preservar o valores por defecto
-        const valoresManuales = {
-          dobleteos: pagoInstructor?.dobleteos || 0,
-          participacionEventos: pagoInstructor?.participacionEventos || false,
-          cumpleLineamientos: pagoInstructor?.cumpleLineamientos || false,
-          horariosNoPrime: pagoInstructor?.horariosNoPrime || 0,
-        }
-
-        // Array para almacenar las categorías actualizadas
-        const nuevasCategorias = [...categoriasActuales]
-        let cambiosRealizados = false
-
-        // Evaluar cada disciplina
-        for (const disciplinaId of disciplinasInstructor) {
-          const disciplina = disciplinas.find((d) => d.id === disciplinaId)
-          if (!disciplina) continue
-
-          // Skip disciplines that don't have visual categories
-          if (!mostrarCategoriaVisual(disciplina.nombre)) {
-            continue
-          }
-
-          // Get formula for this discipline
-          const formula = formulas.find((f) => f.disciplinaId === disciplinaId && f.periodoId === periodoId)
-          if (!formula) {
-            addProcessLog(`No se encontró fórmula para ${disciplina.nombre}, omitiendo`, instructor.id)
-            continue
-          }
-
-          // Calculate metrics for this discipline
-          const metricasBase = calcularMetricas(clasesInstructor, disciplinaId)
-
-          // Determinar la categoría máxima posible
-          // Primero verificamos EMBAJADOR_SENIOR, luego EMBAJADOR, luego EMBAJADOR_JUNIOR
-          let nuevaCategoria: CategoriaInstructor = "INSTRUCTOR"
-          const requisitos = formula.requisitosCategoria
-
-          // Verificar si cumple requisitos para EMBAJADOR_SENIOR
-          if (
-            requisitos.EMBAJADOR_SENIOR &&
-            metricasBase.ocupacion >= requisitos.EMBAJADOR_SENIOR.ocupacion &&
-            metricasBase.clases >= requisitos.EMBAJADOR_SENIOR.clases &&
-            metricasBase.localesEnLima >= requisitos.EMBAJADOR_SENIOR.localesEnLima &&
-            valoresManuales.dobleteos >= requisitos.EMBAJADOR_SENIOR.dobleteos &&
-            valoresManuales.horariosNoPrime >= requisitos.EMBAJADOR_SENIOR.horariosNoPrime &&
-            (valoresManuales.participacionEventos || !requisitos.EMBAJADOR_SENIOR.participacionEventos) &&
-            (valoresManuales.cumpleLineamientos || !requisitos.EMBAJADOR_SENIOR.lineamientos)
-          ) {
-            nuevaCategoria = "EMBAJADOR_SENIOR"
-          }
-          // Si no cumple para SENIOR, verificar EMBAJADOR
-          else if (
-            requisitos.EMBAJADOR &&
-            metricasBase.ocupacion >= requisitos.EMBAJADOR.ocupacion &&
-            metricasBase.clases >= requisitos.EMBAJADOR.clases &&
-            metricasBase.localesEnLima >= requisitos.EMBAJADOR.localesEnLima &&
-            valoresManuales.dobleteos >= requisitos.EMBAJADOR.dobleteos &&
-            valoresManuales.horariosNoPrime >= requisitos.EMBAJADOR.horariosNoPrime &&
-            (valoresManuales.participacionEventos || !requisitos.EMBAJADOR.participacionEventos) &&
-            (valoresManuales.cumpleLineamientos || !requisitos.EMBAJADOR.lineamientos)
-          ) {
-            nuevaCategoria = "EMBAJADOR"
-          }
-          // Si no cumple para EMBAJADOR, verificar EMBAJADOR_JUNIOR
-          else if (
-            requisitos.EMBAJADOR_JUNIOR &&
-            metricasBase.ocupacion >= requisitos.EMBAJADOR_JUNIOR.ocupacion &&
-            metricasBase.clases >= requisitos.EMBAJADOR_JUNIOR.clases &&
-            metricasBase.localesEnLima >= requisitos.EMBAJADOR_JUNIOR.localesEnLima &&
-            valoresManuales.dobleteos >= requisitos.EMBAJADOR_JUNIOR.dobleteos &&
-            valoresManuales.horariosNoPrime >= requisitos.EMBAJADOR_JUNIOR.horariosNoPrime &&
-            (valoresManuales.participacionEventos || !requisitos.EMBAJADOR_JUNIOR.participacionEventos) &&
-            (valoresManuales.cumpleLineamientos || !requisitos.EMBAJADOR_JUNIOR.lineamientos)
-          ) {
-            nuevaCategoria = "EMBAJADOR_JUNIOR"
-          }
-
-          // Buscar si ya existe una categoría para esta disciplina y periodo
-          const categoriaExistente = categoriasActuales.find(
-            (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
-          )
-
-          // Si la categoría ha cambiado o no existe, actualizarla
-          if (!categoriaExistente || categoriaExistente.categoria !== nuevaCategoria) {
-            addProcessLog(
-              `🔄 Actualizando categoría para ${disciplina.nombre}: ${categoriaExistente?.categoria || "No asignada"} -> ${nuevaCategoria}`,
-              instructor.id,
-            )
-
-            // Crear objeto de categoría
-            const categoriaActualizada = {
-              id: categoriaExistente?.id || Date.now(),
-              instructorId: instructor.id,
-              disciplinaId,
-              periodoId,
-              categoria: nuevaCategoria,
-              metricas: {
-                ocupacion: metricasBase.ocupacion,
-                clases: metricasBase.clases,
-                localesEnLima: metricasBase.localesEnLima,
-                dobleteos: valoresManuales.dobleteos,
-                horariosNoPrime: valoresManuales.horariosNoPrime,
-                participacionEventos: valoresManuales.participacionEventos,
-              },
-            }
-
-            // Actualizar el array de categorías
-            if (categoriaExistente) {
-              // Reemplazar categoría existente
-              const index = nuevasCategorias.findIndex(
-                (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
-              )
-              if (index >= 0) {
-                nuevasCategorias[index] = { ...nuevasCategorias[index], ...categoriaActualizada }
-              }
-            } else {
-              // Añadir nueva categoría
-              nuevasCategorias.push(categoriaActualizada)
-            }
-
-            cambiosRealizados = true
-            categoriasActualizadas++
-          } else {
-            addProcessLog(
-              `✓ Categoría ya correcta para ${disciplina.nombre}: ${categoriaExistente.categoria}`,
-              instructor.id,
-            )
-          }
-        }
-
-        // Si se realizaron cambios, actualizar el instructor
-        if (cambiosRealizados) {
-          try {
-            await actualizarInstructor(instructor.id, {
-              categorias: nuevasCategorias,
-            })
-            addProcessLog(`✅ Categorías actualizadas exitosamente`, instructor.id)
-          } catch (error) {
-            addProcessLog(
-              `❌ Error al actualizar categorías: ${error instanceof Error ? error.message : "Error desconocido"}`,
-              instructor.id,
-            )
-          }
-        }
-      }
-
-      addProcessLog(`📊 Categorías actualizadas: ${categoriasActualizadas}`)
-      addProcessLog(`📊 PASO 2: Calculando pagos con las categorías actualizadas...`)
-
-      // PASO 2: Ahora que las categorías están actualizadas, calcular los pagos
-      // Get existing payments for this period
-      const pagosPeriodo = pagos.filter((p) => p.periodoId === periodoId)
-      const instructoresConPago = new Set(pagosPeriodo.map((p) => p.instructorId))
-
-      addProcessLog(`💰 Instructores con pago existente: ${instructoresConPago.size}`)
-
-      let pagosCreados = 0
-      let pagosActualizados = 0
-
-      // Array para almacenar todos los pagos que se crearán o actualizarán
-      const pagosParaActualizar = []
-
-      // Process each instructor
-      for (const instructor of todosInstructores) {
-        addProcessLog(`Procesando instructor ${instructor.nombre}`, instructor.id)
-
-        // Get classes for this instructor in this period
-        const clasesInstructor = clases.filter(
-          (clase) => clase.instructorId === instructor.id && clase.periodoId === periodoId,
-        )
-
-        if (clasesInstructor.length === 0) {
-          addProcessLog(`Sin clases, omitiendo`, instructor.id)
+        // Si el pago existe y está aprobado, no recalcular y mantener los valores existentes
+        if (pagoExistente && pagoExistente.estado === "APROBADO") {
+          addProcessLog(`⚠️ Pago ya aprobado, manteniendo valores existentes`, instructor.id)
+          pagosActualizados++
           continue
         }
-
-        // Check if instructor already has a payment for this period
-        const pagoExistente = pagos.find((p) => p.instructorId === instructor.id && p.periodoId === periodoId)
 
         // Calculate total payment amount
         let montoTotal = 0
         const detallesClases = []
         const disciplinasUnicas = [...new Set(clasesInstructor.map((c) => c.disciplinaId))]
 
-        // Calculate non-prime hours
+        // Calculate non-prime hours only for Síclo discipline
+        const disciplinaSiclo = disciplinas.find((d) => d.nombre === "Síclo")
+        const sicloId = disciplinaSiclo ? disciplinaSiclo.id : null
+
         const horariosNoPrime = clasesInstructor.filter((clase) => {
+          // Solo contar horarios no prime para la disciplina Síclo
+          if (sicloId && clase.disciplinaId !== sicloId) {
+            return false
+          }
+
           try {
             const hora = obtenerHora(clase.fecha)
             const estudio = clase.estudio || ""
@@ -1049,9 +878,10 @@ export function useCalculation(
 
         // Calculate retention and final payment
         const montoConBono = montoTotal + bonoTotal
-        const retencionCalculada = pagoExistente?.reajuste != null
-        ? (montoConBono + pagoExistente.reajuste) * retencionValor
-        : montoConBono * retencionValor;
+        const retencionCalculada =
+          pagoExistente?.reajuste != null
+            ? (montoConBono + pagoExistente.reajuste) * retencionValor
+            : montoConBono * retencionValor
 
         const pagoFinal = montoConBono - retencionCalculada
 
@@ -1067,6 +897,12 @@ export function useCalculation(
         // Preparar el objeto de pago con todos los datos necesarios
         try {
           if (pagoExistente) {
+            // Si el pago está aprobado, no actualizar
+            if (pagoExistente.estado === "APROBADO") {
+              addProcessLog(`✅ Pago aprobado, no se modificará`, instructor.id)
+              continue
+            }
+
             // Crear un objeto de actualización completo, incluyendo todos los campos requeridos
             const actualizacion = {
               id: pagoExistente.id,
@@ -1081,7 +917,7 @@ export function useCalculation(
               pagoFinal: pagoFinal,
               // Mantener valores manuales existentes
               dobleteos: pagoExistente.dobleteos || 0,
-              horariosNoPrime: horariosNoPrime/4,
+              horariosNoPrime: horariosNoPrime / 4,
               participacionEventos: pagoExistente.participacionEventos || false,
               cumpleLineamientos: pagoExistente.cumpleLineamientos || false,
               detalles: {
@@ -1126,9 +962,10 @@ export function useCalculation(
               tipoReajuste: "FIJO" as const,
               pagoFinal: pagoFinal,
               dobleteos: 0,
-              horariosNoPrime: horariosNoPrime/4,
-              participacionEventos: false,
-              cumpleLineamientos: false,
+              horariosNoPrime: horariosNoPrime / 4,
+              // CORRECCIÓN 1: Establecer participacionEventos y cumpleLineamientos como true por defecto
+              participacionEventos: true,
+              cumpleLineamientos: true,
               detalles: {
                 clases: detallesClases,
                 resumen: {
@@ -1545,7 +1382,7 @@ export function useCalculation(
             } catch (error) {
               console.error(`[REEVALUACION] ❌ ERROR al actualizar categoría:`, error)
               addProcessLog(
-                `❌ Error al actualizar categoría para ${instructor.nombre} en ${nombreDisciplina}: ${
+                `❌ Error al actualizar categoría para ${instructor.nombre} en ${nombreDisciplina} en ${nombreDisciplina}: ${
                   error instanceof Error ? error.message : "Error desconocido"
                 }`,
                 instructor.id,

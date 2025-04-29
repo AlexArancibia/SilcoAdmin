@@ -176,6 +176,12 @@ export function ClassesTab({
 
   // Función para verificar si una clase es en horario no prime
   const esClaseHorarioNoPrime = (clase: Clase): boolean => {
+    const esSiclo = disciplinas.find((d) => d.id === clase.disciplinaId)?.nombre === "Síclo"
+
+    // Si no es Síclo, no es horario no prime
+    if (!esSiclo) return false
+
+    // Si es Síclo, entonces verificar el horario
     const hora = obtenerHora(clase.fecha)
     const estudio = clase.estudio || ""
     return esHorarioNoPrime(estudio, hora)
@@ -1075,12 +1081,7 @@ export function ClassesTab({
                   >
                     Reservas {renderSortIndicator("reservas")}
                   </TableHead>
-                  <TableHead
-                    className="text-accent font-medium whitespace-nowrap cursor-pointer w-[100px]"
-                    onClick={() => toggleSort("cortesias")}
-                  >
-                    Cortesías {renderSortIndicator("cortesias")}
-                  </TableHead>
+ 
                   <TableHead
                     className="text-accent font-medium whitespace-nowrap cursor-pointer w-[120px]"
                     onClick={() => toggleSort("monto")}
@@ -1168,18 +1169,7 @@ export function ClassesTab({
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        {clase.cortesias > 0 ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/70"
-                          >
-                            {clase.cortesias}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </TableCell>
+ 
                       {/* Actualizar la celda del monto en la tabla para usar la fórmula correcta según la disciplina */}
                       <TableCell className="font-medium text-foreground">
                         {detalleClase ? (

@@ -9,7 +9,8 @@ import { usePeriodosStore } from "@/store/usePeriodosStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { useClasesStore } from "@/store/useClasesStore"
-import { Loader2 } from "lucide-react"
+import { Loader2, X } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 
 interface ClassesFilterProps {
   initialPeriodoId?: number
@@ -48,21 +49,38 @@ export function ClassesFilter({
     if (periodos.length === 0) fetchPeriodos()
     if (instructores.length === 0) fetchInstructores()
     if (disciplinas.length === 0) fetchDisciplinas()
-    
+
     // Obtener clases para extraer estudios únicos
     if (clases.length === 0) fetchClases()
-  }, [periodos.length, instructores.length, disciplinas.length, clases.length, fetchPeriodos, fetchInstructores, fetchDisciplinas, fetchClases])
+  }, [
+    periodos.length,
+    instructores.length,
+    disciplinas.length,
+    clases.length,
+    fetchPeriodos,
+    fetchInstructores,
+    fetchDisciplinas,
+    fetchClases,
+  ])
 
   // Extraer estudios únicos de las clases
   useEffect(() => {
     if (clases.length > 0) {
-      const uniqueEstudios = Array.from(new Set(clases.map(clase => clase.estudio))).sort()
+      const uniqueEstudios = Array.from(new Set(clases.map((clase) => clase.estudio)))
+        .filter(Boolean)
+        .sort()
       setEstudios(uniqueEstudios)
     }
   }, [clases])
 
   // Aplicar filtros automáticamente cuando cambian los valores
-  const applyFilters = (newPeriodoId?: number, newInstructorId?: number, newDisciplinaId?: number, newSemana?: number, newEstudio?: string) => {
+  const applyFilters = (
+    newPeriodoId?: number,
+    newInstructorId?: number,
+    newDisciplinaId?: number,
+    newSemana?: number,
+    newEstudio?: string,
+  ) => {
     const params = new URLSearchParams(searchParams.toString())
 
     if (newPeriodoId) {
@@ -109,11 +127,27 @@ export function ClassesFilter({
 
   const isLoading = isLoadingPeriodos || isLoadingInstructores || isLoadingDisciplinas || isLoadingClases
 
+  // Obtener nombres de los filtros seleccionados
+  const selectedPeriodo = periodos.find((p) => p.id === periodoId)
+  const selectedInstructor = instructores.find((i) => i.id === instructorId)
+  const selectedDisciplina = disciplinas.find((d) => d.id === disciplinaId)
+
+  // Contar filtros activos
+  const activeFiltersCount = [
+    periodoId !== undefined,
+    instructorId !== undefined,
+    disciplinaId !== undefined,
+    semana !== undefined,
+    estudio !== undefined,
+  ].filter(Boolean).length
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-        <div className="space-y-2">
-          <Label htmlFor="periodo">Periodo</Label>
+    <div className="mb-4">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-5 mb-3">
+        <div className="space-y-1">
+          <Label htmlFor="periodo" className="text-xs">
+            Periodo
+          </Label>
           <Select
             value={periodoId?.toString() || ""}
             onValueChange={(value) => {
@@ -123,7 +157,7 @@ export function ClassesFilter({
             }}
             disabled={isLoadingPeriodos}
           >
-            <SelectTrigger id="periodo">
+            <SelectTrigger id="periodo" className="h-8 text-sm">
               <SelectValue placeholder="Seleccionar periodo" />
             </SelectTrigger>
             <SelectContent>
@@ -137,8 +171,10 @@ export function ClassesFilter({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="instructor">Instructor</Label>
+        <div className="space-y-1">
+          <Label htmlFor="instructor" className="text-xs">
+            Instructor
+          </Label>
           <Select
             value={instructorId?.toString() || ""}
             onValueChange={(value) => {
@@ -148,7 +184,7 @@ export function ClassesFilter({
             }}
             disabled={isLoadingInstructores}
           >
-            <SelectTrigger id="instructor">
+            <SelectTrigger id="instructor" className="h-8 text-sm">
               <SelectValue placeholder="Seleccionar instructor" />
             </SelectTrigger>
             <SelectContent>
@@ -162,8 +198,10 @@ export function ClassesFilter({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="disciplina">Disciplina</Label>
+        <div className="space-y-1">
+          <Label htmlFor="disciplina" className="text-xs">
+            Disciplina
+          </Label>
           <Select
             value={disciplinaId?.toString() || ""}
             onValueChange={(value) => {
@@ -173,7 +211,7 @@ export function ClassesFilter({
             }}
             disabled={isLoadingDisciplinas}
           >
-            <SelectTrigger id="disciplina">
+            <SelectTrigger id="disciplina" className="h-8 text-sm">
               <SelectValue placeholder="Seleccionar disciplina" />
             </SelectTrigger>
             <SelectContent>
@@ -187,8 +225,10 @@ export function ClassesFilter({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="semana">Semana</Label>
+        <div className="space-y-1">
+          <Label htmlFor="semana" className="text-xs">
+            Semana
+          </Label>
           <Select
             value={semana?.toString() || ""}
             onValueChange={(value) => {
@@ -197,7 +237,7 @@ export function ClassesFilter({
               applyFilters(periodoId, instructorId, disciplinaId, newSemana, estudio)
             }}
           >
-            <SelectTrigger id="semana">
+            <SelectTrigger id="semana" className="h-8 text-sm">
               <SelectValue placeholder="Seleccionar semana" />
             </SelectTrigger>
             <SelectContent>
@@ -210,8 +250,10 @@ export function ClassesFilter({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="estudio">Estudio</Label>
+        <div className="space-y-1">
+          <Label htmlFor="estudio" className="text-xs">
+            Estudio
+          </Label>
           <Select
             value={estudio || ""}
             onValueChange={(value) => {
@@ -221,7 +263,7 @@ export function ClassesFilter({
             }}
             disabled={isLoadingClases || estudios.length === 0}
           >
-            <SelectTrigger id="estudio">
+            <SelectTrigger id="estudio" className="h-8 text-sm">
               <SelectValue placeholder="Seleccionar estudio" />
             </SelectTrigger>
             <SelectContent>
@@ -236,11 +278,92 @@ export function ClassesFilter({
         </div>
       </div>
 
-      <div className="flex items-center justify-end space-x-2">
-        <Button variant="outline" onClick={handleReset}>
-          Reiniciar filtros
-        </Button>
-      </div>
+      {/* Indicadores de filtros activos */}
+      {activeFiltersCount > 0 && (
+        <div className="flex flex-wrap gap-1 items-center mb-3">
+          {periodoId !== undefined && selectedPeriodo && (
+            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
+              Periodo {selectedPeriodo.numero}/{selectedPeriodo.año}
+              <X
+                className="h-3 w-3 ml-1 cursor-pointer"
+                onClick={() => {
+                  setPeriodoId(undefined)
+                  applyFilters(undefined, instructorId, disciplinaId, semana, estudio)
+                }}
+              />
+            </Badge>
+          )}
+
+          {instructorId !== undefined && selectedInstructor && (
+            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
+              {selectedInstructor.nombre}
+              <X
+                className="h-3 w-3 ml-1 cursor-pointer"
+                onClick={() => {
+                  setInstructorId(undefined)
+                  applyFilters(periodoId, undefined, disciplinaId, semana, estudio)
+                }}
+              />
+            </Badge>
+          )}
+
+          {disciplinaId !== undefined && selectedDisciplina && (
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 h-6 text-xs"
+              style={{
+                backgroundColor: selectedDisciplina.color ? `${selectedDisciplina.color}20` : undefined,
+              }}
+            >
+              {selectedDisciplina.nombre}
+              <X
+                className="h-3 w-3 ml-1 cursor-pointer"
+                onClick={() => {
+                  setDisciplinaId(undefined)
+                  applyFilters(periodoId, instructorId, undefined, semana, estudio)
+                }}
+              />
+            </Badge>
+          )}
+
+          {semana !== undefined && (
+            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
+              Semana {semana}
+              <X
+                className="h-3 w-3 ml-1 cursor-pointer"
+                onClick={() => {
+                  setSemana(undefined)
+                  applyFilters(periodoId, instructorId, disciplinaId, undefined, estudio)
+                }}
+              />
+            </Badge>
+          )}
+
+          {estudio !== undefined && (
+            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
+              {estudio}
+              <X
+                className="h-3 w-3 ml-1 cursor-pointer"
+                onClick={() => {
+                  setEstudio(undefined)
+                  applyFilters(periodoId, instructorId, disciplinaId, semana, undefined)
+                }}
+              />
+            </Badge>
+          )}
+
+          <Button variant="ghost" size="sm" onClick={handleReset} className="h-6 px-2 text-xs">
+            Limpiar todos
+          </Button>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="flex items-center text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+          Cargando...
+        </div>
+      )}
     </div>
   )
 }
