@@ -102,6 +102,72 @@ function obtenerHora(fecha: any): string {
   }
 }
 
+// Función para calcular dobleteos (clases consecutivas) para un instructor en la disciplina Síclo
+const calcularDobleteos = (clasesInstructor: any[], disciplinaSicloId: number | null): number => {
+  // Si no tenemos el ID de la disciplina Síclo o no hay clases, retornar 0
+  if (!disciplinaSicloId || clasesInstructor.length === 0) {
+    return 0
+  }
+
+  // Filtrar solo las clases de Síclo
+  const clasesSiclo = clasesInstructor.filter((c) => c.disciplinaId === disciplinaSicloId)
+
+  if (clasesSiclo.length <= 1) {
+    return 0 // No hay suficientes clases para formar dobleteos
+  }
+
+  // Agrupar clases por fecha (día)
+  const clasesPorDia: Record<string, any[]> = {}
+
+  clasesSiclo.forEach((clase) => {
+    // Obtener solo la parte de la fecha (sin la hora)
+    const fechaKey = obtenerClaveFecha(clase.fecha)
+
+    if (!clasesPorDia[fechaKey]) {
+      clasesPorDia[fechaKey] = []
+    }
+
+    // Añadir la clase con su hora
+    clasesPorDia[fechaKey].push({
+      ...clase,
+      hora: obtenerHora(clase.fecha),
+    })
+  })
+
+  // Contar dobleteos por cada día
+  let totalDobleteos = 0
+
+  Object.values(clasesPorDia).forEach((clasesDelDia) => {
+    // Ordenar clases por hora
+    clasesDelDia.sort((a, b) => {
+      const horaA = a.hora.split(":").map(Number)
+      const horaB = b.hora.split(":").map(Number)
+
+      // Comparar horas y luego minutos
+      if (horaA[0] !== horaB[0]) {
+        return horaA[0] - horaB[0]
+      }
+      return horaA[1] - horaB[1]
+    })
+
+    // Contar clases consecutivas
+    for (let i = 0; i < clasesDelDia.length - 1; i++) {
+      const horaActual = clasesDelDia[i].hora.split(":").map(Number)
+      const horaSiguiente = clasesDelDia[i + 1].hora.split(":").map(Number)
+
+      // Verificar si son horas consecutivas (diferencia de 1 hora)
+      if (
+        (horaSiguiente[0] === horaActual[0] + 1 && horaSiguiente[1] === horaActual[1]) ||
+        (horaSiguiente[0] === horaActual[0] && Math.abs(horaSiguiente[1] - horaActual[1]) === 60)
+      ) {
+        totalDobleteos++
+      }
+    }
+  })
+
+  return totalDobleteos
+}
+
 // Asegúrate de que la función reevaluarTodasCategorias esté disponible para ser llamada desde otros componentes
 export function useCalculation(
   setShowProcessLogsDialog: (show: boolean) => void,
@@ -687,6 +753,7 @@ export function useCalculation(
         const disciplinaSiclo = disciplinas.find((d) => d.nombre === "Síclo")
         const sicloId = disciplinaSiclo ? disciplinaSiclo.id : null
 
+        // Calcular horarios no prime (solo para Síclo)
         const horariosNoPrime = clasesInstructor.filter((clase) => {
           // Solo contar horarios no prime para la disciplina Síclo
           if (sicloId && clase.disciplinaId !== sicloId) {
@@ -708,6 +775,10 @@ export function useCalculation(
             return false
           }
         }).length
+
+        // Calcular dobleteos (solo para Síclo)
+        const dobleteos = calcularDobleteos(clasesInstructor, sicloId)
+        addProcessLog(`🔄 Dobleteos calculados para ${instructor.nombre}: ${dobleteos}`, instructor.id)
 
         // Obtener el instructor actualizado para tener sus categorías actualizadas
         const instructorActualizado = await instructoresApi.getInstructor(instructor.id)
@@ -916,7 +987,7 @@ export function useCalculation(
               tipoReajuste: pagoExistente.tipoReajuste, // Mantener el tipo de reajuste existente
               pagoFinal: pagoFinal,
               // Mantener valores manuales existentes
-              dobleteos: pagoExistente.dobleteos || 0,
+              dobleteos: dobleteos,
               horariosNoPrime: horariosNoPrime / 4,
               participacionEventos: pagoExistente.participacionEventos || false,
               cumpleLineamientos: pagoExistente.cumpleLineamientos || false,
@@ -961,9 +1032,9 @@ export function useCalculation(
               reajuste: 0,
               tipoReajuste: "FIJO" as const,
               pagoFinal: pagoFinal,
-              dobleteos: 0,
+              dobleteos: dobleteos,
               horariosNoPrime: horariosNoPrime / 4,
-              // CORRECCIÓN 1: Establecer participacionEventos y cumpleLineamientos como true por defecto
+              // CORRECCIÓN: Establecer participacionEventos y cumpleLineamientos como true por defecto
               participacionEventos: true,
               cumpleLineamientos: true,
               detalles: {

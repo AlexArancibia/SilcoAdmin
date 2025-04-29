@@ -123,7 +123,7 @@ export function InstructorPaymentHistory({ pagos }: PagosProps) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{formatAmount(pago.monto)}</div>
+                    <div className="font-medium">{formatAmount(pago.pagoFinal)}</div>
                   </TableCell>
                   <TableCell>
                     <Badge className={statusBadge.color}>{statusBadge.text}</Badge>
