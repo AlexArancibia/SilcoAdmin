@@ -330,7 +330,9 @@ export function useCalculation(
 
     // Calculate metrics
     const totalClases = clasesInstructor.length
-    console.log(`[CATEGORIA] Total clases: ${totalClases}`)
+    // Calcular el promedio semanal de clases (dividir entre 4 semanas)
+    const clasesPorSemana = totalClases / 4
+    console.log(`[CATEGORIA] Total clases: ${totalClases} (${clasesPorSemana.toFixed(2)} por semana)`)
 
     // Calculate occupancy rate (reservas / lugares)
     let totalReservas = 0
@@ -370,7 +372,7 @@ export function useCalculation(
       `[CATEGORIA] - Ocupación: ${ocupacion.toFixed(2)}% >= ${requisitos.EMBAJADOR_SENIOR.ocupacion}% ? ${ocupacion >= requisitos.EMBAJADOR_SENIOR.ocupacion}`,
     )
     console.log(
-      `[CATEGORIA] - Total Clases: ${totalClases} >= ${requisitos.EMBAJADOR_SENIOR.clases} ? ${totalClases >= requisitos.EMBAJADOR_SENIOR.clases}`,
+      `[CATEGORIA] - Clases por semana: ${clasesPorSemana.toFixed(2)} >= ${requisitos.EMBAJADOR_SENIOR.clases} ? ${clasesPorSemana >= requisitos.EMBAJADOR_SENIOR.clases}`,
     )
     console.log(
       `[CATEGORIA] - Locales en Lima: ${localesEnLima} >= ${requisitos.EMBAJADOR_SENIOR.localesEnLima} ? ${localesEnLima >= requisitos.EMBAJADOR_SENIOR.localesEnLima}`,
@@ -391,7 +393,7 @@ export function useCalculation(
     if (
       requisitos.EMBAJADOR_SENIOR &&
       ocupacion >= requisitos.EMBAJADOR_SENIOR.ocupacion &&
-      totalClases >= requisitos.EMBAJADOR_SENIOR.clases &&
+      clasesPorSemana >= requisitos.EMBAJADOR_SENIOR.clases && // Usar clases por semana en lugar del total
       localesEnLima >= requisitos.EMBAJADOR_SENIOR.localesEnLima &&
       dobleteos >= requisitos.EMBAJADOR_SENIOR.dobleteos &&
       horariosNoPrime >= requisitos.EMBAJADOR_SENIOR.horariosNoPrime &&
@@ -411,7 +413,7 @@ export function useCalculation(
       `[CATEGORIA] - Ocupación: ${ocupacion.toFixed(2)}% >= ${requisitos.EMBAJADOR.ocupacion}% ? ${ocupacion >= requisitos.EMBAJADOR.ocupacion}`,
     )
     console.log(
-      `[CATEGORIA] - Total Clases: ${totalClases} >= ${requisitos.EMBAJADOR.clases} ? ${totalClases >= requisitos.EMBAJADOR.clases}`,
+      `[CATEGORIA] - Clases por semana: ${clasesPorSemana.toFixed(2)} >= ${requisitos.EMBAJADOR.clases} ? ${clasesPorSemana >= requisitos.EMBAJADOR.clases}`,
     )
     console.log(
       `[CATEGORIA] - Locales en Lima: ${localesEnLima} >= ${requisitos.EMBAJADOR.localesEnLima} ? ${localesEnLima >= requisitos.EMBAJADOR.localesEnLima}`,
@@ -432,7 +434,7 @@ export function useCalculation(
     if (
       requisitos.EMBAJADOR &&
       ocupacion >= requisitos.EMBAJADOR.ocupacion &&
-      totalClases >= requisitos.EMBAJADOR.clases &&
+      clasesPorSemana >= requisitos.EMBAJADOR.clases && // Usar clases por semana en lugar del total
       localesEnLima >= requisitos.EMBAJADOR.localesEnLima &&
       dobleteos >= requisitos.EMBAJADOR.dobleteos &&
       horariosNoPrime >= requisitos.EMBAJADOR.horariosNoPrime &&
@@ -452,7 +454,7 @@ export function useCalculation(
       `[CATEGORIA] - Ocupación: ${ocupacion.toFixed(2)}% >= ${requisitos.EMBAJADOR_JUNIOR.ocupacion}% ? ${ocupacion >= requisitos.EMBAJADOR_JUNIOR.ocupacion}`,
     )
     console.log(
-      `[CATEGORIA] - Total Clases: ${totalClases} >= ${requisitos.EMBAJADOR_JUNIOR.clases} ? ${totalClases >= requisitos.EMBAJADOR_JUNIOR.clases}`,
+      `[CATEGORIA] - Clases por semana: ${clasesPorSemana.toFixed(2)} >= ${requisitos.EMBAJADOR_JUNIOR.clases} ? ${clasesPorSemana >= requisitos.EMBAJADOR_JUNIOR.clases}`,
     )
     console.log(
       `[CATEGORIA] - Locales en Lima: ${localesEnLima} >= ${requisitos.EMBAJADOR_JUNIOR.localesEnLima} ? ${localesEnLima >= requisitos.EMBAJADOR_JUNIOR.localesEnLima}`,
@@ -473,7 +475,7 @@ export function useCalculation(
     if (
       requisitos.EMBAJADOR_JUNIOR &&
       ocupacion >= requisitos.EMBAJADOR_JUNIOR.ocupacion &&
-      totalClases >= requisitos.EMBAJADOR_JUNIOR.clases &&
+      clasesPorSemana >= requisitos.EMBAJADOR_JUNIOR.clases && // Usar clases por semana en lugar del total
       localesEnLima >= requisitos.EMBAJADOR_JUNIOR.localesEnLima &&
       dobleteos >= requisitos.EMBAJADOR_JUNIOR.dobleteos &&
       horariosNoPrime >= requisitos.EMBAJADOR_JUNIOR.horariosNoPrime &&
@@ -553,6 +555,8 @@ export function useCalculation(
 
     // Calculate metrics for storing
     const totalClases = clasesInstructor.length
+    // Calcular el promedio semanal de clases
+    const clasesPorSemana = totalClases / 4
 
     // Calculate occupancy rate (reservas / lugares)
     let totalReservas = 0
@@ -563,7 +567,7 @@ export function useCalculation(
     })
     const ocupacion = totalLugares > 0 ? (totalReservas / totalLugares) * 100 : 0
     console.log(
-      `[CATEGORIA_INSTRUCTOR] Métricas calculadas: Ocupación: ${ocupacion.toFixed(2)}%, Clases: ${totalClases}`,
+      `[CATEGORIA_INSTRUCTOR] Métricas calculadas: Ocupación: ${ocupacion.toFixed(2)}%, Clases: ${totalClases} (${clasesPorSemana.toFixed(2)} por semana)`,
     )
 
     // Count unique locations in Lima
@@ -704,6 +708,7 @@ export function useCalculation(
       const calcularMetricas = (clasesInstructor: any[], disciplinaId: number) => {
         const clasesDisciplina = clasesInstructor.filter((c) => c.disciplinaId === disciplinaId)
         const totalClases = clasesDisciplina.length
+        const clasesPorSemana = totalClases / 4 // Calcular clases por semana
 
         let totalReservas = 0
         let totalLugares = 0
@@ -717,7 +722,7 @@ export function useCalculation(
           clasesDisciplina.filter((c) => c.ciudad.toLowerCase().includes("lima")).map((c) => c.estudio),
         ).size
 
-        return { ocupacion, clases: totalClases, localesEnLima }
+        return { ocupacion, clases: totalClases, clasesPorSemana, localesEnLima }
       }
 
       // Primero, evaluar y actualizar categorías para todos los instructores
@@ -858,6 +863,7 @@ export function useCalculation(
 
         // Add a summary of metrics for the instructor
         const totalClases = clasesInstructor.length
+        const clasesPorSemana = totalClases / 4 // Calcular clases por semana
         const totalReservas = clasesInstructor.reduce((sum, c) => sum + c.reservasTotales, 0)
         const totalCapacidad = clasesInstructor.reduce((sum, c) => sum + c.lugares, 0)
         const ocupacionPromedio = totalCapacidad > 0 ? (totalReservas / totalCapacidad) * 100 : 0
@@ -958,7 +964,7 @@ export function useCalculation(
 
         addProcessLog(
           `RESUMEN DE MÉTRICAS:` +
-            `\n   Total Clases: ${totalClases} | Disciplinas: ${disciplinasUnicasCount} | Estudios: ${estudiosUnicos}` +
+            `\n   Total Clases: ${totalClases} (${clasesPorSemana.toFixed(1)} por semana) | Disciplinas: ${disciplinasUnicasCount} | Estudios: ${estudiosUnicos}` +
             `\n   Ocupación Promedio: ${ocupacionPromedio.toFixed(1)}% (${totalReservas}/${totalCapacidad})` +
             `\n   Clases en Horario No Prime: ${clasesNoPrime} (${((clasesNoPrime / totalClases) * 100).toFixed(1)}%)` +
             `\n   Monto Total: ${montoTotal.toFixed(2)} | Bono: ${bonoTotal.toFixed(2)} | Final: ${pagoFinal.toFixed(2)}`,
@@ -1261,6 +1267,7 @@ export function useCalculation(
       const calcularMetricas = (clasesInstructor: any[], disciplinaId: number) => {
         const clasesDisciplina = clasesInstructor.filter((c) => c.disciplinaId === disciplinaId)
         const totalClases = clasesDisciplina.length
+        const clasesPorSemana = totalClases / 4 // Calcular clases por semana
 
         let totalReservas = 0
         let totalLugares = 0
@@ -1274,7 +1281,7 @@ export function useCalculation(
           clasesDisciplina.filter((c) => c.ciudad.toLowerCase().includes("lima")).map((c) => c.estudio),
         ).size
 
-        return { ocupacion, clases: totalClases, localesEnLima }
+        return { ocupacion, clases: totalClases, clasesPorSemana, localesEnLima }
       }
 
       // Process each instructor
@@ -1343,7 +1350,7 @@ export function useCalculation(
           console.log(`[REEVALUACION] Calculando métricas reales...`)
           const metricasBase = calcularMetricas(clasesInstructor, disciplinaId)
           console.log(
-            `[REEVALUACION] Métricas calculadas: Ocupación: ${metricasBase.ocupacion.toFixed(2)}%, Clases: ${metricasBase.clases}, Locales: ${metricasBase.localesEnLima}`,
+            `[REEVALUACION] Métricas calculadas: Ocupación: ${metricasBase.ocupacion.toFixed(2)}%, Clases: ${metricasBase.clases} (${metricasBase.clasesPorSemana.toFixed(2)} por semana), Locales: ${metricasBase.localesEnLima}`,
           )
 
           // Get formula for this discipline

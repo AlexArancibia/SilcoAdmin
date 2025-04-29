@@ -287,7 +287,7 @@ export function CategoryTab({
                           </div>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Total Clases:</span>
+                          <span className="text-sm text-muted-foreground">Clases por Semana:</span>
                           <Badge
                             variant="outline"
                             className="bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:border-primary/30"

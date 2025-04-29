@@ -384,7 +384,7 @@ export default function PagoDetallePage() {
     const ocupacionPromedio = totalCapacidad > 0 ? Math.round((totalReservas / totalCapacidad) * 100) : 0
 
     // Count classes
-    const totalClases = clasesFiltradas.length
+    const totalClases = clasesFiltradas.length/4
 
     // Count unique locations in Lima
     const localesUnicos = new Set(clasesFiltradas.map((c) => c.estudio)).size
