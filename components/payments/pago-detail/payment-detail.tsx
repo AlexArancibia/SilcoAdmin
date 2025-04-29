@@ -371,7 +371,7 @@ export function PaymentDetails({
 
                 {/* Retención Total */}
                 <tr className="font-medium">
-                  <td className="py-3 px-3 font-medium">Retención Total:</td>
+                  <td className="py-3 px-3 font-medium">Retención Total ({retencionValor*100}%) :</td>
                   <td className="py-3 px-3 text-right font-medium text-rose-600">-{formatCurrency(totalRetencion)}</td>
                 </tr>
 
