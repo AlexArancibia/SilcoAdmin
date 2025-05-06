@@ -11,7 +11,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle, Mail, Lock, Loader2, Calculator, CreditCard, DollarSign, BarChart4, Receipt } from "lucide-react"
 import { useAuthStore } from "@/store/useAuthStore"
-import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 export default function LoginPage() {
@@ -19,12 +18,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* Left side - Branding/Hero section - Hidden on mobile */}
       <div className="hidden md:flex bg-gradient-to-br from-primary to-primary/70 w-full md:w-1/2 p-10 flex-col justify-center items-center text-primary-foreground">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="max-w-md text-center"
-        >
+        <div className="max-w-md text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Siclo</h1>
 
           <p className="text-primary-foreground/90 text-lg mb-10 leading-relaxed">
@@ -39,21 +33,18 @@ export default function LoginPage() {
               { icon: <Receipt className="h-6 w-6" />, label: "Facturas" },
               { icon: <BarChart4 className="h-6 w-6" />, label: "Reportes" },
             ].map((item, i) => (
-              <motion.div
+              <div
                 key={i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.6 + i * 0.1 }}
                 className="flex flex-col items-center bg-primary-foreground/10 p-4 rounded-xl backdrop-blur-sm"
               >
                 {item.icon}
                 <span className="mt-2 text-sm font-medium">{item.label}</span>
-              </motion.div>
+              </div>
             ))}
           </div>
 
           {/* Payment calculation illustration */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8, delay: 1 }}>
+          <div>
             <div className="relative bg-primary-foreground/10 p-6 rounded-xl backdrop-blur-sm shadow-lg">
               <div className="absolute -top-6 -right-6 bg-primary-foreground/20 p-3 rounded-full">
                 <DollarSign className="h-8 w-8" />
@@ -97,18 +88,13 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       </div>
 
       {/* Right side - Login form - Full width on mobile */}
       <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-10 bg-background min-h-screen">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6 }}
-          className="w-full max-w-md"
-        >
+        <div className="w-full max-w-md">
           <div className="flex justify-center mb-10">
             <img
               src="https://pub-a15fad1bb05e4ecbb92c9d83b643a721.r2.dev/logo.png"
@@ -134,7 +120,7 @@ export default function LoginPage() {
               />
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   )
@@ -165,12 +151,12 @@ function LoginForm() {
       <form onSubmit={handleSubmit}>
         <CardContent className="px-6 md:px-8 pb-8 space-y-7">
           {error && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+            <div>
               <Alert variant="destructive" className="border border-destructive/20 bg-destructive/5 rounded-lg">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="ml-2">{error}</AlertDescription>
               </Alert>
-            </motion.div>
+            </div>
           )}
 
           <div className="space-y-2.5">
