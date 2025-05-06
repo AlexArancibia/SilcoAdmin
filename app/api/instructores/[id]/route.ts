@@ -41,6 +41,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const {
       nombre,
+      nombreCompleto,
+      activo,
       password,
       extrainfo,
       disciplinaIds,
@@ -50,6 +52,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       horariosNoPrime,
       participacionEventos,
       categorias,
+      // New fields
+      personaContacto,
+      cuentaBancaria,
+      CCI,
+      banco,
+      celular,
+      DNI, // Added DNI field
     } = body
 
     // First check if the instructor exists
@@ -82,14 +91,26 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     // Prepare the update data
     const updateData: any = {
       nombre: updatedName,
-      password,
-      extrainfo,
-      ultimoBono,
-      cumpleLineamientos,
-      dobleteos,
-      horariosNoPrime,
-      participacionEventos,
     }
+
+    // Only include fields that are provided in the request
+    if (password !== undefined) updateData.password = password
+    if (extrainfo !== undefined) updateData.extrainfo = extrainfo
+    if (ultimoBono !== undefined) updateData.ultimoBono = ultimoBono
+    if (cumpleLineamientos !== undefined) updateData.cumpleLineamientos = cumpleLineamientos
+    if (dobleteos !== undefined) updateData.dobleteos = dobleteos
+    if (horariosNoPrime !== undefined) updateData.horariosNoPrime = horariosNoPrime
+    if (participacionEventos !== undefined) updateData.participacionEventos = participacionEventos
+
+    // New fields
+    if (nombreCompleto !== undefined) updateData.nombreCompleto = nombreCompleto
+    if (activo !== undefined) updateData.activo = Boolean(activo)
+    if (personaContacto !== undefined) updateData.personaContacto = personaContacto
+    if (cuentaBancaria !== undefined) updateData.cuentaBancaria = cuentaBancaria
+    if (CCI !== undefined) updateData.CCI = CCI
+    if (banco !== undefined) updateData.banco = banco
+    if (celular !== undefined) updateData.celular = celular
+    if (DNI !== undefined) updateData.DNI = Number(DNI) // Added DNI field, ensuring it's a number
 
     // Handle disciplines if provided
     if (Array.isArray(disciplinaIds)) {

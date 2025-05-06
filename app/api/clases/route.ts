@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     // Validate and parse numeric parameters
     if (periodoId) {
-      const parsedPeriodoId = parseInt(periodoId, 10)
+      const parsedPeriodoId = Number.parseInt(periodoId, 10)
       if (isNaN(parsedPeriodoId)) {
         return NextResponse.json({ error: "El periodoId debe ser un número válido" }, { status: 400 })
       }
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (instructorId) {
-      const parsedInstructorId = parseInt(instructorId, 10)
+      const parsedInstructorId = Number.parseInt(instructorId, 10)
       if (isNaN(parsedInstructorId)) {
         return NextResponse.json({ error: "El instructorId debe ser un número válido" }, { status: 400 })
       }
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (disciplinaId) {
-      const parsedDisciplinaId = parseInt(disciplinaId, 10)
+      const parsedDisciplinaId = Number.parseInt(disciplinaId, 10)
       if (isNaN(parsedDisciplinaId)) {
         return NextResponse.json({ error: "El disciplinaId debe ser un número válido" }, { status: 400 })
       }
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (semana) {
-      const parsedSemana = parseInt(semana, 10)
+      const parsedSemana = Number.parseInt(semana, 10)
       if (isNaN(parsedSemana)) {
         return NextResponse.json({ error: "La semana debe ser un número válido" }, { status: 400 })
       }
@@ -70,11 +70,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(clases)
   } catch (error) {
     console.error("Error en GET /api/clases:", error)
-    
+
     // Safe error response that doesn't expose internal details
     return NextResponse.json(
       { error: "Error al consultar las clases", message: error instanceof Error ? error.message : "Error desconocido" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -104,12 +104,9 @@ export async function POST(request: NextRequest) {
       "fecha",
     ]
 
-    const missingFields = requiredFields.filter(field => body[field] === undefined)
+    const missingFields = requiredFields.filter((field) => body[field] === undefined)
     if (missingFields.length > 0) {
-      return NextResponse.json(
-        { error: "Campos requeridos faltantes", fields: missingFields },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Campos requeridos faltantes", fields: missingFields }, { status: 400 })
     }
 
     // Parse numeric fields with validation
@@ -123,27 +120,30 @@ export async function POST(request: NextRequest) {
       "cortesias",
       "lugares",
       "reservasPagadas",
+      "vsNum", // Added new numeric field
     ]
 
     const parsedBody: Record<string, any> = { ...body }
-    
+
     for (const field of numericFields) {
       if (parsedBody[field] !== undefined) {
-        const parsedValue = parseInt(String(parsedBody[field]), 10)
+        const parsedValue = Number.parseInt(String(parsedBody[field]), 10)
         if (isNaN(parsedValue)) {
-          return NextResponse.json(
-            { error: `El campo ${field} debe ser un número válido` },
-            { status: 400 }
-          )
+          return NextResponse.json({ error: `El campo ${field} debe ser un número válido` }, { status: 400 })
         }
         parsedBody[field] = parsedValue
       }
     }
 
+    // Handle boolean fields
+    if (parsedBody.esVersus !== undefined) {
+      parsedBody.esVersus = Boolean(parsedBody.esVersus)
+    }
+
     // Handle date field with validation
     if (parsedBody.fecha) {
       let parsedDate: Date | null = null
-      
+
       // Check if fecha is a string in format YYYY-MM-DD
       if (typeof parsedBody.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsedBody.fecha)) {
         parsedDate = new Date(parsedBody.fecha)
@@ -157,14 +157,11 @@ export async function POST(request: NextRequest) {
       else if (typeof parsedBody.fecha === "string") {
         parsedDate = new Date(parsedBody.fecha)
       }
-      
+
       if (!parsedDate || isNaN(parsedDate.getTime())) {
-        return NextResponse.json(
-          { error: "El formato de fecha no es válido" },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: "El formato de fecha no es válido" }, { status: 400 })
       }
-      
+
       parsedBody.fecha = parsedDate
     }
 
@@ -187,6 +184,9 @@ export async function POST(request: NextRequest) {
         reservasPagadas: parsedBody.reservasPagadas || 0,
         textoEspecial: parsedBody.textoEspecial || null,
         fecha: parsedBody.fecha,
+        // New fields
+        esVersus: parsedBody.esVersus !== undefined ? parsedBody.esVersus : false,
+        vsNum: parsedBody.vsNum || null,
       },
       include: {
         instructor: true,
@@ -199,14 +199,14 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     // Safe error logging
     console.error("Error en POST /api/clases:", error instanceof Error ? error.message : "Error desconocido")
-    
+
     // Fixed the syntax error in the response
     return NextResponse.json(
       {
         error: "Error al crear la clase",
-        message: error instanceof Error ? error.message : "Error desconocido"
+        message: error instanceof Error ? error.message : "Error desconocido",
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

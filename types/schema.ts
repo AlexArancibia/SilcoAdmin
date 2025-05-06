@@ -22,11 +22,21 @@ export interface Usuario {
 export interface Instructor {
   id: number
   nombre: string
+  nombreCompleto?: string
+  activo: boolean
   password?: string
   extrainfo?: InstructorExtraInfo
   ultimoBono?: Record<string, number> // {disciplinaId: periodoId}
   createdAt?: Date
   updatedAt?: Date
+  
+  // Nuevos campos opcionales
+  personaContacto?: string
+  cuentaBancaria?: string
+  CCI?: string
+  banco?: string
+  celular?: string
+  DNI?: number
 
   // Relaciones
   clases?: Clase[]
@@ -36,10 +46,6 @@ export interface Instructor {
 }
 
 export interface InstructorExtraInfo {
-  telefono?: string
-  especialidad?: string
-  estado?: string
-  activo?: boolean
   foto?: string
   biografia?: string
   experiencia?: number
@@ -137,6 +143,11 @@ export interface Clase {
   reservasPagadas: number
   textoEspecial?: string
   fecha: Date
+  
+  // Nuevos campos
+  esVersus: boolean
+  vsNum?: number
+  
   createdAt?: Date
   updatedAt?: Date
 

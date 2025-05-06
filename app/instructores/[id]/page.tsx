@@ -61,23 +61,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
     <DashboardShell>
       {/* Header Section */}
       <InstructorHeader instructor={instructor} isEditing={isEditing} handleEditToggle={handleEditToggle} />
-
-      {/* Stats Grid */}
-      <InstructorStats
-        totalClases={totalClases}
-        clasesCompletadas={clasesCompletadas}
-        ocupacionPromedio={ocupacionPromedio}
-        totalMonto={totalMonto}
-        totalPotentialBonus={totalPotentialBonus}
-        totalReservas={totalReservas}
-        totalLugares={totalLugares}
-      />
-
-      {/* Main Content */}
-      <div className="grid md:grid-cols-3 gap-5 ">
-        {/* Left Column - Instructor Info */}
-        <div className="md:col-span-1 space-y-5">
-          <InstructorInfo
+      <InstructorInfo
             instructor={instructor}
             isEditing={isEditing}
             isSaving={isSaving}
@@ -89,9 +73,25 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
             handlePaymentMetricChange={handlePaymentMetricChange}
             pagosPeriodo={pagosPeriodo}
           />
+      {/* Stats Grid */}
+      {/* <InstructorStats
+        totalClases={totalClases}
+        clasesCompletadas={clasesCompletadas}
+        ocupacionPromedio={ocupacionPromedio}
+        totalMonto={totalMonto}
+        totalPotentialBonus={totalPotentialBonus}
+        totalReservas={totalReservas}
+        totalLugares={totalLugares}
+      /> */}
+      
+
+      {/* Main Content */}
+      <div className="grid md:grid-cols-1 ">
+        {/* Left Column - Instructor Info */}
+        <div className="md:col-span-1 space-y-5">
+          
 
           {/* Metrics Card */}
-          <InstructorCategories getCategoriesByDiscipline={getCategoriesByDiscipline} />
         </div>
 
         {/* Right Column - Classes and Payments */}
@@ -110,7 +110,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
               <InstructorPaymentHistory pagos={pagosPeriodo} />
             </CardContent>
           </Card>
-          <InstructorClasses
+          {/* <InstructorClasses
             isLoadingClases={isLoadingClases}
             isLoadingDisciplinas={isLoadingDisciplinas}
             clasesPeriodo={clasesPeriodo}
@@ -119,7 +119,7 @@ export default function InstructorDetailPage({ params }: { params: Promise<{ id:
             currentPage={currentPage}
             setCurrentPage={setCurrentPage}
             totalPages={totalPages}
-          />
+          /> */}
 
           {/* Payment History Card */}
           

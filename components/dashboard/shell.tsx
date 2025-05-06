@@ -104,7 +104,7 @@ export function DashboardShell({ children, className, ...props }: DashboardShell
   if (isAuthorized === null || pagosPermitidos === null) {
     console.log('[DashboardShell] Mostrando pantalla de carga')
     return (
-      <div className={cn("grid items-start gap-8 w-full max-w-full p-10", className)} {...props}>
+      <div className={cn("grid items-start gap-4 w-full max-w-full p-10", className)} {...props}>
         <div className="flex items-center justify-center w-full h-32">
           <p className="text-lg text-gray-500">Cargando pagos permitidos...</p>
         </div>
@@ -116,7 +116,7 @@ export function DashboardShell({ children, className, ...props }: DashboardShell
   if (!isAuthorized) {
     console.log('[DashboardShell] Mostrando mensaje de redirección')
     return (
-      <div className={cn("grid items-start gap-8 w-full max-w-full p-10", className)} {...props}>
+      <div className={cn("grid items-start gap-4 w-full max-w-full p-10", className)} {...props}>
         <div className="flex items-center justify-center w-full h-32">
           <p className="text-lg text-gray-500">Redirigiendo a tu página de instructor...</p>
         </div>
@@ -126,7 +126,7 @@ export function DashboardShell({ children, className, ...props }: DashboardShell
   
   console.log(`[DashboardShell] Renderizando contenido autorizado`)
   return (
-    <div className={cn("grid items-start gap-8 w-full max-w-full p-10", className)} {...props}>
+    <div className={cn("grid items-start gap-4 w-full max-w-full p-10", className)} {...props}>
       {children}
     </div>
   )
