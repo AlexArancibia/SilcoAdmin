@@ -44,6 +44,7 @@ import {
 // CategoryChangeDialog component
 import { mostrarCategoriaVisual } from "@/utils/config"
 import { DashboardShell } from "@/components/dashboard/shell"
+import { CommentsSection } from "@/components/payments/pago-detail/comment-section"
 
 interface CategoryChangeDialogProps {
   showCategoriaDialog: boolean
@@ -979,28 +980,31 @@ export default function PagoDetallePage() {
           <div className="mt-4">
             {/* Detalles Tab */}
             {/* Asegurarnos de pasar disciplinas al componente PaymentDetails */}
-            {activeTab === "detalles" && (
-              <PaymentDetails
-                pagoSeleccionado={pagoSeleccionado}
-                instructor={instructor}
-                periodo={periodo}
-                disciplinas={disciplinas}
-                editandoReajuste={editandoReajuste}
-                setEditandoReajuste={setEditandoReajuste}
-                nuevoReajuste={nuevoReajuste}
-                setNuevoReajuste={setNuevoReajuste}
-                tipoReajuste={tipoReajuste}
-                setTipoReajuste={setTipoReajuste}
-                isActualizandoReajuste={isActualizandoReajuste}
-                actualizarReajuste={actualizarReajuste}
-                formatCurrency={formatCurrency}
-                montoFinalCalculado={montoFinalCalculado}
-                ocupacionPromedio={ocupacionPromedio}
-                clasesInstructor={clasesInstructor}
-                totalReservas={totalReservas}
-                totalCapacidad={totalCapacidad}
-              />
-            )}
+            <>
+                <PaymentDetails
+                  pagoSeleccionado={pagoSeleccionado}
+                  instructor={instructor}
+                  periodo={periodo}
+                  disciplinas={disciplinas}
+                  editandoReajuste={editandoReajuste}
+                  setEditandoReajuste={setEditandoReajuste}
+                  nuevoReajuste={nuevoReajuste}
+                  setNuevoReajuste={setNuevoReajuste}
+                  tipoReajuste={tipoReajuste}
+                  setTipoReajuste={setTipoReajuste}
+                  isActualizandoReajuste={isActualizandoReajuste}
+                  actualizarReajuste={actualizarReajuste}
+                  formatCurrency={formatCurrency}
+                  montoFinalCalculado={montoFinalCalculado}
+                  ocupacionPromedio={ocupacionPromedio}
+                  clasesInstructor={clasesInstructor}
+                  totalReservas={totalReservas}
+                  totalCapacidad={totalCapacidad}
+                />
+                <div className="mt-6">
+                  <CommentsSection pagoId={pagoId} comentariosIniciales={pagoSeleccionado.comentarios || ""} />
+                </div>
+              </>
 
             {/* Clases Tab */}
             {activeTab === "clases" && (

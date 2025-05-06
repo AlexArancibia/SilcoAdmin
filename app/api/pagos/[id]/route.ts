@@ -58,6 +58,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         horariosNoPrime: body.horariosNoPrime ?? null,
         participacionEventos: body.participacionEventos ?? null,
         tipoReajuste:body.tipoReajuste,
+        comentarios:body.comentarios ?? null,      
         pagoFinal,
         estado: body.estado || existingPago.estado,
         detalles: body.detalles !== undefined ? body.detalles : existingPago.detalles,
