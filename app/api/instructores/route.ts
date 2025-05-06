@@ -29,11 +29,20 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       nombre,
+      nombreCompleto,
+      activo,
       password,
       extrainfo,
       ultimoBono,
       disciplinaIds,
       categorias,
+      // New fields
+      personaContacto,
+      cuentaBancaria,
+      CCI,
+      banco,
+      celular,
+      DNI, // Added DNI field
     } = body
 
     if (!nombre) {
@@ -48,11 +57,14 @@ export async function POST(request: NextRequest) {
 
     // Check if the name contains "vs" or "vs." using a regular expression
     // This will match " vs " or " vs." regardless of case
-    const vsRegex = /\bvs\.?\b/i;
+    const vsRegex = /\bvs\.?\b/i
     if (vsRegex.test(capitalizedName)) {
-      return NextResponse.json({ 
-        error: "Cannot create an instructor with 'vs' or 'vs.' in the name" 
-      }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: "Cannot create an instructor with 'vs' or 'vs.' in the name",
+        },
+        { status: 400 },
+      )
     }
 
     const existingInstructor = await prisma.instructor.findUnique({
@@ -66,11 +78,21 @@ export async function POST(request: NextRequest) {
     const createData: any = {
       nombre: capitalizedName, // Use capitalized name
     }
-    
+
     // Only include fields that are provided in the request
     if (password !== undefined) createData.password = password
     if (extrainfo !== undefined) createData.extrainfo = extrainfo
     if (ultimoBono !== undefined) createData.ultimoBono = ultimoBono
+
+    // New fields
+    if (nombreCompleto !== undefined) createData.nombreCompleto = nombreCompleto
+    if (activo !== undefined) createData.activo = Boolean(activo)
+    if (personaContacto !== undefined) createData.personaContacto = personaContacto
+    if (cuentaBancaria !== undefined) createData.cuentaBancaria = cuentaBancaria
+    if (CCI !== undefined) createData.CCI = CCI
+    if (banco !== undefined) createData.banco = banco
+    if (celular !== undefined) createData.celular = celular
+    if (DNI !== undefined) createData.DNI = Number(DNI) // Added DNI field, ensuring it's a number
 
     // Connect disciplines if provided
     if (Array.isArray(disciplinaIds) && disciplinaIds.length > 0) {

@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   Filter,
   X,
-  BarChart2,
   ChevronLeft,
   ChevronRight,
   ArrowDown,
@@ -25,7 +24,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -115,7 +113,7 @@ export function ClassesTab({
     disciplinas: [],
     horario: "todos",
     ocupacionMin: 0,
-    ocupacionMax: 110, // Cambiado de 200% a 110%
+    ocupacionMax: 110, // Cambiado de 200 a 110
     conCortesias: false,
     horaInicio: "06:00",
     horaFin: "23:00",
@@ -124,7 +122,7 @@ export function ClassesTab({
   // Estado para mostrar/ocultar estadísticas
   const [showStats, setShowStats] = useState(false)
 
-  const {instructores} = useInstructoresStore()
+  const { instructores } = useInstructoresStore()
   // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -500,6 +498,12 @@ export function ClassesTab({
     )
   }
 
+  // Podemos eliminarla o reemplazarla con una versión más sutil
+  // Reemplazar la función getReservasColor:
+  const getReservasColor = () => {
+    return ""
+  }
+
   return (
     <div className="space-y-6">
       {/* Barra de búsqueda y filtros */}
@@ -790,14 +794,14 @@ export function ClassesTab({
           </Popover>
 
           {/* Botón para mostrar/ocultar estadísticas */}
-          <Button
+          {/* <Button
             variant={showStats ? "default" : "outline"}
             onClick={() => setShowStats(!showStats)}
             className="gap-1.5"
           >
             <BarChart2 className="h-4 w-4" />
             Estadísticas
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -923,7 +927,7 @@ export function ClassesTab({
       </div>
 
       {/* Panel de estadísticas */}
-      {showStats && (
+      {/* {showStats && (
         <Card className="bg-muted/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center">
@@ -1030,7 +1034,7 @@ export function ClassesTab({
             </div>
           </CardContent>
         </Card>
-      )}
+      )} */}
 
       {clasesOrdenadas.length === 0 ? (
         <div className="text-center py-8 bg-muted/10 rounded-lg border">
@@ -1076,12 +1080,15 @@ export function ClassesTab({
                     Disciplina {renderSortIndicator("disciplina")}
                   </TableHead>
                   <TableHead
-                    className="text-accent font-medium whitespace-nowrap cursor-pointer w-[180px]"
+                    className="text-accent font-medium whitespace-nowrap cursor-pointer w-[100px]"
                     onClick={() => toggleSort("reservas")}
                   >
                     Reservas {renderSortIndicator("reservas")}
                   </TableHead>
- 
+                  <TableHead className="text-accent font-medium whitespace-nowrap cursor-pointer w-[100px]">
+                    Lugares
+                  </TableHead>
+
                   <TableHead
                     className="text-accent font-medium whitespace-nowrap cursor-pointer w-[120px]"
                     onClick={() => toggleSort("monto")}
@@ -1098,15 +1105,17 @@ export function ClassesTab({
                   // Get the discipline
                   const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
 
-                  // Calculate occupancy percentage
-                  const ocupacionPorcentaje = Math.round((clase.reservasTotales / clase.lugares) * 100)
+                  // Check if reservations are equal to or greater than places
+                  const reservasCompletas = clase.reservasTotales >= clase.lugares
 
-                  // Determine color based on occupancy
-                  const getOcupacionColor = () => {
-                    if (ocupacionPorcentaje >= 100)
-                      return "text-muted-foreground bg-green-100  border border-border dark:bg-green-800/40 dark:text-foreground"
-                    return "text-muted-foreground bg-primary/5 dark:bg-primary/5 border border-border dark:text-foreground"
+                  // Determine color based on reservations vs places
+                  const getReservasColor = () => {
+                    if (reservasCompletas) {
+                      return "text-emerald-600 font-medium"
+                    }
+                    return ""
                   }
+
                   // Check if class is in non-prime hour
                   const esNoPrime = esClaseHorarioNoPrime(clase)
                   const hora = obtenerHora(clase.fecha)
@@ -1143,33 +1152,19 @@ export function ClassesTab({
                           className="bg-primary/20 text-slate-800 dark:text-accent border-primary/30 font-medium"
                           style={{
                             backgroundColor: disciplina?.color ? `${disciplina.color}40` : undefined,
-
                             borderColor: disciplina?.color ? `${disciplina.color}50` : undefined,
                           }}
                         >
                           {disciplina?.nombre || `Disciplina ${clase.disciplinaId}`}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <div className="relative w-full max-w-[100px] bg-border/70 rounded-full h-2.5 mr-2 overflow-hidden">
-                            <div
-                              className={`absolute top-0 left-0 h-full ${
-                                ocupacionPorcentaje >= 100 ? "bg-accent dark:bg-primary" : "bg-secondary"
-                              }`}
-                              style={{ width: `${Math.min(ocupacionPorcentaje, 100)}%` }}
-                            >
-                              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-medium text-white dark:text-background">
-                                {ocupacionPorcentaje}%
-                              </span>
-                            </div>
-                          </div>
-                          <span className={`text-[11px] px-2 py-0 rounded-full ${getOcupacionColor()}`}>
-                            {clase.reservasTotales}/{clase.lugares}
-                          </span>
-                        </div>
+                      <TableCell className="text-left">
+                        <span className={clase.reservasTotales >= clase.lugares ? "text-emerald-600 font-medium pl-4" : "pl-4"}>
+                          {clase.reservasTotales}
+                        </span>
                       </TableCell>
- 
+                      <TableCell className="text-left pl-8">{clase.lugares}</TableCell>
+
                       {/* Actualizar la celda del monto en la tabla para usar la fórmula correcta según la disciplina */}
                       <TableCell className="font-medium text-foreground">
                         {detalleClase ? (
@@ -1192,7 +1187,11 @@ export function ClassesTab({
                                     }
 
                                     // Obtener la categoría del instructor para esta disciplina desde el pago seleccionado
-                                    const categoriaInstructor = instructores.find(i => i.id === pagoSeleccionado.instructorId)?.categorias?.find(c => c.disciplinaId === clase.disciplinaId )?.categoria || "INSTRUCTOR"
+                                    const categoriaInstructor =
+                                      instructores
+                                        .find((i) => i.id === pagoSeleccionado.instructorId)
+                                        ?.categorias?.find((c) => c.disciplinaId === clase.disciplinaId)?.categoria ||
+                                      "INSTRUCTOR"
 
                                     // Usar la función calcularPago con la fórmula correcta
                                     const resultadoCalculo = calcularPago(

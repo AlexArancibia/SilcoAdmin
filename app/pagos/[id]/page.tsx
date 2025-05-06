@@ -14,6 +14,7 @@ import { usePeriodosStore } from "@/store/usePeriodosStore"
 import { useClasesStore } from "@/store/useClasesStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { useFormulasStore } from "@/store/useFormulaStore"
+import { useAuthStore } from "@/store/useAuthStore"
 
 // Update the component imports to use the correct paths
 import { PageHeader } from "@/components/payments/pago-detail/page-header"
@@ -26,7 +27,8 @@ import { CategoryTab } from "@/components/payments/pago-detail/category-tab"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, FileText, Award, ArrowRight } from "lucide-react"
+import { Calendar, FileText, Award, ArrowRight, Lock } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 import {
   AlertDialog,
@@ -42,6 +44,7 @@ import {
 // CategoryChangeDialog component
 import { mostrarCategoriaVisual } from "@/utils/config"
 import { DashboardShell } from "@/components/dashboard/shell"
+import { CommentsSection } from "@/components/payments/pago-detail/comment-section"
 
 interface CategoryChangeDialogProps {
   showCategoriaDialog: boolean
@@ -179,6 +182,10 @@ export default function PagoDetallePage() {
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
   const { formulas, fetchFormulas } = useFormulasStore()
 
+  // Auth store para verificar si el usuario es un instructor
+  const userType = useAuthStore((state) => state.userType)
+  const isInstructor = userType === "instructor"
+
   // Local state
   const [instructor, setInstructor] = useState<Instructor | null>(null)
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
@@ -226,7 +233,6 @@ export default function PagoDetallePage() {
     fetchFormulas()
   }, [pagoId, fetchPago, fetchInstructores, fetchPeriodos, fetchDisciplinas, fetchFormulas])
 
-
   useEffect(() => {
     if (
       activeTab === "categoria" &&
@@ -236,7 +242,7 @@ export default function PagoDetallePage() {
       setActiveTab("detalles")
     }
   }, [activeTab, disciplinas])
-  
+
   // Set instructor and period when data is loaded
   useEffect(() => {
     if (pagoSeleccionado && instructores.length > 0 && periodos.length > 0) {
@@ -384,7 +390,7 @@ export default function PagoDetallePage() {
     const ocupacionPromedio = totalCapacidad > 0 ? Math.round((totalReservas / totalCapacidad) * 100) : 0
 
     // Count classes
-    const totalClases = clasesFiltradas.length/4
+    const totalClases = clasesFiltradas.length / 4
 
     // Count unique locations in Lima
     const localesUnicos = new Set(clasesFiltradas.map((c) => c.estudio)).size
@@ -895,14 +901,29 @@ export default function PagoDetallePage() {
                 {pagoSeleccionado.estado}
               </Badge>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleEstadoPago}
-              className="bg-card border hover:bg-muted/10 hover:text-foreground"
-            >
-              {pagoSeleccionado.estado === "PENDIENTE" ? "Aprobar" : "Pendiente"}
-            </Button>
+            {!isInstructor ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleEstadoPago}
+                className="bg-card border hover:bg-muted/10 hover:text-foreground"
+              >
+                {pagoSeleccionado.estado === "PENDIENTE" ? "Aprobar" : "Pendiente"}
+              </Button>
+            ) : (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center text-muted-foreground">
+                      <Lock className="h-4 w-4" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    <p>Los instructores no pueden cambiar el estado del pago</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         </CardHeader>
 
@@ -959,28 +980,31 @@ export default function PagoDetallePage() {
           <div className="mt-4">
             {/* Detalles Tab */}
             {/* Asegurarnos de pasar disciplinas al componente PaymentDetails */}
-            {activeTab === "detalles" && (
-              <PaymentDetails
-                pagoSeleccionado={pagoSeleccionado}
-                instructor={instructor}
-                periodo={periodo}
-                disciplinas={disciplinas}
-                editandoReajuste={editandoReajuste}
-                setEditandoReajuste={setEditandoReajuste}
-                nuevoReajuste={nuevoReajuste}
-                setNuevoReajuste={setNuevoReajuste}
-                tipoReajuste={tipoReajuste}
-                setTipoReajuste={setTipoReajuste}
-                isActualizandoReajuste={isActualizandoReajuste}
-                actualizarReajuste={actualizarReajuste}
-                formatCurrency={formatCurrency}
-                montoFinalCalculado={montoFinalCalculado}
-                ocupacionPromedio={ocupacionPromedio}
-                clasesInstructor={clasesInstructor}
-                totalReservas={totalReservas}
-                totalCapacidad={totalCapacidad}
-              />
-            )}
+            <>
+                <PaymentDetails
+                  pagoSeleccionado={pagoSeleccionado}
+                  instructor={instructor}
+                  periodo={periodo}
+                  disciplinas={disciplinas}
+                  editandoReajuste={editandoReajuste}
+                  setEditandoReajuste={setEditandoReajuste}
+                  nuevoReajuste={nuevoReajuste}
+                  setNuevoReajuste={setNuevoReajuste}
+                  tipoReajuste={tipoReajuste}
+                  setTipoReajuste={setTipoReajuste}
+                  isActualizandoReajuste={isActualizandoReajuste}
+                  actualizarReajuste={actualizarReajuste}
+                  formatCurrency={formatCurrency}
+                  montoFinalCalculado={montoFinalCalculado}
+                  ocupacionPromedio={ocupacionPromedio}
+                  clasesInstructor={clasesInstructor}
+                  totalReservas={totalReservas}
+                  totalCapacidad={totalCapacidad}
+                />
+                <div className="mt-6">
+                  <CommentsSection pagoId={pagoId} comentariosIniciales={pagoSeleccionado.comentarios || ""} />
+                </div>
+              </>
 
             {/* Clases Tab */}
             {activeTab === "clases" && (
@@ -1045,5 +1069,3 @@ export default function PagoDetallePage() {
     </DashboardShell>
   )
 }
-
-// Ensure we don't stay on the categoria tab if it's not available

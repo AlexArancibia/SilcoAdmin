@@ -47,6 +47,7 @@ export function InstructorClasses({
 
   return (
     <Card className="card border border-border shadow-sm">
+  
       <CardHeader className="pb-2 px-4 pt-3">
         <div className="flex items-start justify-between w-full">
           <div>
@@ -57,7 +58,9 @@ export function InstructorClasses({
             <CardDescription className="text-sm mt-0.5">
               Listado de clases y cálculo de pagos para el instructor
             </CardDescription>
+           
           </div>
+          
         </div>
       </CardHeader>
 

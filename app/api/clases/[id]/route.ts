@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = (params.id)
+    const id = params.id
     const body = await request.json()
 
     // Parse numeric fields
@@ -41,13 +41,19 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       "cortesias",
       "lugares",
       "reservasPagadas",
+      "vsNum", // Added new numeric field
     ]
 
     numericFields.forEach((field) => {
       if (body[field] !== undefined) {
-        body[field] = (body[field])
+        body[field] = Number(body[field])
       }
     })
+
+    // Handle boolean fields
+    if (body.esVersus !== undefined) {
+      body.esVersus = Boolean(body.esVersus)
+    }
 
     // Handle date field
     if (body.fecha) {
@@ -84,6 +90,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         reservasPagadas: body.reservasPagadas,
         textoEspecial: body.textoEspecial,
         fecha: body.fecha,
+        // New fields
+        esVersus: body.esVersus,
+        vsNum: body.vsNum,
       },
       include: {
         instructor: true,
@@ -101,7 +110,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = (params.id)
+    const id = params.id
 
     await prisma.clase.delete({
       where: { id },
@@ -113,4 +122,3 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     return NextResponse.json({ error: "Error al eliminar la clase" }, { status: 500 })
   }
 }
-
