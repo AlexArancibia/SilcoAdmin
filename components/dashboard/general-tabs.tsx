@@ -218,6 +218,61 @@ export function GeneralTab({
       .slice(0, 5),
   }
 
+  // Después del cálculo de salonStats, añadir estos nuevos cálculos:
+
+  // Añadir después de la definición de ocupacionPorSalonData
+  // Calcular distribución de disciplinas por salón
+  const disciplinasPorSalonData = [...new Set(filteredClases.map((c) => c.estudio))].slice(0, 5).map((estudio) => {
+    const disciplinasEnSalon = [
+      ...new Set(filteredClases.filter((c) => c.estudio === estudio).map((c) => c.disciplinaId)),
+    ]
+      .map((disciplinaId) => {
+        const disciplina = disciplinas.find((d) => d.id === disciplinaId)
+        return {
+          disciplinaId,
+          nombre: disciplina?.nombre || "Desconocida",
+          count: filteredClases.filter((c) => c.estudio === estudio && c.disciplinaId === disciplinaId).length,
+          color: disciplina?.color || COLORS.primary,
+        }
+      })
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3)
+
+    return {
+      name: estudio,
+      disciplinas: disciplinasEnSalon,
+    }
+  })
+
+  // Calcular ingresos por salón
+  const ingresosPorSalonData = [...new Set(filteredClases.map((c) => c.estudio))]
+    .map((estudio) => {
+      const clasesEnSalon = filteredClases.filter((c) => c.estudio === estudio)
+      const instructoresIds = [...new Set(clasesEnSalon.map((c) => c.instructorId))]
+
+      // Calcular ingresos basados en pagos a instructores para este salón
+      const ingresos = filteredPagos
+        .filter((p) => instructoresIds.includes(p.instructorId))
+        .reduce((acc, pago) => {
+          // Proporción de clases del instructor en este salón
+          const clasesTotalesInstructor = filteredClases.filter((c) => c.instructorId === pago.instructorId).length
+          const clasesEnEsteSalon = clasesEnSalon.filter((c) => c.instructorId === pago.instructorId).length
+          const proporcion = clasesTotalesInstructor > 0 ? clasesEnEsteSalon / clasesTotalesInstructor : 0
+
+          // Ingresos proporcionales
+          return acc + pago.pagoFinal * proporcion
+        }, 0)
+
+      return {
+        name: estudio,
+        ingresos: Math.round(ingresos),
+        clases: clasesEnSalon.length,
+        reservas: clasesEnSalon.reduce((acc, clase) => acc + clase.reservasTotales, 0),
+      }
+    })
+    .sort((a, b) => b.ingresos - a.ingresos)
+    .slice(0, 5)
+
   // Data for venues most used
   const localesMasUsadosData = salonStats.localesMasUsados.map((local) => ({
     name: local.nombre,
@@ -246,48 +301,46 @@ export function GeneralTab({
     })
     .filter((hour) => hour.value > 0) // Only show hours with reservations
 
+  const instructoresPorOcupacion = instructores.map((instructor) => {
+    const clasesInstructor = filteredClases.filter((c) => c.instructorId === instructor.id)
+    const ocupacionTotal = clasesInstructor.reduce((acc, clase) => {
+      return acc + clase.reservasTotales / clase.lugares
+    }, 0)
+    const ocupacionPromedio = clasesInstructor.length > 0 ? (ocupacionTotal / clasesInstructor.length) * 100 : 0
 
-    const instructoresPorOcupacion = instructores.map((instructor) => {
-      const clasesInstructor = filteredClases.filter((c) => c.instructorId === instructor.id)
-      const ocupacionTotal = clasesInstructor.reduce((acc, clase) => {
-        return acc + clase.reservasTotales / clase.lugares
-      }, 0)
-      const ocupacionPromedio = clasesInstructor.length > 0 ? (ocupacionTotal / clasesInstructor.length) * 100 : 0
-  
-      // Use real payments instead of estimated income
-      const pagosTotales = filteredPagos
-        .filter((p) => p.instructorId === instructor.id)
-        .reduce((acc, pago) => acc + pago.pagoFinal, 0)
-  
-      return {
-        ...instructor,
-        clasesCount: clasesInstructor.length,
-        ocupacionPromedio: Math.round(ocupacionPromedio),
-        reservasTotal: clasesInstructor.reduce((acc, clase) => acc + clase.reservasTotales, 0),
-        ingresoTotal: pagosTotales,
-      }
-    })
-  
-    // Data for top instructors chart
-    const instructoresTopData = instructoresPorOcupacion
-      .sort((a, b) => b.ingresoTotal - a.ingresoTotal)
-      .slice(0, 8)
-      .map((instructor) => ({
-        name: instructor.nombre,
-        ingresos: instructor.ingresoTotal,
-        ocupacion: instructor.ocupacionPromedio,
-      }))
-  
-    // Data for top instructors by class count
-    const instructoresTopClasesData = instructoresPorOcupacion
-      .sort((a, b) => b.clasesCount - a.clasesCount)
-      .slice(0, 8)
-      .map((instructor) => ({
-        name: instructor.nombre,
-        clases: instructor.clasesCount,
-        reservas: instructor.reservasTotal,
-      }))
-  
+    // Use real payments instead of estimated income
+    const pagosTotales = filteredPagos
+      .filter((p) => p.instructorId === instructor.id)
+      .reduce((acc, pago) => acc + pago.pagoFinal, 0)
+
+    return {
+      ...instructor,
+      clasesCount: clasesInstructor.length,
+      ocupacionPromedio: Math.round(ocupacionPromedio),
+      reservasTotal: clasesInstructor.reduce((acc, clase) => acc + clase.reservasTotales, 0),
+      ingresoTotal: pagosTotales,
+    }
+  })
+
+  // Data for top instructors chart
+  const instructoresTopData = instructoresPorOcupacion
+    .sort((a, b) => b.ingresoTotal - a.ingresoTotal)
+    .slice(0, 8)
+    .map((instructor) => ({
+      name: instructor.nombre,
+      ingresos: instructor.ingresoTotal,
+      ocupacion: instructor.ocupacionPromedio,
+    }))
+
+  // Data for top instructors by class count
+  const instructoresTopClasesData = instructoresPorOcupacion
+    .sort((a, b) => b.clasesCount - a.clasesCount)
+    .slice(0, 8)
+    .map((instructor) => ({
+      name: instructor.nombre,
+      clases: instructor.clasesCount,
+      reservas: instructor.reservasTotal,
+    }))
 
   return (
     <>
@@ -363,7 +416,6 @@ export function GeneralTab({
           }
         />
       </div>
-
       {/* First Row of Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Disciplinas Populares */}
@@ -458,7 +510,6 @@ export function GeneralTab({
           </ResponsiveContainer>
         </DashboardChart>
       </div>
-
       {/* Second Row of Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Clases por Horario */}
@@ -573,8 +624,6 @@ export function GeneralTab({
           </ResponsiveContainer>
         </DashboardChart>
       </div>
-
-
       <div className="grid gap-4 md:grid-cols-2 mt-4">
         {/* Top Instructores por Ingresos */}
         <DashboardChart
@@ -597,7 +646,7 @@ export function GeneralTab({
                 height={70}
                 style={{ fontSize: "14px" }}
               />
-              <YAxis tickLine={false} axisLine={false} tickMargin={8} style={{ fontSize: "14px" }}/>
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} style={{ fontSize: "14px" }} />
               <Tooltip
                 cursor={false}
                 content={({ active, payload }) => {
@@ -682,9 +731,7 @@ export function GeneralTab({
           </ResponsiveContainer>
         </DashboardChart>
       </div>
-
       {/* Estatus de Pagos */}
- 
       <div className="grid gap-4 md:grid-cols-2">
         {/* Salones Más Utilizados */}
         <DashboardChart
@@ -694,7 +741,6 @@ export function GeneralTab({
           isLoading={isLoadingClases}
           isEmpty={localesMasUsadosData.length === 0}
           emptyMessage="No hay datos de salones registrados en este periodo"
-          
         >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={localesMasUsadosData} layout="vertical" className="animate-fade-in">
@@ -791,6 +837,8 @@ export function GeneralTab({
           </ResponsiveContainer>
         </DashboardChart>
       </div>
+      {/* Nuevos gráficos de salones */}
+      {/* Fin de los gráficos */}
     </>
   )
 }

@@ -5,9 +5,14 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { TabsContent } from "@/components/ui/tabs"
 
 // Dashboard components
- 
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
+import { GeneralTab } from "@/components/dashboard/general-tabs"
+import { EstudiosTab } from "@/components/dashboard/estudios-tab"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { DashboardShell } from "@/components/dashboard/shell"
 
 // Stores
 import { useInstructoresStore } from "@/store/useInstructoresStore"
@@ -15,12 +20,6 @@ import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
 import { usePagosStore } from "@/store/usePagosStore"
 import { useClasesStore } from "@/store/useClasesStore"
-import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
-import { GeneralTab } from "@/components/dashboard/general-tabs"
-import { SalonTab } from "@/components/dashboard/salon-tab"
-import { PagosTab } from "@/components/dashboard/pagos-tab"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { DashboardShell } from "@/components/dashboard/shell"
 
 export default function DashboardPage() {
   // States
@@ -178,20 +177,35 @@ export default function DashboardPage() {
         setSelectedPeriods={setSelectedPeriods}
         getPeriodoNombre={getPeriodoNombre}
       />
- 
-        <GeneralTab
-          key="general"
-          instructores={instructores}
-          disciplinas={disciplinas}
-          filteredClases={filteredClases}
-          filteredPagos={filteredPagos}
-          periodos={periodos}
-          getPeriodoNombre={getPeriodoNombre}
-          formatFecha={formatFecha}
-          isLoadingClases={isLoadingClases}
-          isLoadingPagos={isLoadingPagos}
-        />
- 
+
+      <DashboardTabs activeTab={activeTab} setActiveTab={setActiveTab}>
+        <TabsContent value="general">
+          <GeneralTab
+            instructores={instructores}
+            disciplinas={disciplinas}
+            filteredClases={filteredClases}
+            filteredPagos={filteredPagos}
+            periodos={periodos}
+            getPeriodoNombre={getPeriodoNombre}
+            formatFecha={formatFecha}
+            isLoadingClases={isLoadingClases}
+            isLoadingPagos={isLoadingPagos}
+          />
+        </TabsContent>
+
+        <TabsContent value="estudios">
+          <EstudiosTab
+            filteredClases={filteredClases}
+            filteredPagos={filteredPagos}
+            disciplinas={disciplinas}
+            instructores={instructores}
+            getPeriodoNombre={getPeriodoNombre}
+            formatFecha={formatFecha}
+            isLoadingClases={isLoadingClases}
+            isLoadingPagos={isLoadingPagos}
+          />
+        </TabsContent>
+      </DashboardTabs>
     </DashboardShell>
   )
 }

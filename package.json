@@ -48,6 +48,7 @@
     "cmdk": "1.0.4",
     "date-fns": "latest",
     "embla-carousel-react": "8.5.1",
+    "file-saver": "^2.0.5",
     "immer": "latest",
     "input-otp": "1.4.1",
     "jose": "^6.0.10",
@@ -69,12 +70,13 @@
     "tailwindcss-animate": "^1.0.7",
     "use-sync-external-store": "latest",
     "vaul": "^0.9.6",
-    "xlsx": "latest",
+    "xlsx": "^0.18.5",
     "zod": "latest",
     "zustand": "latest"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/file-saver": "^2.0.7",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/jspdf": "^2.0.0",
     "@types/node": "^22",

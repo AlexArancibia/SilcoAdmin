@@ -1,52 +1,38 @@
 "use client"
 
-import type { ReactNode } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import React from "react"
+import type React from "react"
+
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Building, LayoutDashboard } from "lucide-react"
 
 interface DashboardTabsProps {
   activeTab: string
-  onTabChange: (value: string) => void
-  children: ReactNode | ReactNode[]
+  setActiveTab: (tab: string) => void
+  children: React.ReactNode
 }
 
-export function DashboardTabs({ activeTab, onTabChange, children }: DashboardTabsProps) {
-  const childrenArray = React.Children.toArray(children) as ReactNode[]
-
+export function DashboardTabs({ activeTab, setActiveTab, children }: DashboardTabsProps) {
   return (
-    <Tabs value={activeTab} onValueChange={onTabChange} className="tabs space-y-6">
-      <TabsList className="tabs-list grid grid-cols-3 w-full mb-4 bg-muted/30 p-1 rounded-lg">
-        <TabsTrigger
-          value="general"
-          className="tab-trigger text-accent data-[state=active]:bg-background dark:data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all"
-        >
-          General
-        </TabsTrigger>
- 
-        <TabsTrigger
-          value="salon"
-          className="tab-trigger text-accent data-[state=active]:bg-background dark:data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all"
-        >
-          Salón
-        </TabsTrigger>
-        <TabsTrigger
-          value="pagos"
-          className="tab-trigger text-accent data-[state=active]:bg-background dark:data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm rounded-md transition-all"
-        >
-          Pagos
-        </TabsTrigger>
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <TabsList className="mb-6 w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+        <div className="flex border-b w-full">
+          <TabsTrigger
+            value="general"
+            className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4 font-medium"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            <span>Dashboard General</span>
+          </TabsTrigger>
+          <TabsTrigger
+            value="estudios"
+            className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4 font-medium"
+          >
+            <Building className="h-4 w-4" />
+            <span>Análisis por Estudio</span>
+          </TabsTrigger>
+        </div>
       </TabsList>
-
-      <TabsContent value="general" className="tab-content space-y-6 animate-fade-in">
-        {childrenArray[0]}
-      </TabsContent>
- 
-      <TabsContent value="salon" className="tab-content space-y-6 animate-fade-in">
-        {childrenArray[2]}
-      </TabsContent>
-      <TabsContent value="pagos" className="tab-content space-y-6 animate-fade-in">
-        {childrenArray[3]}
-      </TabsContent>
+      {children}
     </Tabs>
   )
 }

@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 import { jwtVerify } from "jose"
 
 // Rutas que requieren autenticación
-const protectedRoutes = ["/configuracion", "/importar", "/formulas", "/pagos", "/instructores", ""]
+const protectedRoutes = ["/configuracion", "/importar", "/formulas", "/pagos", "/instructores"]
 
 // Rutas públicas (no requieren autenticación)
 const publicRoutes = ["/login", "/register", "/api/auth"]
@@ -16,7 +16,7 @@ export async function middleware(request: NextRequest) {
 
   // Obtener token de la cookie o del header
   const token = request.cookies.get("auth-token")?.value || request.headers.get("Authorization")?.split(" ")[1]
-  
+
   // Verificar si el usuario está en la página de login
   if (pathname === "/login") {
     // Si tiene token válido, redirigir a la ruta principal
@@ -24,7 +24,7 @@ export async function middleware(request: NextRequest) {
       try {
         const secret = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key")
         await jwtVerify(token, secret)
-        
+
         // Usuario autenticado, redirigir a la ruta principal
         return NextResponse.redirect(new URL(mainRoute, request.url))
       } catch (error) {
@@ -45,6 +45,7 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
 
   if (!isProtectedRoute) {
+    // Si no es una ruta protegida, permitir acceso
     return NextResponse.next()
   }
 
@@ -59,7 +60,6 @@ export async function middleware(request: NextRequest) {
     // Verificar token
     const secret = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key")
     await jwtVerify(token, secret)
-
     return NextResponse.next()
   } catch (error) {
     // Token inválido, redirigir a login

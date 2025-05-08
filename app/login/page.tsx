@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -129,7 +129,7 @@ export default function LoginPage() {
 function LoginForm() {
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
-  const { login, isLoading, error, clearError } = useAuthStore()
+  const { login, isLoading, error, clearError,isAuthenticated } = useAuthStore()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,6 +140,13 @@ function LoginForm() {
       router.push("/")
     }
   }
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log("isAutenticated")
+       
+    }
+  }, [isAuthenticated, router])
 
   return (
     <Card className="border-none shadow-xl rounded-xl bg-card">
