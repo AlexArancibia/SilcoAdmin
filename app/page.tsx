@@ -11,7 +11,7 @@ import { TabsContent } from "@/components/ui/tabs"
 import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
 import { GeneralTab } from "@/components/dashboard/general-tabs"
 import { EstudiosTab } from "@/components/dashboard/estudios-tab"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { DashboardHead } from "@/components/dashboard/dashboard-header"
 import { DashboardShell } from "@/components/dashboard/shell"
 
 // Stores
@@ -32,7 +32,7 @@ export default function DashboardPage() {
   // Stores
   const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
-  const { periodos, periodoActual } = usePeriodosStore()
+  const { periodos, periodoActual, fetchPeriodos } = usePeriodosStore()
   const { pagos, fetchPagos, isLoading: isLoadingPagos } = usePagosStore()
   const { clases, fetchClases, isLoading: isLoadingClases } = useClasesStore()
 
@@ -50,9 +50,16 @@ export default function DashboardPage() {
 
       try {
         // Load data in parallel
-        await Promise.all([fetchInstructores(), fetchDisciplinas(), fetchClases(), fetchPagos()])
+        await Promise.all([
+          fetchInstructores(),
+          fetchDisciplinas(), 
+          fetchClases(), 
+          fetchPeriodos(),
+          fetchPagos(),
+          
+        ])
 
-        // Set current period as default
+        // Set current period as default if available
         if (periodoActual) {
           setSelectedPeriods([periodoActual.id, periodoActual.id])
         }
@@ -64,7 +71,7 @@ export default function DashboardPage() {
     }
 
     loadAllData()
-  }, [fetchInstructores, fetchDisciplinas, fetchClases, fetchPagos, periodoActual])
+  }, [fetchInstructores, fetchDisciplinas, fetchClases, fetchPagos, fetchPeriodos])
 
   // Filter classes by selected periods
   const getFilteredClases = () => {
@@ -109,7 +116,11 @@ export default function DashboardPage() {
 
   // Get period name for display
   const getPeriodoNombre = (): string => {
-    if (!selectedPeriods) return "Todos los periodos"
+    if (!selectedPeriods) {
+      return periodoActual 
+        ? `Periodo ${periodoActual.numero}/${periodoActual.año}` 
+        : "Todos los periodos"
+    }
 
     const [startId, endId] = selectedPeriods
     if (startId === endId) {
@@ -120,10 +131,14 @@ export default function DashboardPage() {
     return "Rango de periodos seleccionado"
   }
 
-  // Format date
+  // Format date safely
   const formatFecha = (fecha: Date | string) => {
-    const fechaObj = new Date(fecha)
-    return isNaN(fechaObj.getTime()) ? "" : format(fechaObj, "dd MMM yyyy", { locale: es })
+    try {
+      const fechaObj = new Date(fecha)
+      return isNaN(fechaObj.getTime()) ? "" : format(fechaObj, "dd MMM yyyy", { locale: es })
+    } catch {
+      return ""
+    }
   }
 
   // Loading state
@@ -170,16 +185,15 @@ export default function DashboardPage() {
 
   return (
     <DashboardShell>
-      <DashboardHeader
-        periodos={periodos}
-        periodoActual={periodoActual}
+      <DashboardHead
         selectedPeriods={selectedPeriods}
         setSelectedPeriods={setSelectedPeriods}
         getPeriodoNombre={getPeriodoNombre}
       />
 
+
       <DashboardTabs activeTab={activeTab} setActiveTab={setActiveTab}>
-        <TabsContent value="general">
+         <TabsContent value="general">
           <GeneralTab
             instructores={instructores}
             disciplinas={disciplinas}
@@ -206,6 +220,6 @@ export default function DashboardPage() {
           />
         </TabsContent>
       </DashboardTabs>
-    </DashboardShell>
+</DashboardShell>
   )
 }

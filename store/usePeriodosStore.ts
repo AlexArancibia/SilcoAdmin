@@ -29,39 +29,39 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
   error: null,
 
   fetchPeriodos: async () => {
-    set({ isLoading: true, error: null })
+    set({ isLoading: true, error: null });
     try {
-      const periodos = await periodosApi.getPeriodos()
-      set({ periodos, isLoading: false })
+      const periodos = await periodosApi.getPeriodos();
       
-      // Establecer periodo actual y selección inicial
-      const hoy = new Date()
+      // Calcular periodoActual sin modificar el estado todavía
+      const hoy = new Date();
       const periodoActual = periodos.find(p => {
-        const inicio = p.fechaInicio instanceof Date ? p.fechaInicio : new Date(p.fechaInicio)
-        const fin = p.fechaFin instanceof Date ? p.fechaFin : new Date(p.fechaFin)
-        return hoy >= inicio && hoy <= fin
+        const inicio = p.fechaInicio instanceof Date ? p.fechaInicio : new Date(p.fechaInicio);
+        const fin = p.fechaFin instanceof Date ? p.fechaFin : new Date(p.fechaFin);
+        return hoy >= inicio && hoy <= fin;
       }) || periodos.sort((a, b) => {
-        // Ordenar por proximidad a la fecha actual si no hay periodo actual
-        const fechaA = a.fechaInicio instanceof Date ? a.fechaInicio : new Date(a.fechaInicio)
-        const fechaB = b.fechaInicio instanceof Date ? b.fechaInicio : new Date(b.fechaInicio)
-        return Math.abs(fechaA.getTime() - hoy.getTime()) - Math.abs(fechaB.getTime() - hoy.getTime())
-      })[0]
-
-      if (periodoActual) {
-        set({ 
-          periodoActual,
-          rangoSeleccionado: [periodoActual.id, periodoActual.id],
-          periodosSeleccionados: [periodoActual]
-        })
-      }
+        const fechaA = a.fechaInicio instanceof Date ? a.fechaInicio : new Date(a.fechaInicio);
+        const fechaB = b.fechaInicio instanceof Date ? b.fechaInicio : new Date(b.fechaInicio);
+        return Math.abs(fechaA.getTime() - hoy.getTime()) - Math.abs(fechaB.getTime() - hoy.getTime());
+      })[0];
+  
+      // Actualizar el estado una sola vez con todos los cambios
+      set({
+        periodos,
+        periodoActual,
+        rangoSeleccionado: periodoActual ? [periodoActual.id, periodoActual.id] : null,
+        periodosSeleccionados: periodoActual ? [periodoActual] : [],
+        isLoading: false,
+        error: null
+      });
+      
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error desconocido al obtener periodos",
         isLoading: false,
-      })
+      });
     }
   },
-
   fetchPeriodo: async (id: number) => {
     set({ isLoading: true, error: null })
     try {

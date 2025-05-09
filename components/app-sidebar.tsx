@@ -59,9 +59,13 @@ export function AppSidebar() {
       return
     }
 
-    // Si está autenticado y es instructor en la página de login, redirigir a su perfil
-    if (isAuthenticated && userType === "instructor" && pathname === '/login') {
-      router.push(`/instructores/${user?.id}`)
+    // Si está autenticado y está en la página de login, redirigir según rol
+    if (isAuthenticated && pathname === '/login') {
+      if (userType === "instructor") {
+        router.push(`/instructores/${user?.id}`)
+      } else {
+        router.push("/") // Redirigir a home para otros roles
+      }
       return
     }
 
