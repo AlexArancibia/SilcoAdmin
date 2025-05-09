@@ -1,7 +1,6 @@
 "use client"
 import Link from "next/link"
-import type React from "react"
-
+import { useEffect } from "react"
 import {
   Sidebar,
   SidebarContent,
@@ -18,24 +17,71 @@ import {
 } from "@/components/ui/sidebar"
 import { CalendarDays, LogOut, Calculator, Home, User, CreditCard, Sliders, File } from "lucide-react"
 import { useAuthStore } from "@/store/useAuthStore"
-import { useRouter } from "next/navigation"
+import { usePagosStore } from "@/store/usePagosStore"
+import { useRouter, usePathname } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
-import { usePathname } from "next/navigation"
 import { ModeToggle } from "./mode-toggle"
+import { EstadoPago, Rol } from "@/types/schema"
+
+const protectedRoutes = {
+  "/": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
+  "/configuracion": [Rol.SUPER_ADMIN, Rol.ADMIN],
+  "/importar": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
+  "/formulas": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
+  "/pagos": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
+  "/instructores": [...Object.values(Rol), "instructor"],
+  "/clases": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO]
+}
 
 export function AppSidebar() {
   const { user, userType, isAuthenticated, logout } = useAuthStore()
+  const { pagos } = usePagosStore()
   const router = useRouter()
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
   const claseitem = "text-white hover:bg-secondary hover:text-gray-800 data-[active=true]:bg-card/90 dark:data-[active=true]:bg-background data-[active=true]:text-primary data-[active=true]:font-semibold transition-colors duration-200"
 
+  // Filtrar y ordenar pagos del instructor
+  const pagosInstructor = userType === "instructor" 
+    ? [...pagos]
+        .filter(pago => pago.instructorId === user?.id)
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    : []
+
+  // Efecto para manejar redirecciones
+  useEffect(() => {
+    // Si no está autenticado, redirigir a login
+    if (!isAuthenticated) {
+      if (pathname !== '/login') {
+        router.push(`/login?from=${pathname}`)
+      }
+      return
+    }
+
+    // Si está autenticado y es instructor en la página de login, redirigir a su perfil
+    if (isAuthenticated && userType === "instructor" && pathname === '/login') {
+      router.push(`/instructores/${user?.id}`)
+      return
+    }
+
+    // Si es instructor pero no está en su perfil o pagos, redirigir
+    if (userType === "instructor") {
+      const allowedPaths = [
+        `/instructores/${user?.id}`,
+        ...pagosInstructor.map(pago => `/pagos/${pago.id}`)
+      ]
+
+      if (!allowedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`))) {
+        router.push(`/instructores/${user?.id}`)
+      }
+    }
+  }, [pathname, isAuthenticated, userType, user?.id, router, pagosInstructor])
 
   if (!isAuthenticated || !user) return null
 
-  const isAdmin = () => user?.rol === "ADMIN"
-  const isSuperAdmin = () => user?.rol === "SUPER_ADMIN"
+  const isAdmin = () => user?.rol === Rol.ADMIN
+  const isSuperAdmin = () => user?.rol === Rol.SUPER_ADMIN
   const isInstructor = () => userType === "instructor"
 
   const handleLogout = () => {
@@ -43,20 +89,25 @@ export function AppSidebar() {
     router.push("/login")
   }
 
-  // Check if a path is active
-  const isActive = (path: string) => {
-    if (path === "/") {
-      return pathname === path
+  const isActive = (path: string) => pathname.startsWith(path)
+
+  const formatDate = (dateString?: string | Date) => {
+    if (!dateString) return ''
+    return new Date(dateString).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })
+  }
+
+  const getEstadoColor = (estado: EstadoPago) => {
+    switch (estado) {
+      case 'PAGADO': return 'text-green-400'
+      case 'APROBADO': return 'text-blue-400'
+      case 'PENDIENTE': return 'text-yellow-400'
+      case 'CANCELADO': return 'text-red-400'
+      default: return 'text-gray-400'
     }
-    return pathname.startsWith(path)
   }
 
   return (
-    <Sidebar
-      variant="sidebar"
-      collapsible="icon"
-      className="bg-primary border-r"
-    >
+    <Sidebar variant="sidebar" collapsible="icon" className="bg-primary border-r">
       <SidebarHeader className="px-5 pt-3.5 pb-3.5 border-b border-border/40">
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-left">
@@ -66,40 +117,68 @@ export function AppSidebar() {
               </div>
             ) : (
               <div className="flex justify-between items-center w-full">
-                <h1 className="text-xl font-bold items-start text-white">Siclo Admin </h1>
+                <h1 className="text-xl font-bold items-start text-white">Siclo Admin</h1>
                 <ModeToggle />
               </div>
             )}
           </div>
-     
         </div>
       </SidebarHeader>
 
       <SidebarContent className="px-2">
         {isInstructor() ? (
-          // Vista para instructores (solo acceso a Instructores)
           <SidebarGroup>
             <SidebarMenu>
+              {/* Item de perfil - Siempre visible */}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
                   tooltip="Mi perfil"
-                  isActive={isActive("/instructores")}
+                  isActive={isActive(`/instructores/${user?.id}`)}
                   className={claseitem}
                 >
-                  <Link href="/instructores">
+                  <Link href={`/instructores/${user?.id}`}>
                     <User className="h-5 w-5" />
                     <span>Mi perfil</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              {/* Sección de pagos - Solo si existen */}
+              {pagosInstructor.length > 0 && (
+                <>
+                  <Separator className="my-2 bg-white/20" />
+                  <SidebarGroupLabel className="text-xs font-semibold text-white/70">
+                    MIS PAGOS
+                  </SidebarGroupLabel>
+                  {pagosInstructor.map(pago => (
+                    <SidebarMenuItem key={pago.id}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(`/pagos/${pago.id}`)}
+                        className={claseitem}
+                      >
+                        <Link href={`/pagos/${pago.id}`}>
+                          <CreditCard className="h-5 w-5" />
+                          <div className="flex flex-col">
+                            <span>Pago {formatDate(pago.periodo?.fechaFin)}</span>
+                            <span className={`text-xs ${getEstadoColor(pago.estado)}`}>
+                              {pago.estado} - S/ {pago.pagoFinal?.toFixed(2)}
+                            </span>
+                          </div>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </>
+              )}
             </SidebarMenu>
           </SidebarGroup>
         ) : (
           // Vista para administradores y otros roles
           <>
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold   text-white/70">
+              <SidebarGroupLabel className="text-xs font-semibold text-white/70">
                 GESTIÓN
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -148,7 +227,7 @@ export function AppSidebar() {
             </SidebarGroup>
 
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold   text-white/70">
+              <SidebarGroupLabel className="text-xs font-semibold text-white/70">
                 FINANZAS
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -198,7 +277,7 @@ export function AppSidebar() {
 
             {(isAdmin() || isSuperAdmin()) && (
               <SidebarGroup>
-                <SidebarGroupLabel className="text-xs font-semibold   text-white/70">
+                <SidebarGroupLabel className="text-xs font-semibold text-white/70">
                   ADMINISTRACIÓN
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -224,12 +303,11 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-border/40 ">
-        <SidebarMenu className="">
+      <SidebarFooter className="p-4 border-t border-border/40">
+        <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
-              tooltip="Cerrar Sesión"
               className="hover:bg-destructive/10 text-accent font-bold hover:text-destructive transition-colors duration-200"
             >
               <LogOut className="h-5 w-5" />
@@ -242,4 +320,3 @@ export function AppSidebar() {
     </Sidebar>
   )
 }
-
