@@ -980,6 +980,7 @@ export default function PagoDetallePage() {
           <div className="mt-4">
             {/* Detalles Tab */}
             {/* Asegurarnos de pasar disciplinas al componente PaymentDetails */}
+            {activeTab === "detalles" && (
             <>
                 <PaymentDetails
                   pagoSeleccionado={pagoSeleccionado}
@@ -1005,6 +1006,7 @@ export default function PagoDetallePage() {
                   <CommentsSection pagoId={pagoId} comentariosIniciales={pagoSeleccionado.comentarios || ""} />
                 </div>
               </>
+               )}
 
             {/* Clases Tab */}
             {activeTab === "clases" && (
