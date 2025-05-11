@@ -175,7 +175,7 @@ export interface PagoInstructor {
   pagoFinal: number
   createdAt?: Date
   updatedAt?: Date
-
+  comentarios?: string
   // Relaciones
   instructor?: Instructor
   periodo?: Periodo

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Button } from "@/components/ui/button"
@@ -10,27 +10,41 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CalendarRange, ChevronDown, ChevronUp, X, Check, Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePeriodosStore } from "@/store/usePeriodosStore"
+import { PeriodSelector } from "../period-selector"
 
 interface DashboardHeaderProps {
-  periodos: any[]
-  periodoActual: any
   selectedPeriods: [number, number] | null
   setSelectedPeriods: (periods: [number, number] | null) => void
   getPeriodoNombre: () => string
 }
 
-export function DashboardHeader({
-  periodos,
-  periodoActual,
+export function DashboardHead({
   selectedPeriods,
   setSelectedPeriods,
   getPeriodoNombre,
 }: DashboardHeaderProps) {
+  const {periodoActual,periodos,fetchPeriodos} = usePeriodosStore()
   const [isPeriodsOpen, setIsPeriodsOpen] = useState(false)
   const [activePeriodsTab, setActivePeriodsTab] = useState<"individual" | "rango">("individual")
   const [tempStartPeriod, setTempStartPeriod] = useState<number | null>(null)
   const [tempEndPeriod, setTempEndPeriod] = useState<number | null>(null)
-
+  // useEffect(() => {
+  //     const loadAllData = async () => {
+  
+  //       try {
+  //         // Load data in parallel
+  //         await  fetchPeriodos()
+  
+  //         // Set current period as default
+  //       } catch (error) {
+  //         console.error("Error loading initial data:", error)
+  //       }  
+  //     }
+  
+  //     loadAllData()
+  //   }, [  fetchPeriodos ])
+  
   // Period selection functions
   const handlePeriodSelection = (periodoId: number) => {
     setSelectedPeriods([periodoId, periodoId])
@@ -394,6 +408,7 @@ export function DashboardHeader({
             </div>
           </PopoverContent>
         </Popover>
+        {/* <PeriodSelector /> */}
       </div>
     </div>
   )

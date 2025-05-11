@@ -813,14 +813,50 @@ export function useCalculation(
           // Calculate payment for each class in this discipline
           for (const clase of clasesDisciplina) {
             try {
-              const resultado = calcularPago(clase, categoriaInstructor, formula)
-              montoTotal += resultado.montoPago
+              // Modificación para clases de versus
+              let claseParaCalculo = { ...clase }
+
+              // Si es una clase de versus, ajustar las reservas y lugares para el cálculo
+              if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
+                // Multiplicar las reservas y lugares por el número de instructores para el cálculo
+                const reservasAjustadas = clase.reservasTotales * clase.vsNum
+                const lugaresAjustados = clase.lugares * clase.vsNum
+
+                // Crear una copia de la clase con las reservas y lugares ajustados
+                claseParaCalculo = {
+                  ...clase,
+                  reservasTotales: reservasAjustadas,
+                  lugares: lugaresAjustados,
+                }
+
+                addProcessLog(
+                  `⚖️ CLASE VS: Ajustando para cálculo: Reservas ${clase.reservasTotales} x ${clase.vsNum} = ${reservasAjustadas}, Lugares ${clase.lugares} x ${clase.vsNum} = ${lugaresAjustados}`,
+                  instructor.id,
+                )
+              }
+
+              // Calcular el pago con la clase ajustada si es versus
+              const resultado = calcularPago(claseParaCalculo, categoriaInstructor, formula)
+
+              // Si es versus, dividir el monto calculado entre el número de instructores
+              let montoPagoFinal = resultado.montoPago
+              if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
+                montoPagoFinal = resultado.montoPago / clase.vsNum
+                addProcessLog(
+                  `⚖️ CLASE VS: Dividiendo pago entre ${clase.vsNum} instructores: ${resultado.montoPago.toFixed(2)} / ${clase.vsNum} = ${montoPagoFinal.toFixed(2)}`,
+                  instructor.id,
+                )
+              }
+
+              // Sumar al monto total
+              montoTotal += montoPagoFinal
 
               // Add detailed log about payment for this class
               addProcessLog(
                 `💰 PAGO POR CLASE [${clase.id}]: ${disciplina.nombre} - ${new Date(clase.fecha).toLocaleDateString()} ${obtenerHora(clase.fecha)}` +
-                  `\n   Monto: ${resultado.montoPago.toFixed(2)} | Categoría: ${categoriaInstructor}` +
+                  `\n   Monto: ${montoPagoFinal.toFixed(2)} | Categoría: ${categoriaInstructor}` +
                   `\n   Reservas: ${clase.reservasTotales}/${clase.lugares} (${Math.round((clase.reservasTotales / clase.lugares) * 100)}% ocupación)` +
+                  (clase.esVersus ? `\n   Versus: Sí (${clase.vsNum} instructores)` : "") +
                   `\n   Detalle: ${resultado.detalleCalculo}`,
                 instructor.id,
               )
@@ -848,12 +884,14 @@ export function useCalculation(
 
               detallesClases.push({
                 claseId: clase.id,
-                montoCalculado: resultado.montoPago,
+                montoCalculado: montoPagoFinal,
                 disciplinaId: clase.disciplinaId,
                 disciplinaNombre: disciplina.nombre,
                 fechaClase: clase.fecha,
                 detalleCalculo: resultado.detalleCalculo,
                 categoria: categoriaInstructor,
+                esVersus: clase.esVersus,
+                vsNum: clase.vsNum,
               })
             } catch (error) {
               addProcessLog(`Error al calcular pago para clase ${clase.id}`, instructor.id)

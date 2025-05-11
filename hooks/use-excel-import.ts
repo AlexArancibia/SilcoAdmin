@@ -1080,6 +1080,8 @@ export function useExcelImport() {
               cortesias: row.Cortesias || 0,
               textoEspecial: row["Texto espcial"] || "",
               semana: weekNumber,
+              esVersus: false,
+              vsNum: undefined,
             }
 
             // Create first class if instructor1 should be kept
@@ -1092,6 +1094,8 @@ export function useExcelImport() {
                 reservasTotales: splitReservas,
                 lugares: splitLugares,
                 reservasPagadas: Math.ceil((row["Reservas Pagadas"] || 0) / 2),
+                esVersus: true,
+                vsNum: instructorIds.length,
               }
 
               try {
@@ -1146,6 +1150,8 @@ export function useExcelImport() {
                 reservasTotales: splitReservas,
                 lugares: splitLugares,
                 reservasPagadas: Math.ceil((row["Reservas Pagadas"] || 0) / 2),
+                esVersus: true,
+                vsNum: instructorIds.length,
               }
 
               try {
@@ -1214,6 +1220,8 @@ export function useExcelImport() {
               reservasPagadas: row["Reservas Pagadas"] || 0,
               textoEspecial: row["Texto espcial"] || "",
               semana: weekNumber,
+              esVersus: false,
+              vsNum: undefined,
             }
 
             console.log(`Objeto de clase a crear:`, logObject(nuevaClase))

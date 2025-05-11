@@ -18,11 +18,7 @@ export interface ResultadoCalculo {
  * @param formula Fórmula con parámetros de pago
  * @returns Resultado del cálculo
  */
-export function calcularPago(
-  clase: Clase,
-  instructorType: CategoriaInstructor ,
-  formula: FormulaDB,
-): ResultadoCalculo {
+export function calcularPago(clase: Clase, instructorType: CategoriaInstructor, formula: FormulaDB): ResultadoCalculo {
   try {
     // Obtener los parámetros de pago para este tipo de instructor
     const parametros = formula.parametrosPago[instructorType]
@@ -98,8 +94,49 @@ export function calcularPago(
       montoPago = parametros.maximo
     }
 
+    
+
     // Generar detalle del cálculo
     let detalleCalculo = `${reservaciones} reservas × S/.${tarifaAplicada.toFixed(2)} = S/.${(reservaciones * tarifaAplicada).toFixed(2)}`
+
+    // Si es una clase de versus, añadir información al detalle
+    if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
+      const reservasOriginales = Math.round(reservaciones * clase.vsNum)
+      const lugaresOriginales = Math.round(capacidad * clase.vsNum)
+
+
+
+      if (esFullHouse) {
+        tarifaAplicada = parametros.tarifaFullHouse
+        tipoTarifa = "Full House"
+      } else {
+        // Ordenar tarifas por número de reservas (de menor a mayor)
+        const tarifasOrdenadas = [...parametros.tarifas].sort((a, b) => a.numeroReservas - b.numeroReservas)
+  
+        // Encontrar la tarifa aplicable
+        let tarifaEncontrada = false
+        for (const tarifa of tarifasOrdenadas) {
+          if (reservasOriginales <= tarifa.numeroReservas) {
+            tarifaAplicada = tarifa.tarifa
+            tipoTarifa = `Hasta ${tarifa.numeroReservas} reservas`
+            tarifaEncontrada = true
+            break
+          }
+        }
+  
+        // Si no se encontró una tarifa aplicable, usar la tarifa full house
+        if (!tarifaEncontrada) {
+          tarifaAplicada = parametros.tarifaFullHouse
+          tipoTarifa = "Full House (por defecto)"
+        }
+      }
+
+
+      montoPago = tarifaAplicada * reservasOriginales / clase.vsNum
+      
+      detalleCalculo = `VS(${clase.vsNum}): ${reservaciones} × ${clase.vsNum} = ${reservasOriginales} reservas × S/.${tarifaAplicada.toFixed(2)} = S/.${(reservasOriginales * tarifaAplicada).toFixed(2)}`
+      detalleCalculo += `\nCapacidad ajustada: ${capacidad} × ${clase.vsNum} = ${lugaresOriginales}`
+    }
 
     if (cuotaFijaAplicada > 0) {
       detalleCalculo += `\nCuota fija: +S/.${cuotaFijaAplicada.toFixed(2)}`
@@ -112,6 +149,12 @@ export function calcularPago(
 
     if (maximoAplicado) {
       detalleCalculo += `\nSe aplicó el máximo: S/.${parametros.maximo.toFixed(2)}`
+    }
+
+    // Si es versus, añadir información sobre la división del pago
+    if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
+      const montoPorInstructor = montoPago / clase.vsNum
+      detalleCalculo += `\nPago dividido entre ${clase.vsNum} instructores: S/.${montoPago.toFixed(2) * clase.vsNum} ÷ ${clase.vsNum} = S/.${montoPorInstructor.toFixed(2)} por instructor`
     }
 
     return {

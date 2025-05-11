@@ -219,6 +219,7 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
                 <TableHead>Fecha</TableHead>
                 <TableHead>Hora</TableHead>
                 <TableHead>Instructor</TableHead>
+                <TableHead>VS</TableHead>
                 <TableHead>Disciplina</TableHead>
                 <TableHead>Estudio</TableHead>
                 <TableHead>Salón</TableHead>
@@ -234,6 +235,13 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
                   <TableCell className="font-medium">{formatDate(clase.fecha)}</TableCell>
                   <TableCell>{formatTime(clase.fecha)}</TableCell>
                   <TableCell>{clase.instructor?.nombre}</TableCell>
+                  <TableCell>
+                    {clase.esVersus && (
+                      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                        VS {clase.vsNum && `(${clase.vsNum})`}
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       style={{
@@ -264,6 +272,11 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
                       <span className="text-xs whitespace-nowrap">
                         {clase.reservasTotales} / {clase.lugares}
                         {clase.listasEspera > 0 && <span className="ml-1 text-amber-500">(+{clase.listasEspera})</span>}
+                        {clase.esVersus && clase.vsNum && clase.vsNum > 1 && (
+                          <span className="ml-1 text-blue-500 italic">
+                            (VS: {Math.round(clase.reservasTotales / clase.vsNum)} × {clase.vsNum})
+                          </span>
+                        )}
                       </span>
                     </div>
                   </TableCell>

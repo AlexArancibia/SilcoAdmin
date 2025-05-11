@@ -417,7 +417,7 @@ export function GeneralTab({
         />
       </div>
       {/* First Row of Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 mt-4">
         {/* Disciplinas Populares */}
         <DashboardChart
           title="Disciplinas Más Impartidas"
@@ -511,7 +511,7 @@ export function GeneralTab({
         </DashboardChart>
       </div>
       {/* Second Row of Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 mt-4">
         {/* Clases por Horario */}
         <DashboardChart
           title="Clases por Horario"
@@ -732,7 +732,7 @@ export function GeneralTab({
         </DashboardChart>
       </div>
       {/* Estatus de Pagos */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 mt-4">
         {/* Salones Más Utilizados */}
         <DashboardChart
           title="Salones Más Utilizados"
