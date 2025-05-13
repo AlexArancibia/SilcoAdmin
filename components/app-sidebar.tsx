@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import {
   Sidebar,
   SidebarContent,
@@ -21,7 +21,7 @@ import { usePagosStore } from "@/store/usePagosStore"
 import { useRouter, usePathname } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
 import { ModeToggle } from "./mode-toggle"
-import { EstadoPago, Rol } from "@/types/schema"
+import { type EstadoPago, Rol } from "@/types/schema"
 
 const protectedRoutes = {
   "/": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
@@ -30,7 +30,7 @@ const protectedRoutes = {
   "/formulas": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
   "/pagos": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
   "/instructores": [...Object.values(Rol), "instructor"],
-  "/clases": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO]
+  "/clases": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
 }
 
 export function AppSidebar() {
@@ -40,30 +40,66 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
-  const claseitem = "text-white hover:bg-secondary hover:text-gray-800 data-[active=true]:bg-card/90 dark:data-[active=true]:bg-background data-[active=true]:text-primary data-[active=true]:font-semibold transition-colors duration-200"
+  const claseitem =
+    "text-white hover:bg-secondary hover:text-gray-800 data-[active=true]:bg-card/90 dark:data-[active=true]:bg-background data-[active=true]:text-primary data-[active=true]:font-semibold transition-colors duration-200"
 
   // Filtrar y ordenar pagos del instructor
-  const pagosInstructor = userType === "instructor" 
-    ? [...pagos]
-        .filter(pago => pago.instructorId === user?.id)
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    : []
+  const pagosInstructor =
+    userType === "instructor"
+      ? [...pagos]
+          .filter((pago) => pago.instructorId === user?.id)
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+      : []
 
-  // Efecto para manejar redirecciones
+  // Añadir un nuevo estado para controlar si la autenticación está siendo verificada
+  // Añade esto justo después de las declaraciones de los hooks al inicio del componente
+  const [isAuthChecking, setIsAuthChecking] = useState(true)
+
+  // Modifica el useEffect para manejar correctamente las redirecciones
+  // Reemplaza el useEffect existente con este:
   useEffect(() => {
+    // Verificar si el estado de autenticación ya ha sido cargado
+    const checkAuth = async () => {
+      // Aquí puedes añadir cualquier lógica adicional para verificar la autenticación
+      // Por ejemplo, verificar un token en localStorage o hacer una petición al servidor
+
+      console.log("Verificando autenticación...", { isAuthenticated, pathname })
+
+      // Simular un pequeño retraso para asegurar que otros estados se han cargado
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      setIsAuthChecking(false)
+    }
+
+    checkAuth()
+  }, [])
+
+  // Modificar el useEffect existente para las redirecciones
+  useEffect(() => {
+    // No hacer nada mientras se está verificando la autenticación
+    if (isAuthChecking) {
+      console.log("Aún verificando autenticación, evitando redirecciones")
+      return
+    }
+
+    console.log("Estado de autenticación verificado:", { isAuthenticated, pathname })
+
     // Si no está autenticado, redirigir a login
     if (!isAuthenticated) {
-      if (pathname !== '/login') {
+      if (pathname !== "/login") {
+        console.log("No autenticado, redirigiendo a login")
         router.push(`/login?from=${pathname}`)
       }
       return
     }
 
     // Si está autenticado y está en la página de login, redirigir según rol
-    if (isAuthenticated && pathname === '/login') {
+    if (isAuthenticated && pathname === "/login") {
       if (userType === "instructor") {
+        console.log("Autenticado como instructor, redirigiendo a perfil")
         router.push(`/instructores/${user?.id}`)
       } else {
+        console.log("Autenticado como admin, redirigiendo a home")
         router.push("/") // Redirigir a home para otros roles
       }
       return
@@ -71,18 +107,32 @@ export function AppSidebar() {
 
     // Si es instructor pero no está en su perfil o pagos, redirigir
     if (userType === "instructor") {
-      const allowedPaths = [
-        `/instructores/${user?.id}`,
-        ...pagosInstructor.map(pago => `/pagos/${pago.id}`)
-      ]
+      const allowedPaths = [`/instructores/${user?.id}`, ...pagosInstructor.map((pago) => `/pagos/${pago.id}`)]
 
-      if (!allowedPaths.some(path => pathname === path || pathname.startsWith(`${path}/`))) {
+      if (!allowedPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+        console.log("Instructor en ruta no permitida, redirigiendo a perfil")
         router.push(`/instructores/${user?.id}`)
       }
     }
-  }, [pathname, isAuthenticated, userType, user?.id, router, pagosInstructor])
+  }, [pathname, isAuthenticated, userType, user?.id, router, pagosInstructor, isAuthChecking])
 
-  if (!isAuthenticated || !user) return null
+  // Modificar la condición de renderizado para incluir el estado de verificación
+  // Reemplaza la línea:
+  // if (!isAuthenticated || !user) return null
+  // Con:
+  if (isAuthChecking) {
+    console.log("Renderizando estado de carga mientras se verifica autenticación")
+    return (
+      <div className="flex items-center justify-center h-screen bg-primary/10">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated || !user) {
+    console.log("No autenticado o sin usuario, no renderizando sidebar")
+    return null
+  }
 
   const isAdmin = () => user?.rol === Rol.ADMIN
   const isSuperAdmin = () => user?.rol === Rol.SUPER_ADMIN
@@ -93,20 +143,35 @@ export function AppSidebar() {
     router.push("/login")
   }
 
-  const isActive = (path: string) => pathname.startsWith(path)
+  const isActive = (path: string) => {
+    console.log(`Checking if path ${path} is active. Current pathname: ${pathname}`)
+
+    // Caso especial para el Panel de Control (ruta exacta "/")
+    if (path === "/") {
+      return pathname === "/"
+    }
+
+    // Para las demás rutas, mantener el comportamiento original
+    return pathname.startsWith(path)
+  }
 
   const formatDate = (dateString?: string | Date) => {
-    if (!dateString) return ''
-    return new Date(dateString).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })
+    if (!dateString) return ""
+    return new Date(dateString).toLocaleDateString("es-ES", { month: "short", year: "numeric" })
   }
 
   const getEstadoColor = (estado: EstadoPago) => {
     switch (estado) {
-      case 'PAGADO': return 'text-green-400'
-      case 'APROBADO': return 'text-blue-400'
-      case 'PENDIENTE': return 'text-yellow-400'
-      case 'CANCELADO': return 'text-red-400'
-      default: return 'text-gray-400'
+      case "PAGADO":
+        return "text-green-400"
+      case "APROBADO":
+        return "text-blue-400"
+      case "PENDIENTE":
+        return "text-yellow-400"
+      case "CANCELADO":
+        return "text-red-400"
+      default:
+        return "text-gray-400"
     }
   }
 
@@ -152,16 +217,10 @@ export function AppSidebar() {
               {pagosInstructor.length > 0 && (
                 <>
                   <Separator className="my-2 bg-white/20" />
-                  <SidebarGroupLabel className="text-xs font-semibold text-white/70">
-                    MIS PAGOS
-                  </SidebarGroupLabel>
-                  {pagosInstructor.map(pago => (
+                  <SidebarGroupLabel className="text-xs font-semibold text-white/70">MIS PAGOS</SidebarGroupLabel>
+                  {pagosInstructor.map((pago) => (
                     <SidebarMenuItem key={pago.id}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive(`/pagos/${pago.id}`)}
-                        className={claseitem}
-                      >
+                      <SidebarMenuButton asChild isActive={isActive(`/pagos/${pago.id}`)} className={claseitem}>
                         <Link href={`/pagos/${pago.id}`}>
                           <CreditCard className="h-5 w-5" />
                           <div className="flex flex-col">
@@ -182,9 +241,7 @@ export function AppSidebar() {
           // Vista para administradores y otros roles
           <>
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold text-white/70">
-                GESTIÓN
-              </SidebarGroupLabel>
+              <SidebarGroupLabel className="text-xs font-semibold text-white/70">GESTIÓN</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
@@ -193,6 +250,7 @@ export function AppSidebar() {
                       tooltip="Panel de Control"
                       isActive={isActive("/")}
                       className={claseitem}
+                      onClick={() => console.log("Panel de Control clicked, active state:", pathname === "/")}
                     >
                       <Link href="/">
                         <Home className="h-5 w-5" />
@@ -214,12 +272,7 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Clases"
-                      isActive={isActive("/clases")}
-                      className={claseitem}
-                    >
+                    <SidebarMenuButton asChild tooltip="Clases" isActive={isActive("/clases")} className={claseitem}>
                       <Link href="/clases">
                         <CalendarDays className="h-5 w-5" />
                         <span>Clases</span>
@@ -231,18 +284,11 @@ export function AppSidebar() {
             </SidebarGroup>
 
             <SidebarGroup>
-              <SidebarGroupLabel className="text-xs font-semibold text-white/70">
-                FINANZAS
-              </SidebarGroupLabel>
+              <SidebarGroupLabel className="text-xs font-semibold text-white/70">FINANZAS</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Pagos"
-                      isActive={isActive("/pagos")}
-                      className={claseitem}
-                    >
+                    <SidebarMenuButton asChild tooltip="Pagos" isActive={isActive("/pagos")} className={claseitem}>
                       <Link href="/pagos">
                         <CreditCard className="h-5 w-5" />
                         <span>Pagos</span>
@@ -281,9 +327,7 @@ export function AppSidebar() {
 
             {(isAdmin() || isSuperAdmin()) && (
               <SidebarGroup>
-                <SidebarGroupLabel className="text-xs font-semibold text-white/70">
-                  ADMINISTRACIÓN
-                </SidebarGroupLabel>
+                <SidebarGroupLabel className="text-xs font-semibold text-white/70">ADMINISTRACIÓN</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
