@@ -1,11 +1,13 @@
 "use client"
 import { Button } from "@/components/ui/button"
-import { CalculatorIcon, FileTextIcon, PrinterIcon } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { CalculatorIcon, FileTextIcon, PrinterIcon, ChevronDown, FileSpreadsheetIcon } from "lucide-react"
 import type { Periodo } from "@/types/schema"
 
 interface PageHeaderProps {
   periodosSeleccionados: Periodo[]
   exportarTodosPagosPDF: () => void
+  exportarTodosExcel: () => void
   imprimirTodosPagosPDF: () => void
   isCalculatingPayments: boolean
   setShowCalculateDialog: () => void
@@ -15,6 +17,7 @@ interface PageHeaderProps {
 export function PageHeader({
   periodosSeleccionados,
   exportarTodosPagosPDF,
+  exportarTodosExcel,
   imprimirTodosPagosPDF,
   isCalculatingPayments,
   setShowCalculateDialog,
@@ -31,10 +34,24 @@ export function PageHeader({
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={exportarTodosPagosPDF}>
-          <FileTextIcon className="mr-2 h-4 w-4" />
-          Exportar PDF
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <FileTextIcon className="mr-2 h-4 w-4" />
+              Exportar <ChevronDown className="ml-1 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={exportarTodosPagosPDF}>
+              <FileTextIcon className="mr-2 h-4 w-4" />
+              Exportar PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={exportarTodosExcel}>
+              <FileSpreadsheetIcon className="mr-2 h-4 w-4" />
+              Exportar Excel
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button variant="outline" size="sm" onClick={imprimirTodosPagosPDF}>
           <PrinterIcon className="mr-2 h-4 w-4" />
           Imprimir
