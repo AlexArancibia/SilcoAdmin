@@ -165,7 +165,7 @@ const calcularDobleteos = (clasesInstructor: any[], disciplinaSicloId: number | 
     }
   })
 
-  return totalDobleteos
+  return totalDobleteos / 4
 }
 
 // Asegúrate de que la función reevaluarTodasCategorias esté disponible para ser llamada desde otros componentes
@@ -198,7 +198,7 @@ export function useCalculation(
     }
   }, [periodoActual, selectedPeriodoId])
 
-  // Helper function to add process logs
+  // Modificar la función addProcessLog para mejorar la estructura de los logs
   const addProcessLog = (message: string, instructorId?: number) => {
     const timestamp = new Date().toLocaleTimeString()
     const formattedMessage = `[${timestamp}] ${message}`
@@ -297,7 +297,7 @@ export function useCalculation(
     }
   }
 
-  // Fix the determinarCategoria function to correctly compare boolean values
+  // Modificar la función determinarCategoria para mejorar la legibilidad de los logs
   const determinarCategoria = (
     instructorId: number,
     disciplinaId: number,
@@ -851,6 +851,9 @@ export function useCalculation(
               // Sumar al monto total
               montoTotal += montoPagoFinal
 
+              // Modificar la función calcularPagosPeriodo para mejorar los logs
+              // Dentro de la función calcularPagosPeriodo, modificar la parte donde se calculan los pagos por clase:
+
               // Add detailed log about payment for this class
               addProcessLog(
                 `💰 PAGO POR CLASE [${clase.id}]: ${disciplina.nombre} - ${new Date(clase.fecha).toLocaleDateString()} ${obtenerHora(clase.fecha)}` +
@@ -918,9 +921,13 @@ export function useCalculation(
           return false
         }).length
 
+        // Buscar la sección de cálculo de bono y comentarla
+        // En la función calcularPagosPeriodo, buscar la sección que comienza con:
         // Calculate bonus if enabled
-        let bonoTotal = 0
+        const bonoTotal = 0
         if (calcularBonoEnPeriodo) {
+          // Comentar todo el bloque de cálculo de bono
+          /*
           // Simplified bonus calculation
           const tieneCategoriasEspeciales = instructorActualizado.categorias?.some(
             (cat) => cat.periodoId === periodoId && cat.categoria !== "INSTRUCTOR",
@@ -989,6 +996,11 @@ export function useCalculation(
               }
             }
           }
+          */
+
+          // Agregar un comentario explicativo
+          // Se utilizará otra función para gestionar el cálculo de bonos
+          addProcessLog(`ℹ️ El cálculo de bonos se gestionará con otra función`, instructor.id)
         }
 
         // Calculate retention and final payment
@@ -1000,6 +1012,7 @@ export function useCalculation(
 
         const pagoFinal = montoConBono - retencionCalculada
 
+        // Modificar la parte donde se muestra el resumen de métricas
         addProcessLog(
           `RESUMEN DE MÉTRICAS:` +
             `\n   Total Clases: ${totalClases} (${clasesPorSemana.toFixed(1)} por semana) | Disciplinas: ${disciplinasUnicasCount} | Estudios: ${estudiosUnicos}` +
@@ -1545,7 +1558,265 @@ export function useCalculation(
     }
   }
 
+  // Añadir estas nuevas funciones y estados al hook useCalculation
+  // No modificaré las funciones existentes ni los imports
+  // Nuevos estados para el cálculo de bonos
+  const [periodosSeleccionadosParaBono, setPeriodosSeleccionadosParaBono] = useState<number[]>([])
+  const [isCalculatingBonuses, setIsCalculatingBonuses] = useState<boolean>(false)
+
+  // Función para verificar si un periodo ya tiene bonos calculados
+  const verificarBonoCalculado = (periodoId: number): boolean => {
+    const periodo = periodos.find((p) => p.id === periodoId)
+    return periodo?.bonoCalculado || false
+  }
+
+  // Función para obtener periodos disponibles para cálculo de bonos
+  const obtenerPeriodosDisponiblesParaBono = (): Periodo[] => {
+    return periodos.filter((p) => !p.bonoCalculado)
+  }
+
+  // Función para añadir o quitar un periodo de la selección para bonos
+  const togglePeriodoParaBono = (periodoId: number) => {
+    setPeriodosSeleccionadosParaBono((prev) => {
+      if (prev.includes(periodoId)) {
+        return prev.filter((id) => id !== periodoId)
+      } else {
+        return [...prev, periodoId]
+      }
+    })
+  }
+
+  // Función para calcular bonos para los periodos seleccionados
+  const calcularBonosPeriodo = async () => {
+    // Verificar que haya al menos un periodo seleccionado
+    if (periodosSeleccionadosParaBono.length === 0 && selectedPeriodoId) {
+      // Si no hay periodos seleccionados pero hay un periodo principal, usarlo
+      setPeriodosSeleccionadosParaBono([selectedPeriodoId])
+    }
+
+    // Verificar nuevamente que haya periodos seleccionados
+    if (periodosSeleccionadosParaBono.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debes seleccionar al menos un periodo para calcular bonos",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Limpiar logs anteriores
+    setProcessLogs([])
+    setShowProcessLogsDialog(true)
+
+    addProcessLog("🚀 Iniciando proceso de cálculo de bonos...")
+    addProcessLog(`📊 Periodos seleccionados: ${periodosSeleccionadosParaBono.join(", ")}`)
+
+    setIsCalculatingBonuses(true)
+
+    try {
+      // Obtener todos los instructores con clases en los periodos seleccionados
+      const instructoresConClases = [
+        ...new Set(
+          clases.filter((c) => periodosSeleccionadosParaBono.includes(c.periodoId)).map((c) => c.instructorId),
+        ),
+      ]
+
+      const todosInstructores = instructores.filter((i) => instructoresConClases.includes(i.id))
+
+      addProcessLog(`👥 Total instructores a procesar: ${todosInstructores.length}`)
+
+      let bonosActualizados = 0
+      const pagosParaActualizar: any[] = []
+
+      // Procesar cada instructor
+      for (const instructor of todosInstructores) {
+        addProcessLog(`Procesando bonos para ${instructor.nombre}`, instructor.id)
+
+        // Procesar cada periodo seleccionado
+        for (const periodoId of periodosSeleccionadosParaBono) {
+          const periodo = periodos.find((p) => p.id === periodoId)
+          if (!periodo) continue
+
+          addProcessLog(`Calculando bonos para periodo ${periodo.numero}-${periodo.año}`, instructor.id)
+
+          // Obtener el pago del instructor para este periodo
+          const pagoExistente = pagos.find((p) => p.instructorId === instructor.id && p.periodoId === periodoId)
+
+          if (!pagoExistente) {
+            addProcessLog(`⚠️ No existe pago para este periodo, omitiendo`, instructor.id)
+            continue
+          }
+
+          // Si el pago está cancelado, omitirlo
+          if (pagoExistente.estado === "CANCELADO") {
+            addProcessLog(`⚠️ Pago cancelado, omitiendo`, instructor.id)
+            continue
+          }
+
+          // Obtener las clases del instructor en este periodo
+          const clasesInstructor = clases.filter((c) => c.instructorId === instructor.id && c.periodoId === periodoId)
+
+          if (clasesInstructor.length === 0) {
+            addProcessLog(`⚠️ Sin clases en este periodo, omitiendo`, instructor.id)
+            continue
+          }
+
+          // Obtener las disciplinas únicas del instructor en este periodo
+          const disciplinasUnicas = [...new Set(clasesInstructor.map((c) => c.disciplinaId))]
+
+          // Obtener el instructor actualizado para tener sus categorías actualizadas
+          const instructorActualizado = await instructoresApi.getInstructor(instructor.id)
+
+          // Calcular bono para cada disciplina con categoría especial
+          let bonoTotal = 0
+          const detallesBono: string[] = []
+
+          // Verificar si tiene categorías especiales
+          const tieneCategoriasEspeciales = instructorActualizado.categorias?.some(
+            (cat) => cat.periodoId === periodoId && cat.categoria !== "INSTRUCTOR",
+          )
+
+          if (tieneCategoriasEspeciales) {
+            addProcessLog(`Calculando bonos por categorías especiales`, instructor.id)
+
+            // Calcular bono para cada disciplina con categoría especial
+            for (const disciplinaId of disciplinasUnicas) {
+              const categoriaInfo = instructorActualizado.categorias?.find(
+                (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId && c.categoria !== "INSTRUCTOR",
+              )
+
+              if (categoriaInfo) {
+                const disciplina = disciplinas.find((d) => d.id === disciplinaId)
+                const formula = formulas.find((f) => f.disciplinaId === disciplinaId && f.periodoId === periodoId)
+
+                if (formula) {
+                  const bonoPorAlumno = formula.parametrosPago?.[categoriaInfo.categoria]?.bono || 0
+
+                  if (bonoPorAlumno > 0) {
+                    const clasesDisciplina = clasesInstructor.filter((c) => c.disciplinaId === disciplinaId)
+                    let totalReservas = 0
+
+                    // Sumar todas las reservas de las clases de esta disciplina
+                    clasesDisciplina.forEach((clase) => {
+                      // Si es versus, ajustar las reservas
+                      if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
+                        totalReservas += clase.reservasTotales / clase.vsNum
+                      } else {
+                        totalReservas += clase.reservasTotales
+                      }
+                    })
+
+                    const bonoDisciplina = bonoPorAlumno * totalReservas
+                    bonoTotal += bonoDisciplina
+
+                    const disciplinaNombre = disciplina?.nombre || `Disciplina ${disciplinaId}`
+                    detallesBono.push(
+                      `${disciplinaNombre}: ${bonoDisciplina.toFixed(2)} (${totalReservas} reservas x ${bonoPorAlumno} por alumno)`,
+                    )
+
+                    addProcessLog(
+                      `Bono para ${disciplinaNombre}: ${bonoDisciplina.toFixed(2)} (${totalReservas} reservas x ${bonoPorAlumno} por alumno)`,
+                      instructor.id,
+                    )
+                  }
+                }
+              }
+            }
+          } else {
+            addProcessLog(`⚠️ No tiene categorías especiales, no aplica bono`, instructor.id)
+          }
+
+          // Si hay bono calculado, actualizar el pago
+          if (bonoTotal > 0) {
+            // Preparar el comentario para el bono
+            const comentarioBono = `Bono calculado para periodo ${periodo.numero}-${periodo.año}: ${bonoTotal.toFixed(2)}. Detalles: ${detallesBono.join("; ")}`
+
+            // Preparar el objeto de actualización
+            const nuevoReajuste = (pagoExistente.reajuste || 0) + bonoTotal
+            const nuevosComentarios = pagoExistente.comentarios
+              ? `${pagoExistente.comentarios}\n${comentarioBono}`
+              : comentarioBono
+
+            const actualizacion = {
+              id: pagoExistente.id,
+              reajuste: nuevoReajuste,
+              comentarios: nuevosComentarios,
+              bono: bonoTotal, // Guardar el valor del bono calculado
+            }
+
+            // Agregar a la lista de pagos para actualizar
+            pagosParaActualizar.push({ id: pagoExistente.id, data: actualizacion })
+            bonosActualizados++
+
+            addProcessLog(`✅ Bono calculado: ${bonoTotal.toFixed(2)}`, instructor.id)
+            addProcessLog(`✅ Nuevo reajuste total: ${nuevoReajuste.toFixed(2)}`, instructor.id)
+          } else {
+            addProcessLog(`ℹ️ No se calculó bono para este periodo`, instructor.id)
+          }
+        }
+      }
+
+      // Actualizar todos los pagos en la base de datos
+      addProcessLog(`\n🔄 Actualizando base de datos con ${pagosParaActualizar.length} pagos...`)
+
+      // Procesar todos los pagos en lote
+      for (const pago of pagosParaActualizar) {
+        try {
+          // Actualizar pago existente
+          const { id, ...datosActualizacion } = pago.data
+          await actualizarPago(pago.id, datosActualizacion)
+        } catch (error) {
+          addProcessLog(`❌ Error al guardar pago: ${error instanceof Error ? error.message : "Error desconocido"}`)
+        }
+      }
+
+      // Actualizar la UI con todos los pagos de una sola vez
+      await fetchPagos()
+      addProcessLog(`✅ Base de datos actualizada correctamente`)
+
+      // Marcar los periodos como con bonos calculados
+      for (const periodoId of periodosSeleccionadosParaBono) {
+        const periodoSeleccionado = periodos.find((p) => p.id === periodoId)
+        if (periodoSeleccionado && !periodoSeleccionado.bonoCalculado) {
+          await actualizarPeriodo(periodoId, {
+            ...periodoSeleccionado,
+            bonoCalculado: true,
+          })
+          addProcessLog(
+            `✅ Periodo ${periodoSeleccionado.numero}-${periodoSeleccionado.año} marcado con bonos calculados`,
+          )
+        }
+      }
+
+      // Final summary
+      addProcessLog("\n🏁 Proceso completado. Resumen:")
+      addProcessLog(`✅ Bonos actualizados: ${bonosActualizados}`)
+      addProcessLog(`👥 Total instructores procesados: ${todosInstructores.length}`)
+      addProcessLog(`📅 Periodos procesados: ${periodosSeleccionadosParaBono.length}`)
+
+      toast({
+        title: "Cálculo de bonos completado",
+        description: `Se han actualizado ${bonosActualizados} bonos para ${todosInstructores.length} instructores.`,
+      })
+
+      // Limpiar la selección de periodos
+      setPeriodosSeleccionadosParaBono([])
+    } catch (error) {
+      addProcessLog(`❌ Error en el proceso: ${error instanceof Error ? error.message : "Error desconocido"}`)
+      toast({
+        title: "Error al calcular bonos",
+        description: error instanceof Error ? error.message : "Error desconocido al calcular bonos",
+        variant: "destructive",
+      })
+    } finally {
+      addProcessLog("🏁 Finalizando proceso")
+      setIsCalculatingBonuses(false)
+    }
+  }
+
+  // Retornar los estados y funciones existentes, más los nuevos
   return {
+    // Estados y funciones existentes...
     isCalculatingPayments,
     processLogs,
     setProcessLogs,
@@ -1555,11 +1826,19 @@ export function useCalculation(
     calcularBonoEnPeriodo,
     setCalcularBonoEnPeriodo,
     reevaluarTodasCategorias,
-    // Nuevos estados y funciones para el diálogo de duplicación de fórmulas
     showFormulaDuplicationDialog,
     setShowFormulaDuplicationDialog,
     periodoOrigenFormulas,
     isDuplicatingFormulas,
     handleDuplicateFormulas,
+
+    // Nuevos estados y funciones para bonos
+    isCalculatingBonuses,
+    periodosSeleccionadosParaBono,
+    setPeriodosSeleccionadosParaBono,
+    verificarBonoCalculado,
+    obtenerPeriodosDisponiblesParaBono,
+    togglePeriodoParaBono,
+    calcularBonosPeriodo,
   }
 }

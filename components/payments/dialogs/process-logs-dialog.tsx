@@ -39,7 +39,7 @@ export function ProcessLogsDialog({
     URL.revokeObjectURL(url)
   }
 
-  // Function to format log entries with syntax highlighting
+  // Modificar la función formatLogEntry para mejorar la visualización de los logs
   const formatLogEntry = (log: string) => {
     // Check for different types of log entries and apply appropriate styling
     if (log.includes("✅")) {
@@ -87,7 +87,7 @@ export function ProcessLogsDialog({
     return <div>{log}</div>
   }
 
-  // Organizar logs por instructor
+  // Reemplazar la función organizeLogs para mejorar la organización de los logs
   const organizeLogs = () => {
     const generalLogs: string[] = []
     const instructorLogs: Record<string, string[]> = {}
@@ -153,6 +153,7 @@ export function ProcessLogsDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
+        {/* Reemplazar la parte del renderizado de los logs para mejorar la visualización */}
         <div className="flex-1 overflow-y-auto my-4 p-4 bg-black/5 dark:bg-white/5 rounded-md font-mono text-sm">
           {processLogs.length === 0 ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">

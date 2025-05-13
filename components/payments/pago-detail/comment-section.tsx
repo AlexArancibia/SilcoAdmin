@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,7 +27,30 @@ export function CommentsSection({ pagoId, comentariosIniciales }: CommentsSectio
   const userType = useAuthStore((state) => state.userType)
   const isInstructor = userType === "instructor"
 
+  // Asegurar que los instructores no puedan editar comentarios
+  useEffect(() => {
+    if (isInstructor && editando) {
+      setEditando(false)
+      setComentarios(comentariosOriginales)
+      toast({
+        title: "Acceso denegado",
+        description: "Los instructores no pueden editar comentarios.",
+        variant: "destructive",
+      })
+    }
+  }, [isInstructor, editando, comentariosOriginales])
+
   const handleEditar = () => {
+    // Verificar nuevamente si es instructor antes de permitir editar
+    if (isInstructor) {
+      toast({
+        title: "Acceso denegado",
+        description: "Los instructores no pueden editar comentarios.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setComentariosOriginales(comentarios)
     setEditando(true)
   }
@@ -38,6 +61,18 @@ export function CommentsSection({ pagoId, comentariosIniciales }: CommentsSectio
   }
 
   const handleGuardar = async () => {
+    // Verificar nuevamente si es instructor antes de guardar
+    if (isInstructor) {
+      toast({
+        title: "Acceso denegado",
+        description: "Los instructores no pueden editar comentarios.",
+        variant: "destructive",
+      })
+      setEditando(false)
+      setComentarios(comentariosOriginales)
+      return
+    }
+
     setIsGuardando(true)
 
     try {
@@ -127,6 +162,7 @@ export function CommentsSection({ pagoId, comentariosIniciales }: CommentsSectio
             onChange={(e) => setComentarios(e.target.value)}
             placeholder="Escribe tus comentarios acerca de este pago..."
             className="min-h-[100px] resize-y"
+            disabled={isInstructor} // Deshabilitar el textarea si es instructor
           />
         ) : (
           <div className="bg-card p-2 rounded-md border min-h-[70px] text-sm">

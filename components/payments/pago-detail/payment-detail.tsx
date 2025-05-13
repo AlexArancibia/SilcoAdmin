@@ -10,6 +10,7 @@ import type { Instructor, PagoInstructor, Periodo, TipoReajuste, Disciplina, Est
 import { retencionValor } from "@/utils/const"
 import { useAuthStore } from "@/store/useAuthStore"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { CommentsSection } from "./comment-section"
 
 interface PaymentDetailsProps {
   pagoSeleccionado: PagoInstructor
@@ -393,6 +394,7 @@ export function PaymentDetails({
           </table>
         </CardContent>
       </Card>
+      <CommentsSection pagoId={pagoSeleccionado.id} comentariosIniciales={pagoSeleccionado.comentarios || ""}  />
     </div>
   )
 }

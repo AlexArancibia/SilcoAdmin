@@ -153,8 +153,8 @@ export function calcularPago(clase: Clase, instructorType: CategoriaInstructor, 
 
     // Si es versus, añadir información sobre la división del pago
     if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
-      const montoPorInstructor = montoPago / clase.vsNum
-      detalleCalculo += `\nPago dividido entre ${clase.vsNum} instructores: S/.${montoPago.toFixed(2) * clase.vsNum} ÷ ${clase.vsNum} = S/.${montoPorInstructor.toFixed(2)} por instructor`
+      const montoPorInstructor = montoPago 
+      detalleCalculo += `\nPago dividido entre ${clase.vsNum} instructores: S/.${montoPago  * clase.vsNum} ÷ ${clase.vsNum} = S/.${montoPorInstructor.toFixed(2)} por instructor`
     }
 
     return {

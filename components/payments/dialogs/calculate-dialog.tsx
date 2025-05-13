@@ -1,6 +1,5 @@
 "use client"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog,
@@ -20,8 +19,6 @@ interface CalculateDialogProps {
   periodos: Periodo[]
   selectedPeriodoId: number | null
   setSelectedPeriodoId: (id: number | null) => void
-  calcularBonoEnPeriodo: boolean
-  setCalcularBonoEnPeriodo: (value: boolean) => void
   calcularPagosPeriodo: () => void
 }
 
@@ -31,8 +28,6 @@ export function CalculateDialog({
   periodos,
   selectedPeriodoId,
   setSelectedPeriodoId,
-  calcularBonoEnPeriodo,
-  setCalcularBonoEnPeriodo,
   calcularPagosPeriodo,
 }: CalculateDialogProps) {
   return (
@@ -67,50 +62,13 @@ export function CalculateDialog({
             </Select>
           </div>
 
-          <div className="flex items-center space-x-2 pt-2">
-            <Switch id="calcular-bono" checked={calcularBonoEnPeriodo} onCheckedChange={setCalcularBonoEnPeriodo} />
-            <Label htmlFor="calcular-bono" className="cursor-pointer">
-              Calcular bonos en este periodo
-            </Label>
+          <div className="bg-muted/20 p-3 rounded-md text-sm">
+            <p className="font-medium">Nota importante:</p>
+            <p className="mt-1">
+              Este proceso solo calculará los pagos base. Para calcular bonos, utilice el botón "Calcular Bonos" en la
+              barra de herramientas.
+            </p>
           </div>
-
-          {selectedPeriodoId && (
-            <div className="bg-muted/20 p-3 rounded-md text-sm">
-              <p className="font-medium">Información de bonos:</p>
-              {periodos.find((p) => p.id === selectedPeriodoId)?.bonoCalculado ? (
-                <p className="text-green-600 mt-1">✓ Ya se han calculado bonos para este periodo</p>
-              ) : (
-                <p className="text-amber-600 mt-1">⚠️ No se han calculado bonos para este periodo</p>
-              )}
-              <p className="mt-2 text-muted-foreground">
-                Último periodo con bonos calculados:{" "}
-                {periodos.filter((p) => p.bonoCalculado).sort((a, b) => b.id - a.id)[0]
-                  ? `Periodo ${periodos.filter((p) => p.bonoCalculado).sort((a, b) => b.id - a.id)[0].numero} - ${periodos.filter((p) => p.bonoCalculado).sort((a, b) => b.id - a.id)[0].año}`
-                  : "Ninguno"}
-              </p>
-
-              {/* Add information about accumulated bonuses */}
-              {calcularBonoEnPeriodo && selectedPeriodoId && (
-                <div className="mt-2 text-blue-600">
-                  <p className="font-medium">Acumulación de bonos:</p>
-                  <p className="text-xs mt-1">
-                    Se incluirán bonos acumulados de periodos anteriores donde se calcularon pero no se pagaron.
-                  </p>
-                  {periodos.filter((p) => p.id < selectedPeriodoId && p.bonoCalculado === true).length > 0 ? (
-                    <p className="text-xs mt-1">
-                      Periodos con bonos pendientes:{" "}
-                      {periodos
-                        .filter((p) => p.id < selectedPeriodoId && p.bonoCalculado === true)
-                        .map((p) => `${p.numero}-${p.año}`)
-                        .join(", ")}
-                    </p>
-                  ) : (
-                    <p className="text-xs mt-1">No hay bonos pendientes de periodos anteriores.</p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         <AlertDialogFooter>
