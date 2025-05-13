@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
- 
+
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePagosData } from "@/hooks/use-pagos-data"
 import { useFilters } from "@/hooks/use-filters"
@@ -14,12 +14,14 @@ import { Pagination } from "@/components/payments/pagination"
 import { CalculateDialog } from "@/components/payments/dialogs/calculate-dialog"
 import { ProcessLogsDialog } from "@/components/payments/dialogs/process-logs-dialog"
 import { FormulaDuplicationDialog } from "@/components/payments/dialogs/formula-duplication-dialog"
+import { CalculateBonosDialog } from "@/components/payments/dialogs/calculate-bonos-dialog"
 import { DashboardShell } from "@/components/dashboard/shell"
 
 export default function PagosPage() {
   // State for dialogs
   const [showCalculateDialog, setShowCalculateDialog] = useState<boolean>(false)
   const [showProcessLogsDialog, setShowProcessLogsDialog] = useState<boolean>(false)
+  const [showCalculateBonosDialog, setShowCalculateBonosDialog] = useState<boolean>(false)
 
   // Custom hooks
   const {
@@ -66,6 +68,14 @@ export default function PagosPage() {
     periodoOrigenFormulas,
     isDuplicatingFormulas,
     handleDuplicateFormulas,
+    // Nuevas propiedades para el cálculo de bonos
+    isCalculatingBonuses,
+    periodosSeleccionadosParaBono,
+    setPeriodosSeleccionadosParaBono,
+    verificarBonoCalculado,
+    obtenerPeriodosDisponiblesParaBono,
+    togglePeriodoParaBono,
+    calcularBonosPeriodo,
   } = useCalculation(setShowProcessLogsDialog, setShowCalculateDialog)
 
   // Create wrapper functions for PDF exports
@@ -86,14 +96,24 @@ export default function PagosPage() {
     setShowCalculateDialog(true)
   }
 
+  // Añadir esta función para manejar la apertura del diálogo de cálculo de bonos
+  const handleOpenCalculateBonosDialog = () => {
+    // Si hay un periodo actual y no hay un periodo seleccionado, establecer el periodo actual
+    if (periodoActual && selectedPeriodoId === null) {
+      setSelectedPeriodoId(periodoActual.id)
+    }
+    setShowCalculateBonosDialog(true)
+  }
+
   return (
     <DashboardShell>
       <PageHeader
         periodosSeleccionados={periodosSeleccionados}
         exportarTodosPagosPDF={handleExportTodosPagosPDF}
         imprimirTodosPagosPDF={handleImprimirTodosPagosPDF}
-        isCalculatingPayments={isCalculatingPayments}
+        isCalculatingPayments={isCalculatingPayments || isCalculatingBonuses}
         setShowCalculateDialog={handleOpenCalculateDialog}
+        setShowCalculateBonosDialog={handleOpenCalculateBonosDialog}
       />
 
       <FilterBar
@@ -141,9 +161,21 @@ export default function PagosPage() {
         periodos={periodos}
         selectedPeriodoId={selectedPeriodoId}
         setSelectedPeriodoId={setSelectedPeriodoId}
-        calcularBonoEnPeriodo={calcularBonoEnPeriodo}
-        setCalcularBonoEnPeriodo={setCalcularBonoEnPeriodo}
         calcularPagosPeriodo={calcularPagosPeriodo}
+      />
+
+      <CalculateBonosDialog
+        showCalculateBonosDialog={showCalculateBonosDialog}
+        setShowCalculateBonosDialog={setShowCalculateBonosDialog}
+        periodos={periodos}
+        selectedPeriodoId={selectedPeriodoId}
+        setSelectedPeriodoId={setSelectedPeriodoId}
+        calcularBonosPeriodo={calcularBonosPeriodo}
+        periodosSeleccionadosParaBono={periodosSeleccionadosParaBono}
+        setPeriodosSeleccionadosParaBono={setPeriodosSeleccionadosParaBono}
+        verificarBonoCalculado={verificarBonoCalculado}
+        obtenerPeriodosDisponiblesParaBono={obtenerPeriodosDisponiblesParaBono}
+        togglePeriodoParaBono={togglePeriodoParaBono}
       />
 
       <ProcessLogsDialog

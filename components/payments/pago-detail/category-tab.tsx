@@ -314,7 +314,7 @@ export function CategoryTab({
                       </h4>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Dobleteos:</span>
+                          <span className="text-sm text-muted-foreground">Dobleteos por semana:</span>
                           <Badge
                             variant="outline"
                             className={
