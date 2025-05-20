@@ -17,6 +17,7 @@ import { FormulaDuplicationDialog } from "@/components/payments/dialogs/formula-
 import { CalculateBonosDialog } from "@/components/payments/dialogs/calculate-bonos-dialog"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { exportToExcel } from "@/utils/excel-utils"
+import { PeriodSelector } from "@/components/period-selector"
  
 export default function PagosPage() {
   // State for dialogs
@@ -233,6 +234,7 @@ export default function PagosPage() {
         isDuplicating={isDuplicatingFormulas}
         handleDuplicateFormulas={handleDuplicateFormulas}
       />
+      
     </DashboardShell>
   )
 }
