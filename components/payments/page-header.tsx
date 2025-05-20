@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { CalculatorIcon, FileTextIcon, PrinterIcon, ChevronDown, FileSpreadsheetIcon } from "lucide-react"
 import type { Periodo } from "@/types/schema"
+import { PeriodSelector } from "../period-selector"
 
 interface PageHeaderProps {
   periodosSeleccionados: Periodo[]
@@ -60,6 +61,7 @@ export function PageHeader({
           <CalculatorIcon className="mr-2 h-4 w-4" />
           Calcular Bonos
         </Button>
+        <PeriodSelector />  
         <Button onClick={setShowCalculateDialog} disabled={isCalculatingPayments}>
           <CalculatorIcon className="mr-2 h-4 w-4" />
           Calcular Pagos
