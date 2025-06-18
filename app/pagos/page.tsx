@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { usePagosData } from "@/hooks/use-pagos-data"
@@ -17,8 +17,7 @@ import { FormulaDuplicationDialog } from "@/components/payments/dialogs/formula-
 import { CalculateBonosDialog } from "@/components/payments/dialogs/calculate-bonos-dialog"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { exportToExcel } from "@/utils/excel-utils"
-import { PeriodSelector } from "@/components/period-selector"
- 
+
 export default function PagosPage() {
   // State for dialogs
   const [showCalculateDialog, setShowCalculateDialog] = useState<boolean>(false)
@@ -78,7 +77,24 @@ export default function PagosPage() {
     obtenerPeriodosDisponiblesParaBono,
     togglePeriodoParaBono,
     calcularBonosPeriodo,
+    // Propiedades para categorías manuales
+    selectedInstructorId,
+    setSelectedInstructorId,
+    selectedDisciplinaId,
+    setSelectedDisciplinaId,
+    manualCategoria,
+    setManualCategoria,
+    manualCategorias,
+    setManualCategorias,
+    agregarCategoriaManual,
+    eliminarCategoriaManual,
+    aplicarCategoriasManual,
   } = useCalculation(setShowProcessLogsDialog, setShowCalculateDialog)
+
+  // Establecer disciplina fija como Síclo (ID 1) al iniciar
+  useEffect(() => {
+    setSelectedDisciplinaId(1)
+  }, [setSelectedDisciplinaId])
 
   // Create wrapper functions for PDF exports
   const handleExportTodosPagosPDF = () => {
@@ -204,6 +220,19 @@ export default function PagosPage() {
         selectedPeriodoId={selectedPeriodoId}
         setSelectedPeriodoId={setSelectedPeriodoId}
         calcularPagosPeriodo={calcularPagosPeriodo}
+        // Props para categorías manuales
+        instructores={instructores}
+        selectedInstructorId={selectedInstructorId}
+        setSelectedInstructorId={setSelectedInstructorId}
+        selectedDisciplinaId={selectedDisciplinaId}
+        setSelectedDisciplinaId={setSelectedDisciplinaId}
+        manualCategoria={manualCategoria}
+        setManualCategoria={setManualCategoria}
+        manualCategorias={manualCategorias}
+        agregarCategoriaManual={agregarCategoriaManual}
+        eliminarCategoriaManual={eliminarCategoriaManual}
+        aplicarCategoriasManual={aplicarCategoriasManual}
+        isCalculatingPayments={isCalculatingPayments}
       />
 
       <CalculateBonosDialog
@@ -234,7 +263,6 @@ export default function PagosPage() {
         isDuplicating={isDuplicatingFormulas}
         handleDuplicateFormulas={handleDuplicateFormulas}
       />
-      
     </DashboardShell>
   )
 }
