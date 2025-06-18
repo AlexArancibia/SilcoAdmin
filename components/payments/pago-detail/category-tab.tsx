@@ -422,7 +422,7 @@ export function CategoryTab({
             )
           })}
 
-          {/* Criteria section */}
+          {/* Criteria section - UPDATED: Removed Embajador Senior column */}
           <div className="bg-card p-4 rounded-lg border shadow-sm">
             <h4 className="text-sm font-medium mb-3 text-foreground">Criterios de Cálculo por Disciplina</h4>
 
@@ -460,7 +460,7 @@ export function CategoryTab({
                           </Badge>
                         </div>
 
-                        {/* Criteria section */}
+                        {/* Criteria section - UPDATED: Only show Embajador Junior and Embajador columns */}
                         <div className="overflow-hidden rounded-lg border shadow-sm">
                           <table className="w-full text-sm border-collapse">
                             <thead>
@@ -468,7 +468,6 @@ export function CategoryTab({
                                 <th className="text-left p-3 font-medium text-primary">Criterio</th>
                                 <th className="text-center p-3 font-medium text-primary">Embajador Junior</th>
                                 <th className="text-center p-3 font-medium text-primary">Embajador</th>
-                                <th className="text-center p-3 font-medium text-primary">Embajador Senior</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -494,16 +493,6 @@ export function CategoryTab({
                                 >
                                   ≥ {requisitos.EMBAJADOR.ocupacion}%
                                 </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_SENIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).ocupacion >=
-                                    requisitos.EMBAJADOR_SENIOR.ocupacion
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_SENIOR.ocupacion}%
-                                </td>
                               </tr>
                               <tr className="border-t border-border/30 hover:bg-muted/5">
                                 <td className="p-3 font-medium">Locales en Lima</td>
@@ -526,16 +515,6 @@ export function CategoryTab({
                                   }`}
                                 >
                                   ≥ {requisitos.EMBAJADOR.localesEnLima}
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_SENIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).localesEnLima >=
-                                    requisitos.EMBAJADOR_SENIOR.localesEnLima
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_SENIOR.localesEnLima}
                                 </td>
                               </tr>
                               <tr className="border-t border-border/30 hover:bg-muted/5">
@@ -560,16 +539,6 @@ export function CategoryTab({
                                 >
                                   ≥ {requisitos.EMBAJADOR.clases}
                                 </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_SENIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).clases >=
-                                    requisitos.EMBAJADOR_SENIOR.clases
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_SENIOR.clases}
-                                </td>
                               </tr>
                               <tr className="border-t border-border/30 hover:bg-muted/5">
                                 <td className="p-3 font-medium">Dobleteos</td>
@@ -590,15 +559,6 @@ export function CategoryTab({
                                   }`}
                                 >
                                   ≥ {requisitos.EMBAJADOR.dobleteos}
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_SENIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    (pagoSeleccionado.dobleteos || 0) >= requisitos.EMBAJADOR_SENIOR.dobleteos
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_SENIOR.dobleteos}
                                 </td>
                               </tr>
                               <tr className="border-t border-border/30 hover:bg-muted/5">
@@ -622,16 +582,6 @@ export function CategoryTab({
                                 >
                                   ≥ {requisitos.EMBAJADOR.horariosNoPrime}
                                 </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_SENIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    (pagoSeleccionado.horariosNoPrime || 0) >=
-                                    requisitos.EMBAJADOR_SENIOR.horariosNoPrime
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_SENIOR.horariosNoPrime}
-                                </td>
                               </tr>
                               <tr className="border-t border-border/30 hover:bg-muted/5">
                                 <td className="p-3 font-medium">Participación en Eventos</td>
@@ -654,16 +604,6 @@ export function CategoryTab({
                                 >
                                   {requisitos.EMBAJADOR.participacionEventos ? "Sí" : "No"}
                                 </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_SENIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    !requisitos.EMBAJADOR_SENIOR.participacionEventos ||
-                                    pagoSeleccionado.participacionEventos
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  {requisitos.EMBAJADOR_SENIOR.participacionEventos ? "Sí" : "No"}
-                                </td>
                               </tr>
                               <tr className="border-t border-border/30 hover:bg-muted/5">
                                 <td className="p-3 font-medium">Cumple Lineamientos</td>
@@ -676,13 +616,6 @@ export function CategoryTab({
                                 </td>
                                 <td
                                   className={`p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    pagoSeleccionado.cumpleLineamientos ? "bg-green-50 dark:bg-green-950/20" : ""
-                                  }`}
-                                >
-                                  Requerido
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_SENIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
                                     pagoSeleccionado.cumpleLineamientos ? "bg-green-50 dark:bg-green-950/20" : ""
                                   }`}
                                 >
