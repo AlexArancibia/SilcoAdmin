@@ -1147,19 +1147,33 @@ export function ClassesTab({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          className="bg-primary/20 text-slate-800 dark:text-accent border-primary/30 font-medium"
-                          style={{
-                            backgroundColor: disciplina?.color ? `${disciplina.color}40` : undefined,
-                            borderColor: disciplina?.color ? `${disciplina.color}50` : undefined,
-                          }}
-                        >
-                          {disciplina?.nombre || `Disciplina ${clase.disciplinaId}`}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className="bg-primary/20 text-slate-800 dark:text-accent border-primary/30 font-medium"
+                            style={{
+                              backgroundColor: disciplina?.color ? `${disciplina.color}40` : undefined,
+                              borderColor: disciplina?.color ? `${disciplina.color}50` : undefined,
+                            }}
+                          >
+                            {disciplina?.nombre || `Disciplina ${clase.disciplinaId}`}
+                          </Badge>
+                          {clase.esVersus && clase.vsNum && clase.vsNum > 1 && (
+                            <Badge
+                              variant="secondary"
+                              className="bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/70 text-xs"
+                            >
+                              VS {clase.vsNum}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-left">
-                        <span className={clase.reservasTotales >= clase.lugares ? "text-emerald-600 font-medium pl-4" : "pl-4"}>
+                        <span
+                          className={
+                            clase.reservasTotales >= clase.lugares ? "text-emerald-600 font-medium pl-4" : "pl-4"
+                          }
+                        >
                           {clase.reservasTotales}
                         </span>
                       </TableCell>
@@ -1186,16 +1200,28 @@ export function ClassesTab({
                                       throw new Error("No se encontró fórmula para esta disciplina")
                                     }
 
-                                    // Obtener la categoría del instructor para esta disciplina desde el pago seleccionado
+                                    // Obtener la categoría del instructor para esta disciplina Y periodo desde el pago seleccionado
                                     const categoriaInstructor =
                                       instructores
                                         .find((i) => i.id === pagoSeleccionado.instructorId)
-                                        ?.categorias?.find((c) => c.disciplinaId === clase.disciplinaId)?.categoria ||
-                                      "INSTRUCTOR"
+                                        ?.categorias?.find(
+                                          (c) =>
+                                            c.disciplinaId === clase.disciplinaId &&
+                                            c.periodoId === pagoSeleccionado.periodoId,
+                                        )?.categoria || "INSTRUCTOR"
 
                                     // Usar la función calcularPago con la fórmula correcta
+                                    // NOTA: Para clases versus, usar los datos tal como vienen porque el hook ya los ajustó
+                                    const claseParaCalculo = { ...clase }
+
+                                    // Si es versus, mostrar información adicional pero usar los datos ajustados
+                                    if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
+                                      // El hook ya ajustó reservas y capacidad, solo calculamos normalmente
+                                      // y el resultado será dividido por el hook
+                                    }
+
                                     const resultadoCalculo = calcularPago(
-                                      clase,
+                                      claseParaCalculo,
                                       categoriaInstructor,
                                       formulaParaDisciplina,
                                     )
@@ -1236,6 +1262,16 @@ export function ClassesTab({
                                     return (
                                       <div className="space-y-1">
                                         <p className="font-semibold">Detalle de cálculo:</p>
+                                        {clase.esVersus && clase.vsNum && clase.vsNum > 1 && (
+                                          <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded text-xs border border-purple-200 dark:border-purple-800/50">
+                                            <span className="font-medium text-purple-700 dark:text-purple-300">
+                                              Clase Versus ({clase.vsNum} instructores)
+                                            </span>
+                                            <p className="text-purple-600 dark:text-purple-400 mt-1">
+                                              Los valores mostrados ya están ajustados para el cálculo individual
+                                            </p>
+                                          </div>
+                                        )}
                                         {detalleCalculo.mensaje && (
                                           <p className="text-xs text-muted-foreground">{detalleCalculo.mensaje}</p>
                                         )}

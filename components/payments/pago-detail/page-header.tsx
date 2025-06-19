@@ -53,7 +53,7 @@ export function PageHeader({
                 variant="ghost"
                 size="sm"
                 className="ml-1 h-6 w-6 p-0 rounded-full hover:bg-muted/10"
-                onClick={() => router.push(`/admin/instructores/${instructor.id}`)}
+                onClick={() => router.push(`/instructores/${instructor.id}`)}
                 title="Ver perfil del instructor"
               >
                 <Users className="h-3 w-3" />
