@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useClasesStore } from "@/store/useClasesStore"
+import { useInstructoresStore } from "@/store/useInstructoresStore"
 import type { Clase } from "@/types/schema"
 import { format, addHours } from "date-fns"
 import { es } from "date-fns/locale"
-import { Edit, MoreHorizontal, Trash2, Loader2 } from "lucide-react"
+import { Edit, MoreHorizontal, Trash2, Loader2, UserCheck, UserX, User } from "lucide-react"
 import {
   Pagination,
   PaginationContent,
@@ -26,6 +27,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { EditClassDialog } from "@/components/dialogs/edit-class-dialog"
 import {
   AlertDialog,
@@ -49,7 +57,8 @@ interface ClassesTableProps {
 
 export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, estudio }: ClassesTableProps) {
   const { toast } = useToast()
-  const { clases, isLoading, error, fetchClases, eliminarClase } = useClasesStore()
+  const { clases, isLoading, error, fetchClases, eliminarClase, actualizarClase } = useClasesStore()
+  const { instructores } = useInstructoresStore()
   const [filteredClases, setFilteredClases] = useState<Clase[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [editingClassId, setEditingClassId] = useState<string | null>(null)
@@ -57,17 +66,43 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deletingClassId, setDeletingClassId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [updatingReemplazo, setUpdatingReemplazo] = useState<string | null>(null)
+  const [showReemplazoSelect, setShowReemplazoSelect] = useState<string | null>(null)
   const itemsPerPage = 10
 
   useEffect(() => {
-    fetchClases({ periodoId, instructorId, disciplinaId, semana, estudio })
-  }, [fetchClases, periodoId, instructorId, disciplinaId, semana, estudio])
+    fetchClases()
+  }, [fetchClases])
 
-  // Filtrar las clases en el cliente en lugar de volver a cargarlas
+  // Filtrar las clases según los parámetros recibidos
   useEffect(() => {
-    setFilteredClases([...clases])
+    let filtered = [...clases]
+    
+    if (periodoId) {
+      filtered = filtered.filter(clase => clase.periodoId === periodoId)
+    }
+    
+    if (instructorId) {
+      filtered = filtered.filter(clase => clase.instructorId === instructorId)
+    }
+    
+    if (disciplinaId) {
+      filtered = filtered.filter(clase => clase.disciplinaId === disciplinaId)
+    }
+    
+    if (semana) {
+      filtered = filtered.filter(clase => clase.semana === semana)
+    }
+    
+    if (estudio) {
+      filtered = filtered.filter(clase => 
+        clase.estudio.toLowerCase().includes(estudio.toLowerCase())
+      )
+    }
+    
+    setFilteredClases(filtered)
     setCurrentPage(1) // Reset to first page when filters change
-  }, [clases])
+  }, [clases, periodoId, instructorId, disciplinaId, semana, estudio])
 
   const formatDate = (date: Date) => {
     // Añadir 5 horas para mostrar en la tabla
@@ -121,6 +156,45 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
   const handleDeleteClass = (classId: string) => {
     setDeletingClassId(classId)
     setShowDeleteConfirm(true)
+  }
+
+  const handleInstructorReemplazoChange = async (claseId: string, instructorReemplazoId: string | null) => {
+    setUpdatingReemplazo(claseId)
+    try {
+      const clase = clases.find(c => c.id === claseId)
+      if (!clase) return
+
+      // Crear el objeto de actualización con instructorReemplazoId explícito
+      const updateData = {
+        ...clase,
+        instructorReemplazoId: instructorReemplazoId ? parseInt(instructorReemplazoId) : null
+      }
+
+      console.log('Sending update with instructorReemplazoId:', updateData.instructorReemplazoId)
+
+      await actualizarClase(claseId, updateData)
+
+      toast({
+        title: "Instructor de reemplazo actualizado",
+        description: instructorReemplazoId 
+          ? "Se ha asignado el instructor de reemplazo" 
+          : "Se ha removido el instructor de reemplazo",
+      })
+    } catch (error) {
+      console.error('Error updating instructor reemplazo:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el instructor de reemplazo",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdatingReemplazo(null)
+      setShowReemplazoSelect(null)
+    }
+  }
+
+  const handleRemoveReemplazo = async (claseId: string) => {
+    await handleInstructorReemplazoChange(claseId, null)
   }
 
   const confirmDelete = async () => {
@@ -234,7 +308,89 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
                   <TableCell className="text-xs font-mono text-muted-foreground">{clase.id}</TableCell>
                   <TableCell className="font-medium">{formatDate(clase.fecha)}</TableCell>
                   <TableCell>{formatTime(clase.fecha)}</TableCell>
-                  <TableCell>{clase.instructor?.nombre}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col space-y-2 min-w-[180px]">
+                      {/* Instructor Original */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3 text-gray-500" />
+                          <span className={clase.instructorReemplazoId ? "text-muted-foreground line-through text-sm" : "text-sm font-medium"}>
+                            {clase.instructor?.nombre}
+                          </span>
+                        </div>
+                        {!clase.instructorReemplazoId && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-600"
+                            onClick={() => setShowReemplazoSelect(showReemplazoSelect === clase.id ? null : clase.id)}
+                            title="Asignar reemplazo"
+                          >
+                            <UserCheck className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Instructor de Reemplazo */}
+                      {clase.instructorReemplazoId && clase.instructorReemplazo && (
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <UserCheck className="h-3 w-3 text-green-600" />
+                            <span className="text-green-700 font-medium text-sm">
+                              {clase.instructorReemplazo.nombre}
+                            </span>
+                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                              Reemplazo
+                            </Badge>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
+                            onClick={() => handleRemoveReemplazo(clase.id)}
+                            disabled={updatingReemplazo === clase.id}
+                            title="Remover reemplazo"
+                          >
+                            <UserX className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Select para asignar reemplazo */}
+                      {showReemplazoSelect === clase.id && !clase.instructorReemplazoId && (
+                        <div className="mt-1">
+                          <Select
+                            value=""
+                            onValueChange={(value) => {
+                              handleInstructorReemplazoChange(clase.id, value)
+                            }}
+                            disabled={updatingReemplazo === clase.id}
+                          >
+                            <SelectTrigger className="w-[160px] h-7">
+                              <SelectValue placeholder="Seleccionar..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {instructores
+                                .filter(instructor => instructor.id !== clase.instructorId)
+                                .map((instructor) => (
+                                  <SelectItem key={instructor.id} value={instructor.id.toString()}>
+                                    {instructor.nombre}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Loading indicator */}
+                      {updatingReemplazo === clase.id && (
+                        <div className="flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Actualizando...</span>
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {clase.esVersus && (
                       <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">

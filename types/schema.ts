@@ -147,12 +147,17 @@ export interface Clase {
   // Nuevos campos
   esVersus: boolean
   vsNum?: number
+
+   instructorReemplazoId?: number | null// ID del instructor que cubre la clase
+  tipoPenalizacion? :   string  // Tipo de penalización si aplica
+  puntosPenalizacion? : number
   
   createdAt?: Date
   updatedAt?: Date
 
   // Relaciones
   instructor?: Instructor
+  instructorReemplazo?: Instructor
   disciplina?: Disciplina
   periodo?: Periodo
 }

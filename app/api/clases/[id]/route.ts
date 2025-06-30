@@ -9,6 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       where: { id },
       include: {
         instructor: true,
+        instructorReemplazo: true, // Añadido para incluir el instructor de reemplazo
         disciplina: true,
         periodo: true,
       },
@@ -30,7 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const id = params.id
     const body = await request.json()
 
-    // Parse numeric fields
+    // Parse numeric fields (EXCLUYENDO instructorReemplazoId para manejo especial)
     const numericFields = [
       "disciplinaId",
       "semana",
@@ -41,7 +42,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       "cortesias",
       "lugares",
       "reservasPagadas",
-      "vsNum", // Added new numeric field
+      "vsNum",
+      "puntosPenalizacion"     // Corregido el typo: era "puntosPenalizacon"
     ]
 
     numericFields.forEach((field) => {
@@ -50,6 +52,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       }
     })
 
+    // Manejo especial para instructorReemplazoId - permitir null explícitamente
+    if (body.hasOwnProperty('instructorReemplazoId')) {
+      if (body.instructorReemplazoId === null || body.instructorReemplazoId === undefined || body.instructorReemplazoId === '') {
+        body.instructorReemplazoId = null
+      } else {
+        body.instructorReemplazoId = Number(body.instructorReemplazoId)
+      }
+    }
+
     // Handle boolean fields
     if (body.esVersus !== undefined) {
       body.esVersus = Boolean(body.esVersus)
@@ -57,45 +68,58 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Handle date field
     if (body.fecha) {
-      // Check if fecha is a string in format YYYY-MM-DD
       if (typeof body.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.fecha)) {
         body.fecha = new Date(body.fecha)
       }
-      // Check if fecha is a string in format DD/MM/YYYY
       else if (typeof body.fecha === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(body.fecha)) {
         const [day, month, year] = body.fecha.split("/").map(Number)
         body.fecha = new Date(year, month - 1, day)
       }
-      // If it's already a Date object or ISO string, just use it
       else if (typeof body.fecha === "string") {
         body.fecha = new Date(body.fecha)
       }
     }
 
+    // Preparar los datos para la actualización
+    const updateData: any = {
+      pais: body.pais,
+      ciudad: body.ciudad,
+      disciplinaId: body.disciplinaId,
+      semana: body.semana,
+      estudio: body.estudio,
+      instructorId: body.instructorId,
+      periodoId: body.periodoId,
+      salon: body.salon,
+      reservasTotales: body.reservasTotales,
+      listasEspera: body.listasEspera,
+      cortesias: body.cortesias,
+      lugares: body.lugares,
+      reservasPagadas: body.reservasPagadas,
+      textoEspecial: body.textoEspecial,
+      fecha: body.fecha,
+      esVersus: body.esVersus,
+      vsNum: body.vsNum,
+      tipoPenalizacion: body.tipoPenalizacion,
+      puntosPenalizacion: body.puntosPenalizacion
+    }
+
+    // Solo incluir instructorReemplazoId si está presente en el body
+    if (body.hasOwnProperty('instructorReemplazoId')) {
+      updateData.instructorReemplazoId = body.instructorReemplazoId
+    }
+
+    console.log('Updating class with data:', { 
+      id, 
+      instructorReemplazoId: body.instructorReemplazoId,
+      hasProperty: body.hasOwnProperty('instructorReemplazoId')
+    })
+
     const updatedClase = await prisma.clase.update({
       where: { id },
-      data: {
-        pais: body.pais,
-        ciudad: body.ciudad,
-        disciplinaId: body.disciplinaId,
-        semana: body.semana,
-        estudio: body.estudio,
-        instructorId: body.instructorId,
-        periodoId: body.periodoId,
-        salon: body.salon,
-        reservasTotales: body.reservasTotales,
-        listasEspera: body.listasEspera,
-        cortesias: body.cortesias,
-        lugares: body.lugares,
-        reservasPagadas: body.reservasPagadas,
-        textoEspecial: body.textoEspecial,
-        fecha: body.fecha,
-        // New fields
-        esVersus: body.esVersus,
-        vsNum: body.vsNum,
-      },
+      data: updateData,
       include: {
         instructor: true,
+        instructorReemplazo: true, // Añadido para incluir el instructor de reemplazo
         disciplina: true,
         periodo: true,
       },

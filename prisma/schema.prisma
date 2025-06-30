@@ -44,6 +44,7 @@ model Instructor {
   pagos          PagoInstructor[]
   disciplinas    Disciplina[]
   categorias     CategoriaInstructor[] // Relación para categorías
+  clasesComoReemplazo Clase[] @relation("ClasesReemplazadas")
 }
 
 model Disciplina {
@@ -73,6 +74,8 @@ model Periodo {
   updatedAt   DateTime @updatedAt
   bonoCalculado Boolean? @default(false)
 
+
+  reglasDescuento Json? 
   // Relaciones
   clases     Clase[]
   pagos      PagoInstructor[]
@@ -141,7 +144,9 @@ model Clase {
   reservasPagadas Int       @default(0)
   textoEspecial   String?
   fecha           DateTime
-  
+  instructorReemplazoId Int?  // ID del instructor que cubre la clase
+  tipoPenalizacion    String?  // Tipo de penalización si aplica
+  puntosPenalizacion  Int?
   // Nuevos campos
   esVersus        Boolean   @default(false)
   vsNum           Int?
@@ -153,6 +158,8 @@ model Clase {
   instructor  Instructor @relation(fields: [instructorId], references: [id])
   disciplina  Disciplina @relation(fields: [disciplinaId], references: [id])
   periodo     Periodo    @relation(fields: [periodoId], references: [id])
+
+  instructorReemplazo Instructor? @relation("ClasesReemplazadas", fields: [instructorReemplazoId], references: [id])
 }
 
 model PagoInstructor {
@@ -177,6 +184,11 @@ model PagoInstructor {
   updatedAt           DateTime @updatedAt
   pagoFinal           Float 
   comentarios         String?
+  
+  penalizaciones      Json?    // Array de {tipo: string, puntos: int, fecha: date}
+  totalPuntosPenalizacion Int? @default(0)
+  faltasPermitidas    Float?   @default(0.0) // 10% de clases del periodo
+  montoDescuento      Float?   @default(0.0) // Monto a descontar
   
   // Relaciones
   instructor          Instructor @relation(fields: [instructorId], references: [id])
