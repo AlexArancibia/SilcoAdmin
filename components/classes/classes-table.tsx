@@ -314,73 +314,18 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3 text-gray-500" />
-                          <span className={clase.instructorReemplazoId ? "text-muted-foreground line-through text-sm" : "text-sm font-medium"}>
+                          <span className={ "text-sm font-medium"}>
                             {clase.instructor?.nombre}
                           </span>
                         </div>
-                        {!clase.instructorReemplazoId && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-600"
-                            onClick={() => setShowReemplazoSelect(showReemplazoSelect === clase.id ? null : clase.id)}
-                            title="Asignar reemplazo"
-                          >
-                            <UserCheck className="h-3 w-3" />
-                          </Button>
-                        )}
+                   
                       </div>
 
                       {/* Instructor de Reemplazo */}
-                      {clase.instructorReemplazoId && clase.instructorReemplazo && (
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            <UserCheck className="h-3 w-3 text-green-600" />
-                            <span className="text-green-700 font-medium text-sm">
-                              {clase.instructorReemplazo.nombre}
-                            </span>
-                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                              Reemplazo
-                            </Badge>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 w-5 p-0 text-muted-foreground hover:text-red-600"
-                            onClick={() => handleRemoveReemplazo(clase.id)}
-                            disabled={updatingReemplazo === clase.id}
-                            title="Remover reemplazo"
-                          >
-                            <UserX className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
+                  
 
                       {/* Select para asignar reemplazo */}
-                      {showReemplazoSelect === clase.id && !clase.instructorReemplazoId && (
-                        <div className="mt-1">
-                          <Select
-                            value=""
-                            onValueChange={(value) => {
-                              handleInstructorReemplazoChange(clase.id, value)
-                            }}
-                            disabled={updatingReemplazo === clase.id}
-                          >
-                            <SelectTrigger className="w-[160px] h-7">
-                              <SelectValue placeholder="Seleccionar..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {instructores
-                                .filter(instructor => instructor.id !== clase.instructorId)
-                                .map((instructor) => (
-                                  <SelectItem key={instructor.id} value={instructor.id.toString()}>
-                                    {instructor.nombre}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+                   
 
                       {/* Loading indicator */}
                       {updatingReemplazo === clase.id && (

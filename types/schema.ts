@@ -1,7 +1,7 @@
 export type EstadoPago = "PENDIENTE" | "APROBADO" | "PAGADO" | "CANCELADO"
 export type TipoReajuste = "FIJO" | "PORCENTAJE"
 export type CategoriaInstructor = "INSTRUCTOR" | "EMBAJADOR_JUNIOR" | "EMBAJADOR" | "EMBAJADOR_SENIOR"
-
+export type TipoPenalizacion = "CANCELACION_FIJA" | "CANCELACION_FUERA_TIEMPO"  | "CANCELAR_MENOS_24HRS" | "COVER_DEL_COVER" | "SALIR_TARDE" | "PERSONALIZADA"
 export enum Rol {
   SUPER_ADMIN = "SUPER_ADMIN",
   ADMIN = "ADMIN",
@@ -148,16 +148,12 @@ export interface Clase {
   esVersus: boolean
   vsNum?: number
 
-   instructorReemplazoId?: number | null// ID del instructor que cubre la clase
-  tipoPenalizacion? :   string  // Tipo de penalización si aplica
-  puntosPenalizacion? : number
   
   createdAt?: Date
   updatedAt?: Date
 
   // Relaciones
   instructor?: Instructor
-  instructorReemplazo?: Instructor
   disciplina?: Disciplina
   periodo?: Periodo
 }
@@ -229,6 +225,64 @@ export interface ParametrosPago {
   ajustePorDobleteo?: number
 }
 
+
+export interface Cover {
+  id: number
+  claseId: string
+  periodoId: number
+  instructorReemplazoId: number
+  justificacion: boolean
+  pagoBono: boolean
+  pagoFullHouse: boolean
+  comentarios?: string
+  cambioDeNombre?: string
+  createdAt?: Date
+  updatedAt?: Date
+
+  // Relaciones
+  clase?: Clase
+  periodo?: Periodo
+  instructorReemplazo?: Instructor
+}
+
+// Interface para Penalizacion
+export interface Penalizacion {
+  id: number
+  instructorId: number
+  disciplinaId?: number
+  periodoId: number
+  tipo: TipoPenalizacion
+  puntos: number
+  descripcion?: string
+  activa: boolean
+  aplicadaEn: Date
+  comentarios?: string
+  createdAt?: Date
+  updatedAt?: Date
+
+  // Relaciones
+  instructor?: Instructor
+  disciplina?: Disciplina
+  periodo?: Periodo
+}
+
+// Interface para las reglas de descuento de penalizaciones en Formula
+export interface ReglasDescuentoPenalizacion {
+  umbralPermitido: number // Porcentaje de clases permitidas como umbral
+  basePuntosPorClase: number // Puntos base por clase para calcular umbral
+  reglasDescuento: {
+    porExcesoPuntos: Array<{
+      desde: number
+      hasta: number
+      descuentoPorcentaje: number
+    }>
+  }
+  tiposPenalizacion: Record<TipoPenalizacion, number | "variable">
+}
+
+
+
+
 // Define the FormulaDB interface
 export interface FormulaDB {
   id: number
@@ -236,7 +290,7 @@ export interface FormulaDB {
   periodoId: number
   requisitosCategoria: Record<CategoriaInstructor, RequisitosCategoria>
   parametrosPago: Record<CategoriaInstructor, ParametrosPago>
-
+  reglasDescuentoPenalizacion?: ReglasDescuentoPenalizacion
   createdAt?: Date
   updatedAt?: Date
 

@@ -44,7 +44,10 @@ model Instructor {
   pagos          PagoInstructor[]
   disciplinas    Disciplina[]
   categorias     CategoriaInstructor[] // Relación para categorías
-  clasesComoReemplazo Clase[] @relation("ClasesReemplazadas")
+  
+  // Nuevas relaciones para covers y penalizaciones
+  covers         Cover[]   @relation("InstructorReemplazo")
+  penalizaciones Penalizacion[]
 }
 
 model Disciplina {
@@ -61,6 +64,8 @@ model Disciplina {
   formulas    Formula[]
   instructores Instructor[]
   categorias  CategoriaInstructor[] // Relación para categorías
+  covers      Cover[]
+  penalizaciones Penalizacion[]
 }
 
 model Periodo {
@@ -74,13 +79,14 @@ model Periodo {
   updatedAt   DateTime @updatedAt
   bonoCalculado Boolean? @default(false)
 
-
   reglasDescuento Json? 
   // Relaciones
   clases     Clase[]
   pagos      PagoInstructor[]
   formulas   Formula[]
   categorias CategoriaInstructor[] // Relación para categorías
+  covers     Cover[]
+  penalizaciones Penalizacion[]
 }
 
 model Formula {
@@ -92,6 +98,30 @@ model Formula {
   requisitosCategoria Json // Almacena los requisitos para cada categoría (Instructor, Embajador Junior, etc.)
   // Parámetros de pago por categoría
   parametrosPago Json // Almacena los parámetros de pago para cada categoría (mínimo garantizado, tarifas, máximo)
+  
+  // Configuración de penalizaciones y descuentos
+  reglasDescuentoPenalizacion Json? // Almacena: umbral de puntos permitidos (%), reglas de descuento por exceso, escalas de penalización, etc.
+  /* Ejemplo de estructura JSON:
+  {
+    "umbralPermitido": 10, // 10% de clases permitidas como umbral
+    "basePuntosPorClase": 2, // Puntos base por clase para calcular umbral
+    "reglasDescuento": {
+      "porExcesoPuntos": [
+        { "desde": 0, "hasta": 5, "descuentoPorcentaje": 0 },
+        { "desde": 6, "hasta": 10, "descuentoPorcentaje": 5 },
+        { "desde": 11, "hasta": 20, "descuentoPorcentaje": 10 }
+      ]
+    },
+    "tiposPenalizacion": {
+      "CANCELACION_FIJA": 2,
+      "CANCELACION_FUERA_TIEMPO": 2,
+      "CANCELAR_MENOS_24HRS": 2,
+      "COVER_DEL_COVER": 2,
+      "SALIR_TARDE": 2,
+      "PERSONALIZADA": "variable"
+    }
+  }
+  */
   
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -158,8 +188,56 @@ model Clase {
   instructor  Instructor @relation(fields: [instructorId], references: [id])
   disciplina  Disciplina @relation(fields: [disciplinaId], references: [id])
   periodo     Periodo    @relation(fields: [periodoId], references: [id])
+  covers      Cover[]    // Una clase puede tener múltiples covers
+}
 
-  instructorReemplazo Instructor? @relation("ClasesReemplazadas", fields: [instructorReemplazoId], references: [id])
+// Nueva tabla para manejar los covers
+model Cover {
+  id                    Int      @id @default(autoincrement())
+  claseId               String   // ID de la clase que está siendo cubierta
+  periodoId             Int      // Periodo al que pertenece
+  instructorReemplazoId Int      // Instructor que hace el cover
+  justificacion         Boolean  @default(false)
+  pagoBono              Boolean  @default(false)
+  pagoFullHouse         Boolean  @default(false)
+  comentarios           String?
+  cambioDeNombre        String?
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relaciones
+  clase             Clase      @relation(fields: [claseId], references: [id])
+  periodo           Periodo    @relation(fields: [periodoId], references: [id])
+  instructorReemplazo Instructor @relation("InstructorReemplazo", fields: [instructorReemplazoId], references: [id])
+
+  Disciplina Disciplina[]
+}
+
+// Nueva tabla para el sistema de penalizaciones
+model Penalizacion {
+  id           Int      @id @default(autoincrement())
+  instructorId Int      // Instructor penalizado
+  disciplinaId Int?     // Disciplina relacionada (opcional)
+  periodoId    Int      // Periodo al que pertenece
+  
+  // Tipos de penalización según tu imagen
+  tipo         String   // CANCELACION_FIJA, CANCELACION_FUERA_TIEMPO, CANCELAR_MENOS_24HRS, COVER_DEL_COVER, SALIR_TARDE, PERSONALIZADA
+  puntos       Int      // Puntos de penalización
+  descripcion  String?  // Descripción adicional
+  
+  // Campos adicionales para flexibilidad
+  activa       Boolean  @default(true)
+  aplicadaEn   DateTime @default(now()) // Fecha en que se aplicó la penalización
+  comentarios  String?  // Comentarios adicionales
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  instructor Instructor  @relation(fields: [instructorId], references: [id])
+  disciplina Disciplina? @relation(fields: [disciplinaId], references: [id])
+  periodo    Periodo     @relation(fields: [periodoId], references: [id])
 }
 
 model PagoInstructor {
@@ -185,10 +263,6 @@ model PagoInstructor {
   pagoFinal           Float 
   comentarios         String?
   
-  penalizaciones      Json?    // Array de {tipo: string, puntos: int, fecha: date}
-  totalPuntosPenalizacion Int? @default(0)
-  faltasPermitidas    Float?   @default(0.0) // 10% de clases del periodo
-  montoDescuento      Float?   @default(0.0) // Monto a descontar
   
   // Relaciones
   instructor          Instructor @relation(fields: [instructorId], references: [id])

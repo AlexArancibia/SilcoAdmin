@@ -9,7 +9,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       where: { id },
       include: {
         instructor: true,
-        instructorReemplazo: true, // Añadido para incluir el instructor de reemplazo
         disciplina: true,
         periodo: true,
       },
@@ -119,7 +118,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       data: updateData,
       include: {
         instructor: true,
-        instructorReemplazo: true, // Añadido para incluir el instructor de reemplazo
         disciplina: true,
         periodo: true,
       },

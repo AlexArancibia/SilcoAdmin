@@ -20,6 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             periodo: true,
           },
         },
+        penalizaciones:true,
+        covers:true
       },
     })
 

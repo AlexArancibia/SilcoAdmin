@@ -15,7 +15,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { CalendarDays, LogOut, Calculator, Home, User, CreditCard, Sliders, File } from "lucide-react"
+import { CalendarDays, LogOut, Calculator, Home, User, CreditCard, Sliders, File, ShieldAlert, UserCog } from "lucide-react"
 import { useAuthStore } from "@/store/useAuthStore"
 import { usePagosStore } from "@/store/usePagosStore"
 import { useRouter, usePathname } from "next/navigation"
@@ -31,6 +31,8 @@ const protectedRoutes = {
   "/pagos": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
   "/instructores": [...Object.values(Rol), "instructor"],
   "/clases": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
+  "/covers": [Rol.SUPER_ADMIN, Rol.ADMIN],
+  "/penalizaciones": [Rol.SUPER_ADMIN, Rol.ADMIN],
 }
 
 export function AppSidebar() {
@@ -51,32 +53,19 @@ export function AppSidebar() {
           .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
       : []
 
-  // Añadir un nuevo estado para controlar si la autenticación está siendo verificada
-  // Añade esto justo después de las declaraciones de los hooks al inicio del componente
   const [isAuthChecking, setIsAuthChecking] = useState(true)
 
-  // Modifica el useEffect para manejar correctamente las redirecciones
-  // Reemplaza el useEffect existente con este:
   useEffect(() => {
-    // Verificar si el estado de autenticación ya ha sido cargado
     const checkAuth = async () => {
-      // Aquí puedes añadir cualquier lógica adicional para verificar la autenticación
-      // Por ejemplo, verificar un token en localStorage o hacer una petición al servidor
-
       console.log("Verificando autenticación...", { isAuthenticated, pathname })
-
-      // Simular un pequeño retraso para asegurar que otros estados se han cargado
       await new Promise((resolve) => setTimeout(resolve, 100))
-
       setIsAuthChecking(false)
     }
 
     checkAuth()
   }, [])
 
-  // Modificar el useEffect existente para las redirecciones
   useEffect(() => {
-    // No hacer nada mientras se está verificando la autenticación
     if (isAuthChecking) {
       console.log("Aún verificando autenticación, evitando redirecciones")
       return
@@ -84,7 +73,6 @@ export function AppSidebar() {
 
     console.log("Estado de autenticación verificado:", { isAuthenticated, pathname })
 
-    // Si no está autenticado, redirigir a login
     if (!isAuthenticated) {
       if (pathname !== "/login") {
         console.log("No autenticado, redirigiendo a login")
@@ -93,22 +81,19 @@ export function AppSidebar() {
       return
     }
 
-    // Si está autenticado y está en la página de login, redirigir según rol
     if (isAuthenticated && pathname === "/login") {
       if (userType === "instructor") {
         console.log("Autenticado como instructor, redirigiendo a perfil")
         router.push(`/instructores/${user?.id}`)
       } else {
         console.log("Autenticado como admin, redirigiendo a home")
-        router.push("/") // Redirigir a home para otros roles
+        router.push("/")
       }
       return
     }
 
-    // Si es instructor pero no está en su perfil o pagos, redirigir
     if (userType === "instructor") {
       const allowedPaths = [`/instructores/${user?.id}`, ...pagosInstructor.map((pago) => `/pagos/${pago.id}`)]
-
       if (!allowedPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
         console.log("Instructor en ruta no permitida, redirigiendo a perfil")
         router.push(`/instructores/${user?.id}`)
@@ -116,10 +101,6 @@ export function AppSidebar() {
     }
   }, [pathname, isAuthenticated, userType, user?.id, router, pagosInstructor, isAuthChecking])
 
-  // Modificar la condición de renderizado para incluir el estado de verificación
-  // Reemplaza la línea:
-  // if (!isAuthenticated || !user) return null
-  // Con:
   if (isAuthChecking) {
     console.log("Renderizando estado de carga mientras se verifica autenticación")
     return (
@@ -145,13 +126,9 @@ export function AppSidebar() {
 
   const isActive = (path: string) => {
     console.log(`Checking if path ${path} is active. Current pathname: ${pathname}`)
-
-    // Caso especial para el Panel de Control (ruta exacta "/")
     if (path === "/") {
       return pathname === "/"
     }
-
-    // Para las demás rutas, mantener el comportamiento original
     return pathname.startsWith(path)
   }
 
@@ -198,7 +175,6 @@ export function AppSidebar() {
         {isInstructor() ? (
           <SidebarGroup>
             <SidebarMenu>
-              {/* Item de perfil - Siempre visible */}
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
@@ -213,7 +189,6 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              {/* Sección de pagos - Solo si existen */}
               {pagosInstructor.length > 0 && (
                 <>
                   <Separator className="my-2 bg-white/20" />
@@ -238,7 +213,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroup>
         ) : (
-          // Vista para administradores y otros roles
           <>
             <SidebarGroup>
               <SidebarGroupLabel className="text-xs font-semibold text-white/70">GESTIÓN</SidebarGroupLabel>
@@ -250,7 +224,6 @@ export function AppSidebar() {
                       tooltip="Panel de Control"
                       isActive={isActive("/")}
                       className={claseitem}
-                      onClick={() => console.log("Panel de Control clicked, active state:", pathname === "/")}
                     >
                       <Link href="/">
                         <Home className="h-5 w-5" />
@@ -325,11 +298,38 @@ export function AppSidebar() {
               </SidebarGroupContent>
             </SidebarGroup>
 
+            {/* New Group for Covers and Penalizaciones */}
             {(isAdmin() || isSuperAdmin()) && (
               <SidebarGroup>
                 <SidebarGroupLabel className="text-xs font-semibold text-white/70">ADMINISTRACIÓN</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Covers"
+                        isActive={isActive("/covers")}
+                        className={claseitem}
+                      >
+                        <Link href="/covers">
+                          <UserCog className="h-5 w-5" />
+                          <span>Covers</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        tooltip="Penalizaciones"
+                        isActive={isActive("/penalizaciones")}
+                        className={claseitem}
+                      >
+                        <Link href="/penalizaciones">
+                          <ShieldAlert className="h-5 w-5" />
+                          <span>Penalizaciones</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                     <SidebarMenuItem>
                       <SidebarMenuButton
                         asChild
