@@ -44,6 +44,7 @@ import {
 // CategoryChangeDialog component
 import { mostrarCategoriaVisual } from "@/utils/config"
 import { DashboardShell } from "@/components/dashboard/shell"
+import { PenalizacionesCoversTab } from "@/components/payments/pago-detail/penalizacion-cover-tab"
 
 interface CategoryChangeDialogProps {
   showCategoriaDialog: boolean
@@ -938,10 +939,26 @@ export default function PagoDetallePage() {
               >
                 <div className="flex items-center">
                   <FileText className="h-4 w-4 mr-2" />
-                  Detalles del Pago
+                  Resumen del Pago
                 </div>
                 {activeTab === "detalles" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary"></div>}
               </button>
+
+
+              <button
+                onClick={() => setActiveTab("penalizacionycover")}
+                className={`px-4 py-2 font-medium text-sm transition-colors relative ${
+                  activeTab === "penalizacionycover" ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <div className="flex items-center">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Detalles del pago
+                </div>
+                {activeTab === "penalizacionycover" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary"></div>}
+              </button>
+
+
               <button
                 onClick={() => setActiveTab("clases")}
                 className={`px-4 py-2 font-medium text-sm transition-colors relative ${
@@ -999,6 +1016,7 @@ export default function PagoDetallePage() {
                 clasesInstructor={clasesInstructor}
                 totalReservas={totalReservas}
                 totalCapacidad={totalCapacidad}
+                coversInstructor={instructor.covers}
               />
             )}
 
@@ -1036,7 +1054,13 @@ export default function PagoDetallePage() {
                 cumpleRequisito={cumpleRequisito}
               />
             )}
-          </div>
+
+            {activeTab === "penalizacionycover" && (
+            <PenalizacionesCoversTab
+              detalles = {pagoSeleccionado.detalles}
+            />
+          )}
+                  </div>
         </CardContent>
       </Card>
 

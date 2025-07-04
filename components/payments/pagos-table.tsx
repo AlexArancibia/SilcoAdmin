@@ -71,8 +71,14 @@ export function PagosTable({
   const calcularMontoFinal = (pago: PagoInstructor): number => {
     const bono = pago.bono || 0
     const reajusteCalculado = pago.tipoReajuste === "PORCENTAJE" ? (pago.monto * pago.reajuste) / 100 : pago.reajuste
-    const montoAjustado = pago.monto + reajusteCalculado + bono
-    return montoAjustado - pago.retencion
+    const penalizacion = pago.penalizacion || 0
+    const cover = pago.cover || 0
+    
+    // Calculamos el monto ajustado con todos los factores
+    const montoAjustado = pago.monto + reajusteCalculado + bono + cover - penalizacion - pago.retencion
+    
+    // Si ya existe un pagoFinal calculado (podría ser manual), lo usamos
+    return pago.pagoFinal !== undefined ? pago.pagoFinal : montoAjustado
   }
 
   const filteredPaginatedPagos = paginatedPagos.filter((pago) => {
@@ -103,6 +109,9 @@ export function PagosTable({
               </Button>
             </TableHead>
             <TableHead className="text-foreground font-medium">Reajuste</TableHead>
+            
+            <TableHead className="text-foreground font-medium">Cover</TableHead>
+            <TableHead className="text-foreground font-medium">Penalización</TableHead>
             <TableHead className="text-foreground font-medium">Retención</TableHead>
             <TableHead className="text-foreground font-medium">Monto Final</TableHead>
             <TableHead className="text-foreground font-medium">
@@ -117,7 +126,7 @@ export function PagosTable({
         <TableBody>
           {filteredPaginatedPagos.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+              <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                 No se encontraron pagos con los filtros seleccionados.
               </TableCell>
             </TableRow>
@@ -126,6 +135,8 @@ export function PagosTable({
               const montoFinal = calcularMontoFinal(pago)
               const isEditing = editandoPagoId === pago.id
               const bono = pago.bono || 0
+              const penalizacion = pago.penalizacion || 0
+              const cover = pago.cover || 0
 
               return (
                 <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
@@ -216,7 +227,14 @@ export function PagosTable({
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className={pago.retencion > 0 ? "text-red-600 " : ""}>
+                  <TableCell className={cover > 0 ? "text-green-600" : ""}>
+                    {cover > 0 ? `+${formatCurrency(cover)}` : "-"}
+                  </TableCell>
+                  <TableCell className={penalizacion > 0 ? "text-red-600" : ""}>
+                    {penalizacion > 0 ? `-${formatCurrency(penalizacion)}` : "-"}
+                  </TableCell>
+                  
+                  <TableCell className={pago.retencion > 0 ? "text-red-600" : ""}>
                     {pago.retencion > 0 ? `-${formatCurrency(pago.retencion)}` : "-"}
                   </TableCell>
                   <TableCell className="font-medium">{formatCurrency(montoFinal)}</TableCell>

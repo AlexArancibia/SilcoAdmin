@@ -15,6 +15,8 @@ export async function GET() {
             periodo: true,
           },
         },
+        penalizaciones:true,
+        covers:true,
       },
     })
     return NextResponse.json(instructors)
@@ -116,6 +118,7 @@ export async function POST(request: NextRequest) {
     const instructor = await prisma.instructor.create({
       data: createData,
       include: {
+        
         disciplinas: true,
         categorias: {
           include: {
@@ -123,6 +126,8 @@ export async function POST(request: NextRequest) {
             periodo: true,
           },
         },
+        penalizaciones:true,
+        covers:true,
       },
     })
 

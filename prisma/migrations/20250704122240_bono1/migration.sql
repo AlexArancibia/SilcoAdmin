@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "PagoInstructor" ADD COLUMN     "cover" DOUBLE PRECISION NOT NULL DEFAULT 0.0;

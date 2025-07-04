@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Check, Edit, Loader2, X, BookOpen, CreditCard, Lock } from "lucide-react"
-import type { Instructor, PagoInstructor, Periodo, TipoReajuste, Disciplina, EstadoPago, Clase } from "@/types/schema"
+import { Check, Edit, Loader2, X, BookOpen, CreditCard, Lock, AlertTriangle, CalendarCheck } from "lucide-react"
+import type { Instructor, PagoInstructor, Periodo, TipoReajuste, Disciplina, EstadoPago, Clase, Cover } from "@/types/schema"
 import { retencionValor } from "@/utils/const"
 import { useAuthStore } from "@/store/useAuthStore"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { CommentsSection } from "./comment-section"
+import { ReactElement, JSXElementConstructor, ReactNode, ReactPortal, Key } from "react"
 
 interface PaymentDetailsProps {
   pagoSeleccionado: PagoInstructor
@@ -31,6 +32,7 @@ interface PaymentDetailsProps {
   clasesInstructor?: Clase[]
   totalReservas?: number
   totalCapacidad?: number
+  coversInstructor?: Cover[]
 }
 
 export function PaymentDetails({
@@ -52,8 +54,8 @@ export function PaymentDetails({
   clasesInstructor = [],
   totalReservas = 0,
   totalCapacidad = 0,
+  coversInstructor = [],
 }: PaymentDetailsProps) {
-  // Obtener el tipo de usuario del store de autenticación
   const userType = useAuthStore((state) => state.userType)
   const isInstructor = userType === "instructor"
 
@@ -78,8 +80,8 @@ export function PaymentDetails({
       // Buscar detalles de pago para esta disciplina
       const montoBase =
         pagoSeleccionado.detalles?.clases
-          .filter((c: { disciplinaId: number }) => c.disciplinaId === Number(disciplinaId))
-          .reduce((sum: any, c: { montoCalculado: any }) => sum + c.montoCalculado, 0) || 0
+          ?.filter((c: { disciplinaId: number }) => c.disciplinaId === Number(disciplinaId))
+          ?.reduce((sum: any, c: { montoCalculado: any }) => sum + c.montoCalculado, 0) || 0
 
       const retencion = montoBase * retencionValor
       const montoFinal = montoBase - retencion
@@ -97,7 +99,7 @@ export function PaymentDetails({
         montoFinal,
       }
     })
-    .sort((a, b) => b.montoBase - a.montoBase) // Ordenar por monto de mayor a menor
+    .sort((a, b) => b.montoBase - a.montoBase)
 
   const getEstadoColor = (estado: EstadoPago): string => {
     switch (estado) {
@@ -110,14 +112,12 @@ export function PaymentDetails({
     }
   }
 
-  // Función para obtener color de ocupación
   const getOcupacionColor = (ocupacion: number) => {
     if (ocupacion >= 80) return "bg-emerald-500"
     if (ocupacion >= 50) return "bg-amber-500"
     return "bg-rose-500"
   }
 
-  // Función para obtener el estilo de texto para ocupación
   const getOcupacionTextColor = (ocupacion: number) => {
     if (ocupacion >= 80) return "text-emerald-600"
     if (ocupacion >= 50) return "text-amber-600"
@@ -135,9 +135,18 @@ export function PaymentDetails({
       ? totalMontoBase * (pagoSeleccionado.reajuste / 100)
       : pagoSeleccionado.reajuste
 
-  // Calcular subtotal y monto final con reajuste y bonos
-  const subtotal = totalMontoBase + montoReajuste + (pagoSeleccionado.bono ?? 0)
-  const montoFinalConReajuste = subtotal - totalRetencion
+  // Calcular covers
+  const coverTotal = pagoSeleccionado.cover || 0
+  const totalCovers = coversInstructor.length
+
+  // Calcular penalización
+  const penalizacionTotal = pagoSeleccionado.penalizacion || 0
+  const penalizacionPorcentaje = pagoSeleccionado.detalles?.penalizaciones?.porcentajeDescuento || 0
+  const puntosPenalizacion = pagoSeleccionado.detalles?.penalizaciones?.totalPuntos || 0
+  const maxPuntosPermitidos = pagoSeleccionado.detalles?.penalizaciones?.maxPuntosPermitidos || 0
+
+  // Calcular subtotal y monto final con reajuste, bonos y covers
+  const subtotal = totalMontoBase + montoReajuste + (pagoSeleccionado.bono ?? 0) + coverTotal - penalizacionTotal
 
   // Total de clases
   const totalClases = pagoSeleccionado.detalles?.resumen?.totalClases || clasesInstructor.length
@@ -157,7 +166,7 @@ export function PaymentDetails({
           </div>
         </CardHeader>
 
-        <CardContent className="p-0" >
+        <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead className="bg-muted/10">
               <tr>
@@ -204,9 +213,7 @@ export function PaymentDetails({
 
               {/* Subtotales por disciplinas */}
               <tr className="bg-muted/10 font-medium border-t-2">
-                <td colSpan={5} className="py-3 px-3 text-right">
-                  {/* <span className="font-medium">Monto Base Total:</span> */}
-                </td>
+                <td colSpan={5} className="py-3 px-3 text-right"></td>
                 <td className="py-3 px-3 text-right font-medium">{formatCurrency(totalMontoBase)}</td>
               </tr>
             </tbody>
@@ -214,7 +221,9 @@ export function PaymentDetails({
         </CardContent>
       </Card>
 
-      {/* CARD 2: Resumen de Pago */}
+ 
+
+      {/* CARD 3: Resumen de Pago */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
           <div className="flex items-center space-x-2">
@@ -240,7 +249,7 @@ export function PaymentDetails({
                 <td className="py-3 px-3">
                   <div className="flex items-center">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">Bono:</span>
+                      <span className="font-medium">Reajuste:</span>
                       {!editandoReajuste && (
                         <Badge variant="outline" className="font-normal">
                           {pagoSeleccionado.tipoReajuste === "PORCENTAJE" ? `${pagoSeleccionado.reajuste}%` : "Fijo"}
@@ -371,30 +380,51 @@ export function PaymentDetails({
                 </tr>
               )}
 
-              {/* Subtotal con Reajustes */}
+              {/* Cover */}
+              {coverTotal > 0 && (
+                <tr className="hover:bg-muted/5">
+                  <td className="py-3 px-3 font-medium">Covers:</td>
+                  <td className="py-3 px-3 text-right">
+                    <div className="font-medium text-emerald-600">+{formatCurrency(coverTotal)}</div>
+                  </td>
+                </tr>
+              )}
+              {/* Penalización */}
+              {penalizacionTotal > 0 && (
+                <tr className="hover:bg-muted/5">
+                  <td className="py-3 px-3 font-medium">Penalización:</td>
+                  <td className="py-3 px-3 text-right">
+                    <div className="font-medium text-rose-600">-{formatCurrency(penalizacionTotal)}</div>
+                  </td>
+                </tr>
+              )}
+              {/* Subtotal con Reajustes, Penalizaciones y Covers */}
               <tr className="bg-muted/5 font-medium">
-                <td className="py-3 px-3 font-medium">Subtotal con Reajustes:</td>
+                <td className="py-3 px-3 font-medium">Subtotal con Reajustes, Penalizaciones y Cover:</td>
                 <td className="py-3 px-3 text-right font-medium">{formatCurrency(subtotal)}</td>
               </tr>
+
+
 
               {/* Retención Total */}
               <tr className="font-medium">
                 <td className="py-3 px-3 font-medium">Retención Total ({retencionValor * 100}%) :</td>
-                <td className="py-3 px-3 text-right font-medium text-rose-600">-{formatCurrency(totalRetencion)}</td>
+                <td className="py-3 px-3 text-right font-medium text-rose-600">-{formatCurrency(pagoSeleccionado.retencion)}</td>
               </tr>
 
               {/* Monto Final */}
               <tr className="bg-primary/5 font-bold border-t-2">
                 <td className="py-4 px-3 text-base font-bold">MONTO FINAL:</td>
                 <td className="py-4 px-3 text-right text-xl text-primary font-bold">
-                  {formatCurrency(montoFinalConReajuste)}
+                  {formatCurrency(pagoSeleccionado.pagoFinal)}
                 </td>
               </tr>
             </tbody>
           </table>
         </CardContent>
       </Card>
-      <CommentsSection pagoId={pagoSeleccionado.id} comentariosIniciales={pagoSeleccionado.comentarios || ""}  />
+      
+      <CommentsSection pagoId={pagoSeleccionado.id} comentariosIniciales={pagoSeleccionado.comentarios || ""} />
     </div>
   )
 }

@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Convertir valores numéricos
-    ["monto", "instructorId", "periodoId", "retencion", "reajuste"].forEach((field) => {
+    ["monto", "instructorId", "periodoId", "retencion", "reajuste","penalizacion","bono","cover"].forEach((field) => {
       if (body[field] !== undefined) {
         body[field] = Number(body[field]);
       }
@@ -75,13 +75,16 @@ export async function POST(request: NextRequest) {
         bono:body.bono,
         detalles: body.detalles || {},
         cumpleLineamientos: body.cumpleLineamientos ?? null,
+        pagoFinal:body.pagoFinal,
         dobleteos: body.dobleteos ?? null,
         horariosNoPrime: body.horariosNoPrime ?? null,
         participacionEventos: body.participacionEventos ?? null,        
         retencion: body.retencion || 0,
         reajuste: body.reajuste || 0,
+        penalizacion: body.penalizacion || 0,
+        cover: body.cover || 0,        
         tipoReajuste: body.tipoReajuste || "FIJO",
-        pagoFinal,
+ 
       },
       include: {
         instructor: true,

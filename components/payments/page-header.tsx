@@ -57,10 +57,10 @@ export function PageHeader({
           <PrinterIcon className="mr-2 h-4 w-4" />
           Imprimir
         </Button>
-        <Button variant="outline" size="sm" onClick={setShowCalculateBonosDialog}>
+        {/* <Button variant="outline" size="sm" onClick={setShowCalculateBonosDialog}>
           <CalculatorIcon className="mr-2 h-4 w-4" />
           Calcular Bonos
-        </Button>
+        </Button> */}
         <PeriodSelector />  
         <Button onClick={setShowCalculateDialog} disabled={isCalculatingPayments}>
           <CalculatorIcon className="mr-2 h-4 w-4" />

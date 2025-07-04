@@ -43,6 +43,8 @@ export interface Instructor {
   pagos?: PagoInstructor[]
   disciplinas?: Disciplina[]
   categorias?: CategoriaInstructorModel[]
+  penalizaciones? : Penalizacion  []
+  covers?: Cover[]
 }
 
 export interface InstructorExtraInfo {
@@ -171,6 +173,8 @@ export interface PagoInstructor {
   participacionEventos?: boolean  
   retencion: number
   reajuste: number
+  cover: number
+  penalizacion:number
   tipoReajuste: TipoReajuste
   bono?: number // Monto del bono
   pagoFinal: number

@@ -32,7 +32,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const monto = body.monto !== undefined ? Number(body.monto) : existingPago.monto;
     const retencion = body.retencion !== undefined ? Number(body.retencion) : existingPago.retencion;
     const reajuste = body.reajuste !== undefined ? Number(body.reajuste) : existingPago.reajuste;
-
+    const penalizacion = body.penalizacion !== undefined ? Number(body.penalizacion) : existingPago.penalizacion;
+    const cover = body.cover !== undefined ? Number(body.cover) : existingPago.cover;
     if (isNaN(monto) || isNaN(retencion) || isNaN(reajuste)) {
       return NextResponse.json({ error: "Los valores deben ser números válidos" }, { status: 400 });
     }
@@ -44,7 +45,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Calcular pagoFinal
-    const pagoFinal = monto - retencion + (body.tipoReajuste === "PORCENTAJE" ? monto * (reajuste / 100) : reajuste);
 
     const updatedPago = await prisma.pagoInstructor.update({
       where: { id },
@@ -52,6 +52,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         monto,
         retencion,
         reajuste,
+        penalizacion,
+        cover,
         bono: body.bono,
         cumpleLineamientos: body.cumpleLineamientos ?? null,
         dobleteos: body.dobleteos ?? null,
@@ -59,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         participacionEventos: body.participacionEventos ?? null,
         tipoReajuste:body.tipoReajuste,
         comentarios:body.comentarios ?? null,      
-        pagoFinal,
+        pagoFinal:body.pagoFinal,
         estado: body.estado || existingPago.estado,
         detalles: body.detalles !== undefined ? body.detalles : existingPago.detalles,
       },

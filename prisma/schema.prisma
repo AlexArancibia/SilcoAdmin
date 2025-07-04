@@ -100,28 +100,6 @@ model Formula {
   parametrosPago Json // Almacena los parámetros de pago para cada categoría (mínimo garantizado, tarifas, máximo)
   
   // Configuración de penalizaciones y descuentos
-  reglasDescuentoPenalizacion Json? // Almacena: umbral de puntos permitidos (%), reglas de descuento por exceso, escalas de penalización, etc.
-  /* Ejemplo de estructura JSON:
-  {
-    "umbralPermitido": 10, // 10% de clases permitidas como umbral
-    "basePuntosPorClase": 2, // Puntos base por clase para calcular umbral
-    "reglasDescuento": {
-      "porExcesoPuntos": [
-        { "desde": 0, "hasta": 5, "descuentoPorcentaje": 0 },
-        { "desde": 6, "hasta": 10, "descuentoPorcentaje": 5 },
-        { "desde": 11, "hasta": 20, "descuentoPorcentaje": 10 }
-      ]
-    },
-    "tiposPenalizacion": {
-      "CANCELACION_FIJA": 2,
-      "CANCELACION_FUERA_TIEMPO": 2,
-      "CANCELAR_MENOS_24HRS": 2,
-      "COVER_DEL_COVER": 2,
-      "SALIR_TARDE": 2,
-      "PERSONALIZADA": "variable"
-    }
-  }
-  */
   
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -255,6 +233,8 @@ model PagoInstructor {
   // Campos actualizados
   retencion           Float    @default(0.0) // Monto retenido
   reajuste            Float    @default(0.0) // Ajuste aplicado al pago
+  penalizacion        Float    @default(0.0)
+  cover               Float    @default(0.0)
   tipoReajuste        String   @default("FIJO") // Puede ser "FIJO" o "PORCENTAJE"
   bono                Float?   // Monto del bono
 

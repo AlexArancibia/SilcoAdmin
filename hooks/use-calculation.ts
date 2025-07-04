@@ -12,7 +12,7 @@ import { calcularPago } from "@/lib/formula-evaluator"
 import { instructoresApi } from "@/lib/api/instructores-api"
 import { retencionValor } from "@/utils/const"
 import { mostrarCategoriaVisual, HORARIOS_NO_PRIME } from "@/utils/config"
-import type { CategoriaInstructor, EstadoPago, FormulaDB, CategoriaInstructorModel, Periodo } from "@/types/schema"
+import type { CategoriaInstructor, EstadoPago, FormulaDB, CategoriaInstructorModel, Periodo, Penalizacion, Clase } from "@/types/schema"
 
 // Función auxiliar para obtener una clave de fecha consistente
 function obtenerClaveFecha(fecha: any): string {
@@ -207,7 +207,40 @@ export function useCalculation(
   // Función para verificar si existen fórmulas para un periodo
   const verificarFormulasExistentes = (periodoId: number): boolean => {
     return formulas.some((f) => f.periodoId === periodoId)
+
+    
   }
+
+
+const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) => {
+  console.log("CALCULO PENALIZACIOM ...")
+  const totalClases = clasesInstructor.length;
+  const maxPuntosPermitidos = Math.floor(totalClases * 0.1); // 10% del total de clases
+  
+  // Detalle completo de cada penalización
+  const detallePenalizaciones = penalizaciones.map(p => ({
+    tipo: p.tipo,
+    puntos: p.puntos,
+    descripcion: p.descripcion || 'Sin descripción',
+    fecha: p.aplicadaEn,
+    disciplina: disciplinas.find(d => d.id === p.disciplinaId)?.nombre || 'General'
+  }));
+
+  const totalPuntos = penalizaciones.reduce((sum, p) => sum + p.puntos, 0);
+  const puntosExcedentes = Math.max(0, totalPuntos - maxPuntosPermitidos);
+  const porcentajeDescuento = puntosExcedentes; // 1 punto = 1% de descuento
+  console.log(porcentajeDescuento)
+
+  return {
+    puntos: totalPuntos,
+    maxPermitidos: maxPuntosPermitidos,
+    excedentes: puntosExcedentes,
+    descuento: porcentajeDescuento,
+    detalle: detallePenalizaciones
+  };
+};
+
+
 
   // Función para encontrar el periodo más cercano con fórmulas
   const encontrarPeriodoConFormulas = (periodoId: number): Periodo | null => {
@@ -804,6 +837,8 @@ export function useCalculation(
           }
         }).length
 
+
+
         // Calcular pago por disciplina
         for (const disciplinaId of disciplinasUnicas) {
           const clasesDisciplina = clasesInstructor.filter((c) => c.disciplinaId === disciplinaId)
@@ -935,14 +970,86 @@ export function useCalculation(
           addProcessLog(`ℹ️ El cálculo de bonos se gestionará con otra función`, instructor.id)
         }
 
-        // Calcular retención y pago final
-        const montoConBono = montoTotal + bonoTotal
-        const retencionCalculada =
-          pagoExistente?.reajuste != null
-            ? (montoConBono + pagoExistente.reajuste) * retencionValor
-            : montoConBono * retencionValor
 
-        const pagoFinal = montoConBono - retencionCalculada
+                // Calculate covers for the instructor
+ 
+          // Obtener penalizaciones del instructor en este periodo
+          const penalizacionesInstructor = instructor.penalizaciones?.filter(p => p.periodoId === periodoId && p.activa) || [];
+
+          // Calcular penalización
+          const { 
+            puntos: totalPuntos, 
+            maxPermitidos, 
+            excedentes, 
+            descuento, 
+            detalle: detallePenalizaciones 
+           } = calcularPenalizacion(clasesInstructor, penalizacionesInstructor);
+          
+
+
+
+
+        // Calcular covers para el instructor - versión mejorada
+          const coversInstructor = instructor.covers?.filter(c => {
+            // Asegurarse que el cover pertenece al periodo correcto
+            return c.periodoId === periodoId && 
+                  // Verificar que no esté marcado como justificado (si aplica)
+                  (c.justificacion !== true); 
+          }) || [];
+
+          const detallesCovers = coversInstructor.map(cover => {
+            const claseCover = clases.find(c => c.id === cover.claseId);
+            const disciplina = claseCover ? disciplinas.find(d => d.id === claseCover.disciplinaId) : null;
+            
+            return {
+              claseId: cover.claseId,
+              fechaClase: claseCover?.fecha || null,
+              disciplinaId: claseCover?.disciplinaId || null,
+              disciplinaNombre: disciplina?.nombre || 'Desconocida',
+              montoCalculado: 80, // Monto fijo por cover
+              detalleCalculo: `Cover realizado para clase de ${disciplina?.nombre || 'desconocida'} el ${claseCover?.fecha ? new Date(claseCover.fecha).toLocaleDateString() : 'fecha desconocida'}`,
+              esCover: true
+            };
+          });
+
+          const coverTotal = coversInstructor.length * 80;
+          console.log("✅ Covers calculados:", {
+            totalCovers: coversInstructor.length,
+            coverTotal,
+            covers: coversInstructor.map(c => ({
+              id: c.id,
+              claseId: c.claseId,
+              justificacion: c.justificacion
+            }))
+          });
+
+          // Calcular subtotal
+          const subtotal = montoTotal + 
+                          (pagoExistente?.reajuste || 0) + 
+                          (pagoExistente?.bono || 0) + 
+                          coverTotal;
+
+          console.log("🧮 Subtotal:", {
+            montoBase: montoTotal,
+            reajuste: pagoExistente?.reajuste || 0,
+            bono: pagoExistente?.bono || 0,
+            cover: coverTotal,
+            subtotal
+          });
+
+          // Resto del cálculo...
+          const penalizacionMonto = subtotal * (descuento / 100);
+          const subtotalConPenalizacion = subtotal - penalizacionMonto;
+          const retencionCalculada = subtotalConPenalizacion * retencionValor;
+          const pagoFinal = subtotalConPenalizacion - retencionCalculada;
+
+          console.log("💰 Pago final calculado:", {
+            subtotal,
+            penalizacion: penalizacionMonto,
+            subtotalConPenalizacion,
+            retencion: retencionCalculada,
+            pagoFinal
+          });
 
         addProcessLog(
           `RESUMEN DE MÉTRICAS:` +
@@ -968,17 +1075,28 @@ export function useCalculation(
               monto: montoTotal,
               bono: bonoTotal,
               estado: pagoExistente.estado,
+              penalizacion: penalizacionMonto,
               retencion: retencionCalculada,
               reajuste: pagoExistente.reajuste,
               tipoReajuste: pagoExistente.tipoReajuste,
               pagoFinal: pagoFinal,
               dobleteos: dobleteos,
+              cover: coverTotal,
               horariosNoPrime: horariosNoPrime / 4,
               participacionEventos: pagoExistente.participacionEventos ?? true, // CAMBIO: true por defecto si es null/undefined
               cumpleLineamientos: pagoExistente.cumpleLineamientos ?? true, // CAMBIO: true por defecto si es null/undefined
               detalles: {
                 clases: detallesClases,
-                resumen: {
+                penalizaciones: {
+                  totalPuntos,
+                  maxPuntosPermitidos: maxPermitidos,
+                  puntosExcedentes: excedentes,
+                  porcentajeDescuento: descuento,
+                  montoDescuento: penalizacionMonto,
+                  detalle: detallePenalizaciones
+                },
+                detallesCovers,
+              resumen: {
                   totalClases: detallesClases.length,
                   totalMonto: montoTotal,
                   bono: bonoTotal,
@@ -1030,10 +1148,21 @@ export function useCalculation(
               tipoReajuste: "FIJO" as const,
               pagoFinal: pagoFinal,
               dobleteos: dobleteos,
+              cover: coverTotal,
+              penalizacion: penalizacionMonto,
               horariosNoPrime: horariosNoPrime / 4,
               participacionEventos: true, // CAMBIO: true por defecto
               cumpleLineamientos: true, // CAMBIO: true por defecto
               detalles: {
+                penalizaciones: {
+                  totalPuntos,
+                  maxPuntosPermitidos: maxPermitidos,
+                  puntosExcedentes: excedentes,
+                  porcentajeDescuento: descuento,
+                  montoDescuento: penalizacionMonto,
+                  detalle: detallePenalizaciones
+                },
+                detallesCovers,
                 clases: detallesClases,
                 resumen: {
                   totalClases: detallesClases.length,
