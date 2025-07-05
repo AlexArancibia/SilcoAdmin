@@ -46,7 +46,7 @@ export function PagosTable({
   // Helper functions
   const getNombrePeriodo = (periodoId: number): string => {
     const periodo = periodosSeleccionados.find((p) => p.id === periodoId)
-    return periodo ? `Periodo ${periodo.numero} - ${periodo.año}` : `Periodo ${periodoId}`
+    return periodo ? `${periodo.numero}-${periodo.año}` : `${periodoId}`
   }
 
   const formatCurrency = (amount: number): string => {
@@ -74,10 +74,7 @@ export function PagosTable({
     const penalizacion = pago.penalizacion || 0
     const cover = pago.cover || 0
     
-    // Calculamos el monto ajustado con todos los factores
     const montoAjustado = pago.monto + reajusteCalculado + bono + cover - penalizacion - pago.retencion
-    
-    // Si ya existe un pagoFinal calculado (podría ser manual), lo usamos
     return pago.pagoFinal !== undefined ? pago.pagoFinal : montoAjustado
   }
 
@@ -87,197 +84,170 @@ export function PagosTable({
 
   return (
     <div className="rounded-lg border shadow-sm overflow-hidden">
-      <Table>
-        <TableHeader className="bg-muted/30">
-          <TableRow>
-            <TableHead className="text-foreground font-medium">
-              <Button variant="ghost" onClick={() => requestSort("instructorId")} className="text-foreground group">
-                Instructor
-                <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-              </Button>
-            </TableHead>
-            <TableHead className="text-foreground font-medium">
-              <Button variant="ghost" onClick={() => requestSort("periodoId")} className="text-foreground group">
-                Periodo
-                <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-              </Button>
-            </TableHead>
-            <TableHead className="text-foreground font-medium">
-              <Button variant="ghost" onClick={() => requestSort("monto")} className="text-foreground group">
-                Monto Base
-                <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-              </Button>
-            </TableHead>
-            <TableHead className="text-foreground font-medium">Reajuste</TableHead>
-            
-            <TableHead className="text-foreground font-medium">Cover</TableHead>
-            <TableHead className="text-foreground font-medium">Penalización</TableHead>
-            <TableHead className="text-foreground font-medium">Retención</TableHead>
-            <TableHead className="text-foreground font-medium">Monto Final</TableHead>
-            <TableHead className="text-foreground font-medium">
-              <Button variant="ghost" onClick={() => requestSort("estado")} className="text-primary group">
-                Estado
-                <ArrowUpDown className="ml-2 h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-              </Button>
-            </TableHead>
-            <TableHead className="text-right text-foreground font-medium">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredPaginatedPagos.length === 0 ? (
+      <div className="overflow-x-auto">
+        <Table className="min-w-[800px]">
+          <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
-                No se encontraron pagos con los filtros seleccionados.
-              </TableCell>
+              <TableHead className="text-foreground font-medium">
+                <Button variant="ghost" onClick={() => requestSort("instructorId")} className="text-foreground group">
+                  Instructor
+                  <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-foreground font-medium">
+                <Button variant="ghost" onClick={() => requestSort("periodoId")} className="text-foreground group">
+                  Periodo
+                  <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-foreground font-medium">
+                <Button variant="ghost" onClick={() => requestSort("monto")} className="text-foreground group">
+                  Monto
+                  <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-foreground font-medium">Reajuste</TableHead>
+              <TableHead className="text-foreground font-medium">Final</TableHead>
+              <TableHead className="text-foreground font-medium">
+                <Button variant="ghost" onClick={() => requestSort("estado")} className="text-primary group">
+                  Estado
+                  <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-right text-foreground font-medium">Acciones</TableHead>
             </TableRow>
-          ) : (
-            filteredPaginatedPagos.map((pago) => {
-              const montoFinal = calcularMontoFinal(pago)
-              const isEditing = editandoPagoId === pago.id
-              const bono = pago.bono || 0
-              const penalizacion = pago.penalizacion || 0
-              const cover = pago.cover || 0
+          </TableHeader>
+          <TableBody>
+            {filteredPaginatedPagos.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  No se encontraron pagos
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredPaginatedPagos.map((pago) => {
+                const montoFinal = calcularMontoFinal(pago)
+                const isEditing = editandoPagoId === pago.id
+                const bono = pago.bono || 0
+                const penalizacion = pago.penalizacion || 0
+                const cover = pago.cover || 0
 
-              return (
-                <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
-                  <TableCell>
-                    <InstructorWithCategory
-                      instructorId={pago.instructorId}
-                      periodoId={pago.periodoId}
-                      instructores={instructores}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-primary/60" />
-                      {getNombrePeriodo(pago.periodoId)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {formatCurrency(pago.monto)}
-                      {bono > 0 && (
-                        <Badge
-                          variant="outline"
-                          className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                          title={`Bono: ${formatCurrency(bono)}`}
-                        >
-                          +{formatCurrency(bono)}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <ReajusteEditor
-                        nuevoReajuste={nuevoReajuste}
-                        setNuevoReajuste={setNuevoReajuste}
-                        tipoReajuste={tipoReajuste}
-                        setTipoReajuste={setTipoReajuste}
-                        isActualizandoReajuste={isActualizandoReajuste}
-                        pagoId={pago.id}
-                        actualizarReajuste={actualizarReajuste}
-                        cancelarEdicionReajuste={cancelarEdicionReajuste}
+                return (
+                  <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
+                    <TableCell>
+                      <InstructorWithCategory
+                        instructorId={pago.instructorId}
+                        periodoId={pago.periodoId}
+                        instructores={instructores}
                       />
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        {pago.reajuste > 0 ? (
-                          <div className="flex items-center gap-1">
-                            <span className="text-green-600">
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-primary/60" />
+                        <span>{getNombrePeriodo(pago.periodoId)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span>{formatCurrency(pago.monto)}</span>
+                        {bono > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="mt-1 w-fit bg-green-50 text-green-700 border-green-200 hover:bg-green-100 text-xs"
+                          >
+                            +{formatCurrency(bono)}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <ReajusteEditor
+                          nuevoReajuste={nuevoReajuste}
+                          setNuevoReajuste={setNuevoReajuste}
+                          tipoReajuste={tipoReajuste}
+                          setTipoReajuste={setTipoReajuste}
+                          isActualizandoReajuste={isActualizandoReajuste}
+                          pagoId={pago.id}
+                          actualizarReajuste={actualizarReajuste}
+                          cancelarEdicionReajuste={cancelarEdicionReajuste}
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          {pago.reajuste > 0 ? (
+                            <span className="text-green-600 text-sm">
                               {pago.tipoReajuste === "PORCENTAJE"
                                 ? `+${pago.reajuste}%`
                                 : `+${formatCurrency(pago.reajuste)}`}
                             </span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0"
-                              onClick={() => iniciarEdicionReajuste(pago)}
-                            >
-                              <FileText className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : pago.reajuste < 0 ? (
-                          <div className="flex items-center gap-1">
-                            <span className="text-red-600">
+                          ) : pago.reajuste < 0 ? (
+                            <span className="text-red-600 text-sm">
                               {pago.tipoReajuste === "PORCENTAJE" ? `${pago.reajuste}%` : formatCurrency(pago.reajuste)}
                             </span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0"
-                              onClick={() => iniciarEdicionReajuste(pago)}
-                            >
-                              <FileText className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">-</span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0"
-                              onClick={() => iniciarEdicionReajuste(pago)}
-                            >
-                              <FileText className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className={cover > 0 ? "text-green-600" : ""}>
-                    {cover > 0 ? `+${formatCurrency(cover)}` : "-"}
-                  </TableCell>
-                  <TableCell className={penalizacion > 0 ? "text-red-600" : ""}>
-                    {penalizacion > 0 ? `-${formatCurrency(penalizacion)}` : "-"}
-                  </TableCell>
-                  
-                  <TableCell className={pago.retencion > 0 ? "text-red-600" : ""}>
-                    {pago.retencion > 0 ? `-${formatCurrency(pago.retencion)}` : "-"}
-                  </TableCell>
-                  <TableCell className="font-medium">{formatCurrency(montoFinal)}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={getEstadoColor(pago.estado)}>
-                      {pago.estado}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <Download className="h-4 w-4" />
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 w-5 p-0"
+                            onClick={() => iniciarEdicionReajuste(pago)}
+                          >
+                            <FileText className="h-3 w-3" />
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => exportarPagoPDF(pago.id)}>
-                            <FileText className="mr-2 h-4 w-4" />
-                            Exportar a PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer" onClick={() => imprimirPagoPDF(pago.id)}>
-                            <Printer className="mr-2 h-4 w-4" />
-                            Imprimir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.push(`/pagos/${pago.id}`)}
-                        className="h-8 w-8 p-0 hover:bg-muted/50"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })
-          )}
-        </TableBody>
-      </Table>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium text-sm">
+                      {formatCurrency(montoFinal)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-xs ${getEstadoColor(pago.estado)}`}>
+                        {pago.estado === "APROBADO" ? "APR" : "PEN"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                              <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="min-w-[150px]">
+                            <DropdownMenuItem 
+                              className="cursor-pointer text-sm"
+                              onClick={() => exportarPagoPDF(pago.id)}
+                            >
+                              <FileText className="mr-2 h-3 w-3" />
+                              Exportar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="cursor-pointer text-sm"
+                              onClick={() => imprimirPagoPDF(pago.id)}
+                            >
+                              <Printer className="mr-2 h-3 w-3" />
+                              Imprimir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/pagos/${pago.id}`)}
+                          className="h-7 w-7 p-0 hover:bg-muted/50"
+                        >
+                          <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }

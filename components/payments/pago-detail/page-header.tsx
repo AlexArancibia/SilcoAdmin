@@ -29,30 +29,38 @@ export function PageHeader({
   router,
 }: PageHeaderProps) {
   return (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-card rounded-lg p-4 shadow-sm border">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-card rounded-lg p-3 sm:p-4 shadow-sm border">
+      {/* Left section - Back button and info */}
+      <div className="flex items-start gap-2 sm:gap-3 w-full sm:w-auto">
         <Button
           variant="outline"
           size="icon"
           onClick={() => router.push("/pagos")}
-          className="h-10 w-10 shrink-0 bg-card border hover:bg-muted/10 hover:text-foreground"
+          className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 bg-card border hover:bg-muted/10 hover:text-foreground"
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
         </Button>
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">Detalle de Pago</h1>
-          <div className="flex items-center mt-1">
-            <Badge variant="outline" className={`mr-2 font-medium ${getEstadoColor(pagoSeleccionado.estado)}`}>
+        
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">Detalle de Pago</h1>
+          
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mt-1">
+            <Badge 
+              variant="outline" 
+              className={`text-xs sm:text-sm font-medium ${getEstadoColor(pagoSeleccionado.estado)} w-max`}
+            >
               {pagoSeleccionado.estado}
             </Badge>
-            <div className="flex items-center">
-              <p className="text-muted-foreground">
-                {instructor.nombre} - {periodo ? `Periodo ${periodo.numero} - ${periodo.año}` : ""}
+            
+            <div className="flex items-center gap-1">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                {instructor.nombre} - {periodo ? `P${periodo.numero} ${periodo.año}` : ""}
               </p>
+              
               <Button
                 variant="ghost"
                 size="sm"
-                className="ml-1 h-6 w-6 p-0 rounded-full hover:bg-muted/10"
+                className="h-5 w-5 p-0 rounded-full hover:bg-muted/10 ml-0.5"
                 onClick={() => router.push(`/instructores/${instructor.id}`)}
                 title="Ver perfil del instructor"
               >
@@ -63,22 +71,43 @@ export function PageHeader({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0 w-full md:w-auto justify-end">
+      {/* Right section - Actions */}
+      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end sm:justify-normal mt-2 sm:mt-0">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleEstadoPago}
+          className="h-8 sm:h-9 text-xs sm:text-sm bg-card border hover:bg-muted/10"
+        >
+          {pagoSeleccionado.estado === "PENDIENTE" ? "Aprobar" : "Marcar Pendiente"}
+        </Button>
+        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 bg-card border hover:bg-muted/10">
-              <Download className="mr-2 h-4 w-4" />
-              Exportar
-              <ChevronDown className="ml-2 h-4 w-4" />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 sm:h-9 text-xs sm:text-sm bg-card border hover:bg-muted/10"
+            >
+              <Download className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="sm:inline">Exportar</span>
+              <ChevronDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-card border">
-            <DropdownMenuItem className="cursor-pointer hover:bg-muted/10" onClick={handleExportPDF}>
-              <FileText className="mr-2 h-4 w-4" />
+          
+          <DropdownMenuContent align="end" className="bg-card border w-48">
+            <DropdownMenuItem 
+              className="cursor-pointer text-xs sm:text-sm hover:bg-muted/10" 
+              onClick={handleExportPDF}
+            >
+              <FileText className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               Exportar a PDF
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer hover:bg-muted/10" onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" />
+            <DropdownMenuItem 
+              className="cursor-pointer text-xs sm:text-sm hover:bg-muted/10" 
+              onClick={handlePrint}
+            >
+              <Printer className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
               Imprimir
             </DropdownMenuItem>
           </DropdownMenuContent>

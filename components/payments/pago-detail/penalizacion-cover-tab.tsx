@@ -51,20 +51,20 @@ export function PenalizacionesCoversTab({ detalles }: PenalizacionesCoversTabPro
   })) || []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-2 sm:px-0">
       {/* Tarjeta de Penalizaciones */}
-      <Card className="text-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
+      <Card className="border rounded-lg shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 border-b px-4 sm:px-6">
           <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <CardTitle className="text-base font-medium">Penalizaciones aplicadas</CardTitle>
+            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+            <CardTitle className="text-sm sm:text-base font-medium">Penalizaciones aplicadas</CardTitle>
           </div>
-          <Badge variant="outline" className="bg-amber-50 text-amber-700 text-xs">
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 text-xs sm:text-xs">
             {puntosPenalizacion} puntos
           </Badge>
         </CardHeader>
-        <CardContent className="pt-3">
-          <div className="space-y-2">
+        <CardContent className="pt-3 px-4 sm:px-6">
+          <div className="space-y-3 text-xs sm:text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Puntos acumulados:</span>
               <span className="font-medium">{puntosPenalizacion}</span>
@@ -93,18 +93,18 @@ export function PenalizacionesCoversTab({ detalles }: PenalizacionesCoversTabPro
             {/* Detalle de penalizaciones */}
             {detallePenalizaciones.length > 0 && (
               <div className="mt-3">
-                <h4 className="text-xs font-medium mb-1 text-muted-foreground">Detalles:</h4>
-                <div className="space-y-1">
+                <h4 className="text-xs sm:text-xs font-medium mb-1 text-muted-foreground">Detalles:</h4>
+                <div className="space-y-2">
                   {detallePenalizaciones.map((pen, index) => (
-                    <div key={index} className="text-xs">
+                    <div key={index} className="text-2xs sm:text-xs border rounded p-2">
                       <div className="flex justify-between">
                         <span className="font-medium">{pen.tipo.replace(/_/g, ' ')}</span>
                         <span className="text-rose-600">-{pen.puntos} pts</span>
                       </div>
                       {pen.descripcion && pen.descripcion !== "Sin descripción" && (
-                        <div className="text-muted-foreground">Motivo: {pen.descripcion}</div>
+                        <div className="text-muted-foreground mt-1">Motivo: {pen.descripcion}</div>
                       )}
-                      <div className="text-muted-foreground">
+                      <div className="text-muted-foreground mt-1">
                         {new Date(pen.fecha).toLocaleDateString()} • {pen.disciplina}
                       </div>
                     </div>
@@ -117,18 +117,18 @@ export function PenalizacionesCoversTab({ detalles }: PenalizacionesCoversTabPro
       </Card>
 
       {/* Tarjeta de Covers */}
-      <Card className="text-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 border-b">
+      <Card className="border rounded-lg shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 border-b px-4 sm:px-6">
           <div className="flex items-center space-x-2">
-            <CalendarCheck className="h-4 w-4 text-emerald-600" />
-            <CardTitle className="text-base font-medium">Covers realizados</CardTitle>
+            <CalendarCheck className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+            <CardTitle className="text-sm sm:text-base font-medium">Covers realizados</CardTitle>
           </div>
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-xs">
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-xs sm:text-xs">
             {totalCovers} covers
           </Badge>
         </CardHeader>
-        <CardContent className="pt-3">
-          <div className="space-y-2">
+        <CardContent className="pt-3 px-4 sm:px-6">
+          <div className="space-y-3 text-xs sm:text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Total de covers:</span>
               <span className="font-medium">{totalCovers}</span>
@@ -145,15 +145,15 @@ export function PenalizacionesCoversTab({ detalles }: PenalizacionesCoversTabPro
             {/* Detalle de covers */}
             {coversInstructor.length > 0 && (
               <div className="mt-3">
-                <h4 className="text-xs font-medium mb-1 text-muted-foreground">Detalles por clase:</h4>
+                <h4 className="text-2xs sm:text-xs font-medium mb-1 text-muted-foreground">Detalles por clase:</h4>
                 <div className="space-y-2">
                   {coversInstructor.map((cover, index) => (
-                    <div key={index} className="text-xs border rounded p-2">
+                    <div key={index} className="text-2xs sm:text-xs border rounded p-2">
                       <div className="flex justify-between font-medium">
                         <span>Cover #{index + 1}</span>
                         <span className="text-emerald-600">+{formatCurrency(80)}</span>
                       </div>
-                      <div className="mt-1">
+                      <div className="mt-1 space-y-1">
                         <div>Clase ID: {cover.claseId}</div>
                         <div>Fecha: {cover.fecha}</div>
                         <div>Disciplina: {cover.disciplina}</div>

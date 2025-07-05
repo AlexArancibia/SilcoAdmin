@@ -9,8 +9,6 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Award, Check, CheckCircle2, Edit, Info, Loader2, Users, X, XCircle } from "lucide-react"
 import type { CategoriaInstructor, Clase, Disciplina, FormulaDB, Instructor, PagoInstructor } from "@/types/schema"
-
-// Add import for mostrarCategoriaVisual at the top of the file
 import { mostrarCategoriaVisual } from "@/utils/config"
 
 interface CategoryTabProps {
@@ -78,7 +76,6 @@ const requisitosCategoria = {
   },
 }
 
-// Fix the category update issue and improve table design for dark mode
 export function CategoryTab({
   instructor,
   pagoSeleccionado,
@@ -100,8 +97,8 @@ export function CategoryTab({
   cumpleRequisito,
 }: CategoryTabProps) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="text-lg font-medium flex items-center text-foreground">
           <Award className="h-5 w-5 mr-2 text-primary" />
           Factores de Cálculo
@@ -109,10 +106,10 @@ export function CategoryTab({
 
         <div className="flex items-center gap-2">
           {editandoCategoria ? (
-            <div className="flex items-center gap-2 bg-card p-2 rounded-lg border shadow-sm">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-4">
-                  <Label htmlFor="dobleteos" className="text-sm font-medium text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-card p-3 rounded-lg border shadow-sm w-full sm:w-auto">
+              <div className="space-y-2 w-full">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <Label htmlFor="dobleteos" className="text-sm font-medium text-muted-foreground whitespace-nowrap">
                     Dobleteos:
                   </Label>
                   <Input
@@ -120,26 +117,26 @@ export function CategoryTab({
                     type="number"
                     value={factoresEditados.dobleteos}
                     onChange={(e) => setFactoresEditados({ ...factoresEditados, dobleteos: Number(e.target.value) })}
-                    className="w-20 h-8 border focus:ring-primary focus:border-primary"
+                    className="w-full sm:w-20 h-8 border focus:ring-primary focus:border-primary"
                   />
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <Label htmlFor="horariosNoPrime" className="text-sm font-medium text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <Label htmlFor="horariosNoPrime" className="text-sm font-medium text-muted-foreground whitespace-nowrap">
                     Horarios No Prime:
                   </Label>
-                  <div className="flex items-center">
+                  <div className="flex items-center w-full sm:w-auto">
                     <Input
                       id="horariosNoPrime"
                       type="number"
                       value={factoresEditados.horariosNoPrime}
                       disabled={true}
-                      className="w-20 h-8 border bg-muted/20 text-muted-foreground cursor-not-allowed"
+                      className="w-full sm:w-20 h-8 border bg-muted/20 text-muted-foreground cursor-not-allowed"
                     />
-                    <span className="ml-2 text-xs text-muted-foreground italic">(Automático)</span>
+                    <span className="ml-2 text-xs text-muted-foreground italic hidden sm:inline">(Automático)</span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <Label htmlFor="participacionEventos" className="text-sm font-medium text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <Label htmlFor="participacionEventos" className="text-sm font-medium text-muted-foreground whitespace-nowrap">
                     Participación en Eventos:
                   </Label>
                   <Switch
@@ -151,8 +148,8 @@ export function CategoryTab({
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <Label htmlFor="cumpleLineamientos" className="text-sm font-medium text-muted-foreground">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <Label htmlFor="cumpleLineamientos" className="text-sm font-medium text-muted-foreground whitespace-nowrap">
                     Cumple Lineamientos:
                   </Label>
                   <Switch
@@ -165,30 +162,30 @@ export function CategoryTab({
                   />
                 </div>
               </div>
-              <div className="flex flex-col gap-2 ml-4">
+              <div className="flex flex-row sm:flex-col gap-2 justify-end sm:justify-start">
                 <Button
                   size="sm"
                   variant="default"
                   onClick={guardarFactoresEditados}
                   disabled={isActualizandoInstructor}
-                  className="bg-primary hover:bg-primary/90"
+                  className="bg-primary hover:bg-primary/90 w-full sm:w-auto"
                 >
                   {isActualizandoInstructor ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-1" />
                   ) : (
                     <Check className="h-4 w-4 mr-1" />
                   )}
-                  Guardar
+                  <span className="sm:inline">Guardar</span>
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setEditandoCategoria(false)}
                   disabled={isActualizandoInstructor}
-                  className="border hover:bg-muted/10 text-muted-foreground"
+                  className="border hover:bg-muted/10 text-muted-foreground w-full sm:w-auto"
                 >
                   <X className="h-4 w-4 mr-1" />
-                  Cancelar
+                  <span className="sm:inline">Cancelar</span>
                 </Button>
               </div>
             </div>
@@ -196,11 +193,11 @@ export function CategoryTab({
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-1 bg-card border hover:bg-muted/10 text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-1 bg-card border hover:bg-muted/10 text-muted-foreground hover:text-foreground w-full sm:w-auto"
               onClick={() => setEditandoCategoria(true)}
             >
               <Edit className="h-4 w-4 mr-1" />
-              <span>Editar Factores</span>
+              <span className="sm:inline">Editar Factores</span>
             </Button>
           )}
         </div>
@@ -211,23 +208,20 @@ export function CategoryTab({
         <div className="text-center py-8 bg-card rounded-lg border shadow-sm">
           <Award className="mx-auto h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 text-lg font-medium text-foreground">Sin categorías asignadas</h3>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground px-4">
             Este instructor no tiene categorías asignadas para el periodo actual.
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {categoriasPorDisciplina.map((categoria, index) => {
-            // Get the discipline associated with this category
             const disciplina = disciplinas.find((d) => d.id === categoria.disciplinaId)
-
-            // Calculate real metrics for this discipline
             const metricasReales = calcularMetricas(clasesInstructor, categoria.disciplinaId)
 
             return (
               <Card key={index} className="border overflow-hidden bg-card shadow-sm">
-                <CardHeader className="border-b bg-card">
-                  <div className="flex justify-between items-center">
+                <CardHeader className="border-b bg-card p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div className="flex items-center">
                       <div
                         className="w-3 h-3 rounded-full mr-2"
@@ -235,28 +229,27 @@ export function CategoryTab({
                           backgroundColor: disciplina?.color || "#6366F1",
                         }}
                       ></div>
-                      <CardTitle className="text-lg text-foreground font-bold">
+                      <CardTitle className="text-base sm:text-lg text-foreground font-bold">
                         {disciplina?.nombre || `Disciplina ${categoria.disciplinaId}`}
                       </CardTitle>
                     </div>
-                    {/* Add the category badge here */}
                     <Badge variant="outline" className={getColorCategoria(categoria.categoria)}>
                       {formatearCategoria(categoria.categoria)}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
-                    <div className="p-4 border-r border-b md:border-b-0 border">
-                      <h4 className="text-sm font-medium mb-3 flex items-center text-foreground">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
+                    <div className="p-3 sm:p-4 border-b sm:border-r sm:border-b-0 border">
+                      <h4 className="text-sm font-medium mb-2 flex items-center text-foreground">
                         <Users className="h-4 w-4 mr-2 text-primary" />
-                        Métricas de Rendimiento (Reales)
+                        Métricas de Rendimiento
                       </h4>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Ocupación:</span>
+                          <span className="text-xs sm:text-sm text-muted-foreground">Ocupación:</span>
                           <div className="flex items-center gap-2">
-                            <div className="relative w-24 h-3 bg-border rounded-full overflow-hidden">
+                            <div className="relative w-16 sm:w-24 h-3 bg-border rounded-full overflow-hidden">
                               <div
                                 className={`absolute top-0 left-0 h-full rounded-full transition-all ${
                                   metricasReales.ocupacion >= 80
@@ -267,14 +260,16 @@ export function CategoryTab({
                                 }`}
                                 style={{ width: `${Math.min(metricasReales.ocupacion, 100)}%` }}
                               >
-                                <span className="absolute inset-0 flex items-center justify-center text-[9px] font-medium text-white">
-                                  {metricasReales.ocupacion}%
-                                </span>
+                                {metricasReales.ocupacion >= 20 && (
+                                  <span className="absolute inset-0 flex items-center justify-center text-[8px] sm:text-[9px] font-medium text-white">
+                                    {metricasReales.ocupacion}%
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <Badge
                               variant="outline"
-                              className={`${
+                              className={`text-xs ${
                                 metricasReales.ocupacion >= 80
                                   ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
                                   : metricasReales.ocupacion >= 50
@@ -287,19 +282,19 @@ export function CategoryTab({
                           </div>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Clases por Semana:</span>
+                          <span className="text-xs sm:text-sm text-muted-foreground">Clases por Semana:</span>
                           <Badge
                             variant="outline"
-                            className="bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:border-primary/30"
+                            className="text-xs bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:border-primary/30"
                           >
                             {metricasReales.clases}
                           </Badge>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Locales en Lima:</span>
+                          <span className="text-xs sm:text-sm text-muted-foreground">Locales en Lima:</span>
                           <Badge
                             variant="outline"
-                            className="bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:border-primary/30"
+                            className="text-xs bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:border-primary/30"
                           >
                             {metricasReales.localesEnLima}
                           </Badge>
@@ -307,17 +302,17 @@ export function CategoryTab({
                       </div>
                     </div>
 
-                    <div className="p-4">
-                      <h4 className="text-sm font-medium mb-3 flex items-center text-foreground">
+                    <div className="p-3 sm:p-4">
+                      <h4 className="text-sm font-medium mb-2 flex items-center text-foreground">
                         <Award className="h-4 w-4 mr-2 text-primary" />
                         Factores de Cálculo
                       </h4>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Dobleteos por semana:</span>
+                          <span className="text-xs sm:text-sm text-muted-foreground">Dobleteos:</span>
                           <Badge
                             variant="outline"
-                            className={
+                            className={`text-xs ${
                               cumpleRequisito(
                                 pagoSeleccionado.dobleteos || 0,
                                 formulas.length > 0 && categoria
@@ -328,16 +323,16 @@ export function CategoryTab({
                               )
                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
                                 : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
-                            }
+                            }`}
                           >
                             {pagoSeleccionado.dobleteos || 0}
                           </Badge>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Horarios No Prime:</span>
+                          <span className="text-xs sm:text-sm text-muted-foreground">Horarios No Prime:</span>
                           <Badge
                             variant="outline"
-                            className={
+                            className={`text-xs ${
                               cumpleRequisito(
                                 pagoSeleccionado.horariosNoPrime || 0,
                                 formulas.length > 0 && categoria
@@ -348,28 +343,28 @@ export function CategoryTab({
                               )
                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
                                 : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800"
-                            }
+                            }`}
                           >
                             {pagoSeleccionado.horariosNoPrime || 0}
                           </Badge>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Participación en Eventos:</span>
+                          <span className="text-xs sm:text-sm text-muted-foreground">Participación Eventos:</span>
                           <div className="flex items-center">
                             {pagoSeleccionado.participacionEventos ? (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mr-1" />
+                              <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400 mr-1" />
                             ) : formulas.length > 0 &&
                               categoria &&
                               formulas.find((f) => f.disciplinaId === categoria.disciplinaId)?.requisitosCategoria[
                                 categoria.categoria as keyof typeof requisitosCategoria
                               ]?.participacionEventos ? (
-                              <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 mr-1" />
+                              <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-rose-600 dark:text-rose-400 mr-1" />
                             ) : (
-                              <Info className="h-4 w-4 text-muted-foreground mr-1" />
+                              <Info className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground mr-1" />
                             )}
                             <Badge
                               variant="outline"
-                              className={
+                              className={`text-xs ${
                                 pagoSeleccionado.participacionEventos
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
                                   : formulas.length > 0 &&
@@ -379,27 +374,27 @@ export function CategoryTab({
                                         ?.participacionEventos
                                     ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800"
                                     : "bg-muted/10 text-muted-foreground border dark:bg-muted/20"
-                              }
+                              }`}
                             >
                               {pagoSeleccionado.participacionEventos ? "Sí" : "No"}
                             </Badge>
                           </div>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Cumple Lineamientos:</span>
+                          <span className="text-xs sm:text-sm text-muted-foreground">Cumple Lineamientos:</span>
                           <div className="flex items-center">
                             {pagoSeleccionado.cumpleLineamientos ? (
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mr-1" />
+                              <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400 mr-1" />
                             ) : (
-                              <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 mr-1" />
+                              <XCircle className="h-3 w-3 sm:h-4 sm:w-4 text-rose-600 dark:text-rose-400 mr-1" />
                             )}
                             <Badge
                               variant="outline"
-                              className={
+                              className={`text-xs ${
                                 pagoSeleccionado.cumpleLineamientos
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
                                   : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800"
-                              }
+                              }`}
                             >
                               {pagoSeleccionado.cumpleLineamientos ? "Sí" : "No"}
                             </Badge>
@@ -409,7 +404,7 @@ export function CategoryTab({
                     </div>
                   </div>
 
-                  <div className="p-4 border-t bg-muted/10">
+                  <div className="p-3 border-t bg-muted/10">
                     <div className="flex justify-between items-center">
                       <div className="text-xs text-muted-foreground">
                         Última actualización:{" "}
@@ -422,8 +417,8 @@ export function CategoryTab({
             )
           })}
 
-          {/* Criteria section - UPDATED: Removed Embajador Senior column */}
-          <div className="bg-card p-4 rounded-lg border shadow-sm">
+          {/* Criteria section */}
+          <div className="bg-card p-3 sm:p-4 rounded-lg border shadow-sm">
             <h4 className="text-sm font-medium mb-3 text-foreground">Criterios de Cálculo por Disciplina</h4>
 
             {disciplinas.length > 0 && formulas.length > 0 ? (
@@ -431,15 +426,12 @@ export function CategoryTab({
                 {disciplinas
                   .filter(
                     (d) =>
-                      // Filter to only include disciplines that the instructor has taught AND have visual categories
                       clasesInstructor.some((c) => c.disciplinaId === d.id) && mostrarCategoriaVisual(d.nombre),
                   )
                   .map((disciplina) => {
-                    // Find the formula for this specific discipline
                     const disciplinaFormula = formulas.find((f) => f.disciplinaId === disciplina.id) || formulas[0]
                     const requisitos = disciplinaFormula.requisitosCategoria
 
-                    // Find the current category for this discipline
                     const currentCategory =
                       instructor.categorias?.find(
                         (cat) => cat.disciplinaId === disciplina.id && cat.periodoId === pagoSeleccionado.periodoId,
@@ -447,183 +439,184 @@ export function CategoryTab({
 
                     return (
                       <div key={disciplina.id} className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
                           <div className="flex items-center">
                             <div
                               className="w-3 h-3 rounded-full mr-2"
                               style={{ backgroundColor: disciplina.color || "#6366F1" }}
                             ></div>
-                            <h5 className="font-medium text-foreground">{disciplina.nombre}</h5>
+                            <h5 className="font-medium text-sm sm:text-base text-foreground">{disciplina.nombre}</h5>
                           </div>
-                          <Badge variant="outline" className={getColorCategoria(currentCategory)}>
+                          <Badge variant="outline" className={`text-xs sm:text-sm ${getColorCategoria(currentCategory)}`}>
                             {formatearCategoria(currentCategory)}
                           </Badge>
                         </div>
 
-                        {/* Criteria section - UPDATED: Only show Embajador Junior and Embajador columns */}
-                        <div className="overflow-hidden rounded-lg border shadow-sm">
-                          <table className="w-full text-sm border-collapse">
-                            <thead>
-                              <tr className="bg-muted/30 dark:bg-muted/20">
-                                <th className="text-left p-3 font-medium text-primary">Criterio</th>
-                                <th className="text-center p-3 font-medium text-primary">Embajador Junior</th>
-                                <th className="text-center p-3 font-medium text-primary">Embajador</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr className="border-t border-border/30 hover:bg-muted/5">
-                                <td className="p-3 font-medium">Ocupación</td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).ocupacion >=
-                                    requisitos.EMBAJADOR_JUNIOR.ocupacion
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_JUNIOR.ocupacion}%
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).ocupacion >=
-                                    requisitos.EMBAJADOR.ocupacion
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR.ocupacion}%
-                                </td>
-                              </tr>
-                              <tr className="border-t border-border/30 hover:bg-muted/5">
-                                <td className="p-3 font-medium">Locales en Lima</td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).localesEnLima >=
-                                    requisitos.EMBAJADOR_JUNIOR.localesEnLima
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_JUNIOR.localesEnLima}
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).localesEnLima >=
-                                    requisitos.EMBAJADOR.localesEnLima
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR.localesEnLima}
-                                </td>
-                              </tr>
-                              <tr className="border-t border-border/30 hover:bg-muted/5">
-                                <td className="p-3 font-medium">Clases</td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).clases >=
-                                    requisitos.EMBAJADOR_JUNIOR.clases
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_JUNIOR.clases}
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    calcularMetricas(clasesInstructor, disciplina.id).clases >=
-                                    requisitos.EMBAJADOR.clases
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR.clases}
-                                </td>
-                              </tr>
-                              <tr className="border-t border-border/30 hover:bg-muted/5">
-                                <td className="p-3 font-medium">Dobleteos</td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    (pagoSeleccionado.dobleteos || 0) >= requisitos.EMBAJADOR_JUNIOR.dobleteos
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_JUNIOR.dobleteos}
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    (pagoSeleccionado.dobleteos || 0) >= requisitos.EMBAJADOR.dobleteos
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR.dobleteos}
-                                </td>
-                              </tr>
-                              <tr className="border-t border-border/30 hover:bg-muted/5">
-                                <td className="p-3 font-medium">Horarios No Prime</td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    (pagoSeleccionado.horariosNoPrime || 0) >=
-                                    requisitos.EMBAJADOR_JUNIOR.horariosNoPrime
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR_JUNIOR.horariosNoPrime}
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    (pagoSeleccionado.horariosNoPrime || 0) >= requisitos.EMBAJADOR.horariosNoPrime
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  ≥ {requisitos.EMBAJADOR.horariosNoPrime}
-                                </td>
-                              </tr>
-                              <tr className="border-t border-border/30 hover:bg-muted/5">
-                                <td className="p-3 font-medium">Participación en Eventos</td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    !requisitos.EMBAJADOR_JUNIOR.participacionEventos ||
-                                    pagoSeleccionado.participacionEventos
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  {requisitos.EMBAJADOR_JUNIOR.participacionEventos ? "Sí" : "No"}
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    !requisitos.EMBAJADOR.participacionEventos || pagoSeleccionado.participacionEventos
-                                      ? "bg-green-50 dark:bg-green-950/20"
-                                      : ""
-                                  }`}
-                                >
-                                  {requisitos.EMBAJADOR.participacionEventos ? "Sí" : "No"}
-                                </td>
-                              </tr>
-                              <tr className="border-t border-border/30 hover:bg-muted/5">
-                                <td className="p-3 font-medium">Cumple Lineamientos</td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    pagoSeleccionado.cumpleLineamientos ? "bg-green-50 dark:bg-green-950/20" : ""
-                                  }`}
-                                >
-                                  Requerido
-                                </td>
-                                <td
-                                  className={`p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
-                                    pagoSeleccionado.cumpleLineamientos ? "bg-green-50 dark:bg-green-950/20" : ""
-                                  }`}
-                                >
-                                  Requerido
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
+                        <div className="overflow-x-auto">
+                          <div className="min-w-[500px] overflow-hidden rounded-lg border shadow-sm">
+                            <table className="w-full text-xs sm:text-sm border-collapse">
+                              <thead>
+                                <tr className="bg-muted/30 dark:bg-muted/20">
+                                  <th className="text-left p-2 sm:p-3 font-medium text-primary">Criterio</th>
+                                  <th className="text-center p-2 sm:p-3 font-medium text-primary">Embajador Junior</th>
+                                  <th className="text-center p-2 sm:p-3 font-medium text-primary">Embajador</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr className="border-t border-border/30 hover:bg-muted/5">
+                                  <td className="p-2 sm:p-3 font-medium">Ocupación</td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      calcularMetricas(clasesInstructor, disciplina.id).ocupacion >=
+                                      requisitos.EMBAJADOR_JUNIOR.ocupacion
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR_JUNIOR.ocupacion}%
+                                  </td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      calcularMetricas(clasesInstructor, disciplina.id).ocupacion >=
+                                      requisitos.EMBAJADOR.ocupacion
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR.ocupacion}%
+                                  </td>
+                                </tr>
+                                <tr className="border-t border-border/30 hover:bg-muted/5">
+                                  <td className="p-2 sm:p-3 font-medium">Locales en Lima</td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      calcularMetricas(clasesInstructor, disciplina.id).localesEnLima >=
+                                      requisitos.EMBAJADOR_JUNIOR.localesEnLima
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR_JUNIOR.localesEnLima}
+                                  </td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      calcularMetricas(clasesInstructor, disciplina.id).localesEnLima >=
+                                      requisitos.EMBAJADOR.localesEnLima
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR.localesEnLima}
+                                  </td>
+                                </tr>
+                                <tr className="border-t border-border/30 hover:bg-muted/5">
+                                  <td className="p-2 sm:p-3 font-medium">Clases</td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      calcularMetricas(clasesInstructor, disciplina.id).clases >=
+                                      requisitos.EMBAJADOR_JUNIOR.clases
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR_JUNIOR.clases}
+                                  </td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      calcularMetricas(clasesInstructor, disciplina.id).clases >=
+                                      requisitos.EMBAJADOR.clases
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR.clases}
+                                  </td>
+                                </tr>
+                                <tr className="border-t border-border/30 hover:bg-muted/5">
+                                  <td className="p-2 sm:p-3 font-medium">Dobleteos</td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      (pagoSeleccionado.dobleteos || 0) >= requisitos.EMBAJADOR_JUNIOR.dobleteos
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR_JUNIOR.dobleteos}
+                                  </td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      (pagoSeleccionado.dobleteos || 0) >= requisitos.EMBAJADOR.dobleteos
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR.dobleteos}
+                                  </td>
+                                </tr>
+                                <tr className="border-t border-border/30 hover:bg-muted/5">
+                                  <td className="p-2 sm:p-3 font-medium">Horarios No Prime</td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      (pagoSeleccionado.horariosNoPrime || 0) >=
+                                      requisitos.EMBAJADOR_JUNIOR.horariosNoPrime
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR_JUNIOR.horariosNoPrime}
+                                  </td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      (pagoSeleccionado.horariosNoPrime || 0) >= requisitos.EMBAJADOR.horariosNoPrime
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    ≥ {requisitos.EMBAJADOR.horariosNoPrime}
+                                  </td>
+                                </tr>
+                                <tr className="border-t border-border/30 hover:bg-muted/5">
+                                  <td className="p-2 sm:p-3 font-medium">Participación en Eventos</td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      !requisitos.EMBAJADOR_JUNIOR.participacionEventos ||
+                                      pagoSeleccionado.participacionEventos
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    {requisitos.EMBAJADOR_JUNIOR.participacionEventos ? "Sí" : "No"}
+                                  </td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      !requisitos.EMBAJADOR.participacionEventos || pagoSeleccionado.participacionEventos
+                                        ? "bg-green-50 dark:bg-green-950/20"
+                                        : ""
+                                    }`}
+                                  >
+                                    {requisitos.EMBAJADOR.participacionEventos ? "Sí" : "No"}
+                                  </td>
+                                </tr>
+                                <tr className="border-t border-border/30 hover:bg-muted/5">
+                                  <td className="p-2 sm:p-3 font-medium">Cumple Lineamientos</td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR_JUNIOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      pagoSeleccionado.cumpleLineamientos ? "bg-green-50 dark:bg-green-950/20" : ""
+                                    }`}
+                                  >
+                                    Requerido
+                                  </td>
+                                  <td
+                                    className={`p-2 sm:p-3 text-center ${currentCategory === "EMBAJADOR" ? "bg-primary/5 dark:bg-primary/10" : ""} ${
+                                      pagoSeleccionado.cumpleLineamientos ? "bg-green-50 dark:bg-green-950/20" : ""
+                                    }`}
+                                  >
+                                    Requerido
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       </div>
                     )

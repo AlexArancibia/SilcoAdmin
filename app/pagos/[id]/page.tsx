@@ -76,8 +76,7 @@ function CategoryChangeDialogComponent({
           <AlertDialogTitle>Confirmar cambio de categoría</AlertDialogTitle>
           <AlertDialogDescription className="text-muted-foreground">
             Basado en los parámetros actuales, la categoría del instructor debería cambiar de{" "}
-            {/* Category badges hidden */}
-            <span className="font-medium">{formatearCategoria(categoriaPrevia || "INSTRUCTOR")}</span>a{" "}
+            <span className="font-medium">{formatearCategoria(categoriaPrevia || "INSTRUCTOR")}</span> a{" "}
             <span className="font-medium">{formatearCategoria(categoriaCalculada || "INSTRUCTOR")}</span>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -114,11 +113,8 @@ function ChangeSummaryDialogComponent({
   getCategoriaValue,
   disciplinas,
 }: ChangeSummaryDialogProps) {
-  // Filter the changes to only include disciplines with visual categories
   const filteredCambios = cambiosCategorias.filter((cambio) => {
-    // Find the discipline in the disciplinas array
     const disciplina = disciplinas.find((d) => d.nombre === cambio.disciplina)
-    // Only include if the discipline should have a visual category
     return disciplina && mostrarCategoriaVisual(disciplina.nombre)
   })
 
@@ -139,12 +135,10 @@ function ChangeSummaryDialogComponent({
                   <div className="text-sm font-medium text-muted-foreground">{cambio.disciplina}</div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      {/* Category badges hidden */}
                       <span className="font-medium">{formatearCategoria(cambio.categoriaAnterior)}</span>
                     </div>
                     <ArrowRight className="h-4 w-4 mx-2 text-muted-foreground" />
                     <div className="flex items-center">
-                      {/* Category badges hidden */}
                       <span className="font-medium">{formatearCategoria(cambio.categoriaNueva)}</span>
                     </div>
                   </div>
@@ -257,13 +251,11 @@ export default function PagoDetallePage() {
           participacionEventos: pagoSeleccionado.participacionEventos || false,
         })
 
-        // Load complete instructor with categories
         fetchInstructor(instructorEncontrado.id)
       }
 
       setPeriodo(periodos.find((p) => p.id === pagoSeleccionado.periodoId) || null)
 
-      // Load instructor's classes for this period
       if (pagoSeleccionado.instructorId && pagoSeleccionado.periodoId) {
         fetchClases({
           instructorId: pagoSeleccionado.instructorId,
@@ -271,7 +263,6 @@ export default function PagoDetallePage() {
         })
       }
 
-      // Initialize reajuste values
       setNuevoReajuste(pagoSeleccionado.reajuste)
       setTipoReajuste(pagoSeleccionado.tipoReajuste)
     }
@@ -327,17 +318,14 @@ export default function PagoDetallePage() {
     setIsActualizandoReajuste(true)
 
     try {
-      // Calculate the adjusted amount first
       const montoBase = pagoSeleccionado.monto
       const bono = pagoSeleccionado.bono || 0
       const reajusteCalculado = tipoReajuste === "PORCENTAJE" ? (montoBase * nuevoReajuste) / 100 : nuevoReajuste
 
-      // Calculate the retention based on the adjusted amount
       const montoAjustado = montoBase + reajusteCalculado + bono
       const retencionPorcentaje = retencionValor
       const nuevaRetencion = montoAjustado * retencionPorcentaje
 
-      // Calculate the final payment
       const pagoFinal = montoAjustado - nuevaRetencion
 
       const pagoActualizado = {
@@ -370,7 +358,6 @@ export default function PagoDetallePage() {
 
   // Function to calculate metrics
   const calcularMetricas = (clases: Clase[], disciplinaId?: number) => {
-    // If disciplinaId is provided, filter only classes for that discipline
     const clasesFiltradas = disciplinaId ? clases.filter((c) => c.disciplinaId === disciplinaId) : clases
 
     if (clasesFiltradas.length === 0) {
@@ -384,15 +371,12 @@ export default function PagoDetallePage() {
       }
     }
 
-    // Calculate average occupancy
     const totalReservas = clasesFiltradas.reduce((sum, clase) => sum + clase.reservasTotales, 0)
     const totalCapacidad = clasesFiltradas.reduce((sum, clase) => sum + clase.lugares, 0)
     const ocupacionPromedio = totalCapacidad > 0 ? Math.round((totalReservas / totalCapacidad) * 100) : 0
 
-    // Count classes
     const totalClases = clasesFiltradas.length / 4
 
-    // Count unique locations in Lima
     const localesUnicos = new Set(clasesFiltradas.map((c) => c.estudio)).size
 
     return {
@@ -423,22 +407,17 @@ export default function PagoDetallePage() {
     },
     disciplinaId?: number,
   ): CategoriaInstructor => {
-    // Find the formula for this discipline
     const metricasCategoria = formulas.find((f) => f.disciplinaId === disciplinaId)
 
-    // If no specific formula found for this discipline, use the first formula as default
     const requisitosCategoria =
       metricasCategoria?.requisitosCategoria || (formulas.length > 0 ? formulas[0].requisitosCategoria : null)
 
-    // If no formulas available at all, return INSTRUCTOR
     if (!requisitosCategoria) {
       return "INSTRUCTOR"
     }
 
-    // If doesn't meet guidelines, can't be more than INSTRUCTOR
     if (!instructorParams.cumpleLineamientos) return "INSTRUCTOR"
 
-    // Check requirements for EMBAJADOR_SENIOR
     if (
       metricas.ocupacion >= requisitosCategoria.EMBAJADOR_SENIOR.ocupacion &&
       metricas.clases >= requisitosCategoria.EMBAJADOR_SENIOR.clases &&
@@ -450,7 +429,6 @@ export default function PagoDetallePage() {
       return "EMBAJADOR_SENIOR"
     }
 
-    // Check requirements for EMBAJADOR
     if (
       metricas.ocupacion >= requisitosCategoria.EMBAJADOR.ocupacion &&
       metricas.clases >= requisitosCategoria.EMBAJADOR.clases &&
@@ -462,7 +440,6 @@ export default function PagoDetallePage() {
       return "EMBAJADOR"
     }
 
-    // Check requirements for EMBAJADOR_JUNIOR
     if (
       metricas.ocupacion >= requisitosCategoria.EMBAJADOR_JUNIOR.ocupacion &&
       metricas.clases >= requisitosCategoria.EMBAJADOR_JUNIOR.clases &&
@@ -474,7 +451,6 @@ export default function PagoDetallePage() {
       return "EMBAJADOR_JUNIOR"
     }
 
-    // If doesn't meet any higher category, it's INSTRUCTOR
     return "INSTRUCTOR"
   }
 
@@ -485,14 +461,10 @@ export default function PagoDetallePage() {
     setIsActualizandoCategorias(true)
 
     try {
-      // 1. Get all disciplines the instructor has taught in this period
       const disciplinasInstructor = new Set(clasesInstructor.map((c) => c.disciplinaId))
-
-      // 2. For each discipline, calculate metrics and evaluate category
       const categoriasPorDisciplina = instructor.categorias || []
       const nuevasCategorias = [...categoriasPorDisciplina]
 
-      // Instructor parameters for evaluation
       const instructorParams = {
         dobleteos: pagoSeleccionado.dobleteos || 0,
         horariosNoPrime: pagoSeleccionado.horariosNoPrime || 0,
@@ -507,17 +479,12 @@ export default function PagoDetallePage() {
         categoriaNueva: CategoriaInstructor
       }> = []
 
-      // Process each discipline the instructor has taught
       for (const disciplinaId of disciplinasInstructor) {
-        // Get the discipline
         const disciplina = disciplinas.find((d) => d.id === disciplinaId)
         const nombreDisciplina = disciplina?.nombre || `Disciplina ${disciplinaId}`
 
-        // Always calculate and update categories for all disciplines
-        // Calculate real metrics for this discipline
         const metricasBase = calcularMetricas(clasesInstructor, disciplinaId)
 
-        // Combine base metrics with instructor parameters
         const metricas = {
           ...metricasBase,
           dobleteos: instructorParams.dobleteos,
@@ -525,22 +492,18 @@ export default function PagoDetallePage() {
           participacionEventos: instructorParams.participacionEventos,
         }
 
-        // Evaluate the category based on metrics and instructor parameters
         const categoriaCalculada = evaluarCategoriaInstructor(metricas, instructorParams, disciplinaId)
 
-        // Find if a category already exists for this discipline and period
         const categoriaExistente = categoriasPorDisciplina.find(
           (cat) => cat.disciplinaId === disciplinaId && cat.periodoId === pagoSeleccionado.periodoId,
         )
 
         if (categoriaExistente) {
-          // If it exists and is different, update it
           if (categoriaExistente.categoria !== categoriaCalculada) {
             const index = nuevasCategorias.findIndex(
               (cat) => cat.disciplinaId === disciplinaId && cat.periodoId === pagoSeleccionado.periodoId,
             )
 
-            // Save the change for the summary (only if it should have visual category)
             if (disciplina && mostrarCategoriaVisual(disciplina.nombre)) {
               resumenCambios.push({
                 disciplina: nombreDisciplina,
@@ -552,37 +515,34 @@ export default function PagoDetallePage() {
             nuevasCategorias[index] = {
               ...categoriaExistente,
               categoria: categoriaCalculada,
-              metricas: metricas, // Update reference metrics
+              metricas: metricas,
             }
 
             cambiosRealizados = true
           }
         } else {
-          // If it doesn't exist, create a new one
-          // Save the change for the summary (only if it should have visual category)
           if (disciplina && mostrarCategoriaVisual(disciplina.nombre)) {
             resumenCambios.push({
               disciplina: nombreDisciplina,
-              categoriaAnterior: "INSTRUCTOR" as CategoriaInstructor, // Default value
+              categoriaAnterior: "INSTRUCTOR" as CategoriaInstructor,
               categoriaNueva: categoriaCalculada,
             })
           }
 
           nuevasCategorias.push({
-            id: Date.now(), // Temporary ID
+            id: Date.now(),
             instructorId: instructor.id,
             disciplinaId: disciplinaId,
             periodoId: pagoSeleccionado.periodoId,
             categoria: categoriaCalculada,
             metricas: metricas,
-            disciplina: disciplina, // Use the complete disciplina object
+            disciplina: disciplina,
           })
 
           cambiosRealizados = true
         }
       }
 
-      // If there were changes, update the instructor
       if (cambiosRealizados) {
         const instructorActualizado = {
           ...instructor,
@@ -592,7 +552,6 @@ export default function PagoDetallePage() {
         await actualizarInstructor(instructor.id, instructorActualizado)
         await fetchInstructor(instructor.id)
 
-        // Save the changes to show in the dialog
         setCambiosCategorias(resumenCambios)
         setShowResumenDialog(true)
       } else {
@@ -619,28 +578,18 @@ export default function PagoDetallePage() {
     setIsActualizandoInstructor(true)
 
     try {
-      // Get the current horariosNoPrime value from the payment
       const currentHorariosNoPrime = pagoSeleccionado.horariosNoPrime || 0
 
-      // Create updated payment object with the edited factors
       const pagoActualizado = {
         ...pagoSeleccionado,
         dobleteos: factoresEditados.dobleteos,
         participacionEventos: factoresEditados.participacionEventos,
         cumpleLineamientos: factoresEditados.cumpleLineamientos,
-        // Keep the current horariosNoPrime value as it's calculated automatically
         horariosNoPrime: currentHorariosNoPrime,
       }
 
-      console.log("Actualizando pago con factores:", pagoActualizado)
-
-      // Update the payment using the pagosStore
       await actualizarPago(pagoSeleccionado.id, pagoActualizado)
-      console.log("Pago actualizado exitosamente")
-
-      // Fetch the updated payment to refresh the UI
       await fetchPago(pagoSeleccionado.id)
-      console.log("Pago recargado exitosamente")
 
       toast({
         title: "Factores actualizados",
@@ -649,13 +598,9 @@ export default function PagoDetallePage() {
 
       setEditandoCategoria(false)
 
-      // Re-evaluate categories with the updated payment data in a separate try/catch
       try {
-        console.log("Iniciando reevaluación de categorías")
         await reevaluarTodasCategorias()
-        console.log("Reevaluación de categorías completada")
       } catch (categoryError) {
-        console.error("Error al reevaluar categorías:", categoryError)
         toast({
           title: "Advertencia",
           description:
@@ -664,7 +609,6 @@ export default function PagoDetallePage() {
         })
       }
     } catch (error) {
-      console.error("Error al actualizar factores:", error)
       toast({
         title: "Error al actualizar factores",
         description: error instanceof Error ? error.message : "Error desconocido al actualizar factores",
@@ -679,14 +623,12 @@ export default function PagoDetallePage() {
   const obtenerCategoriasInstructor = () => {
     if (!instructor || !instructor.categorias || !pagoSeleccionado) return []
 
-    // Filter instructor categories for the current period and only include disciplines with visual categories
     return instructor.categorias.filter((cat) => {
       const disciplina = disciplinas.find((d) => d.id === cat.disciplinaId)
       return cat.periodoId === pagoSeleccionado.periodoId && disciplina && mostrarCategoriaVisual(disciplina.nombre)
     })
   }
 
-  // Replace categoriaActual with categoriasPorDisciplina
   const categoriasPorDisciplina = obtenerCategoriasInstructor()
 
   // Function to toggle payment status
@@ -734,13 +676,11 @@ export default function PagoDetallePage() {
     if (!instructor || !categoriaSeleccionada || !categoriaCalculada) return
 
     try {
-      // Update the category in the database
       const categoriaActualizada = {
         ...categoriaSeleccionada,
         categoria: categoriaCalculada,
       }
 
-      // Update the category in the instructor's categories array
       const categoriasPorDisciplina = instructor.categorias || []
       const nuevasCategorias = [...categoriasPorDisciplina]
 
@@ -753,7 +693,6 @@ export default function PagoDetallePage() {
         nuevasCategorias[index] = categoriaActualizada
       }
 
-      // Update the instructor with the updated categories
       const instructorActualizado = {
         ...instructor,
         categorias: nuevasCategorias,
@@ -766,7 +705,6 @@ export default function PagoDetallePage() {
         description: `La categoría del instructor para ${disciplinaSeleccionada?.nombre || "esta disciplina"} ha sido actualizada de ${categoriaPrevia} a ${categoriaCalculada}.`,
       })
 
-      // Reload the instructor to get updated data
       await fetchInstructor(instructor.id)
     } catch (error) {
       toast({
@@ -869,7 +807,6 @@ export default function PagoDetallePage() {
     pagoSeleccionado.bono || 0,
   )
 
-  // Fix the closing tag issue
   return (
     <DashboardShell>
       {/* Header */}
@@ -886,18 +823,18 @@ export default function PagoDetallePage() {
 
       {/* Main Content */}
       <Card className="border overflow-hidden bg-card">
-        <CardHeader className="border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 bg-card">
-          <div>
-            <CardTitle className="text-xl text-foreground">Información del Pago</CardTitle>
-            <CardDescription className="mt-1 text-muted-foreground">
-              Detalles y estado del pago para {instructor.nombre}
+        <CardHeader className="border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 bg-card">
+          <div className="space-y-1">
+            <CardTitle className="text-lg sm:text-xl text-foreground">Información del Pago</CardTitle>
+            <CardDescription className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
+              Detalles para {instructor.nombre}
             </CardDescription>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-muted/10 rounded-md px-3 py-1.5 border">
-              <span className="text-sm font-medium mr-2 text-muted-foreground">Estado:</span>
-              <Badge variant="outline" className={`${getEstadoColor(pagoSeleccionado.estado)} ml-1`}>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center bg-muted/10 rounded-md px-2 py-1 sm:px-3 sm:py-1.5 border text-xs sm:text-sm">
+              <span className="text-muted-foreground mr-1">Estado:</span>
+              <Badge variant="outline" className={`${getEstadoColor(pagoSeleccionado.estado)} px-1 sm:px-2 text-xs`}>
                 {pagoSeleccionado.estado}
               </Badge>
             </div>
@@ -906,7 +843,7 @@ export default function PagoDetallePage() {
                 variant="outline"
                 size="sm"
                 onClick={toggleEstadoPago}
-                className="bg-card border hover:bg-muted/10 hover:text-foreground"
+                className="bg-card border hover:bg-muted/10 hover:text-foreground h-8 px-2 sm:px-3 text-xs"
               >
                 {pagoSeleccionado.estado === "PENDIENTE" ? "Aprobar" : "Pendiente"}
               </Button>
@@ -915,7 +852,7 @@ export default function PagoDetallePage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center text-muted-foreground">
-                      <Lock className="h-4 w-4" />
+                      <Lock className="h-3 w-3 sm:h-4 sm:w-4" />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs">
@@ -927,47 +864,48 @@ export default function PagoDetallePage() {
           </div>
         </CardHeader>
 
-        <CardContent className="pt-6">
+        <CardContent className="pt-4 p-2 sm:pt-6">
           {/* Custom Tabs */}
-          <div className="w-full mb-6">
-            <div className="flex border-b">
+          <div className="w-full mb-4 sm:mb-6 overflow-x-auto">
+            <div className="flex border-b min-w-max sm:min-w-0">
               <button
                 onClick={() => setActiveTab("detalles")}
-                className={`px-4 py-2 font-medium text-sm transition-colors relative ${
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 font-medium text-sm sm:text-sm transition-colors relative ${
                   activeTab === "detalles" ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <div className="flex items-center">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Resumen del Pago
+                  <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Resumen</span>
+                  <span className="sm:hidden">Pago</span>
                 </div>
                 {activeTab === "detalles" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary"></div>}
               </button>
 
-
               <button
                 onClick={() => setActiveTab("penalizacionycover")}
-                className={`px-4 py-2 font-medium text-sm transition-colors relative ${
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 font-medium text-sm sm:text-sm transition-colors relative ${
                   activeTab === "penalizacionycover" ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <div className="flex items-center">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Detalles del pago
+                  <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Detalles</span>
+                  <span className="sm:hidden">Det.</span>
                 </div>
                 {activeTab === "penalizacionycover" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary"></div>}
               </button>
 
-
               <button
                 onClick={() => setActiveTab("clases")}
-                className={`px-4 py-2 font-medium text-sm transition-colors relative ${
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 font-medium text-sm sm:text-sm transition-colors relative ${
                   activeTab === "clases" ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Clases Incluidas
+                  <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Clases</span>
+                  <span className="sm:hidden">Cls.</span>
                 </div>
                 {activeTab === "clases" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary"></div>}
               </button>
@@ -976,13 +914,14 @@ export default function PagoDetallePage() {
               {disciplinas.some((d) => mostrarCategoriaVisual(d.nombre)) && (
                 <button
                   onClick={() => setActiveTab("categoria")}
-                  className={`px-4 py-2 font-medium text-sm transition-colors relative ${
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 font-medium text-sm sm:text-sm transition-colors relative ${
                     activeTab === "categoria" ? "text-primary" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <div className="flex items-center">
-                    <Award className="h-4 w-4 mr-2" />
-                    Categoría y Métricas
+                    <Award className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden sm:inline">Categoría</span>
+                    <span className="sm:hidden">Cat.</span>
                   </div>
                   {activeTab === "categoria" && (
                     <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary"></div>
@@ -993,9 +932,8 @@ export default function PagoDetallePage() {
           </div>
 
           {/* Tab Content */}
-          <div className="mt-4">
+          <div className="mt-2 sm:mt-4">
             {/* Detalles Tab */}
-            {/* Asegurarnos de pasar disciplinas al componente PaymentDetails */}
             {activeTab === "detalles" && (
               <PaymentDetails
                 pagoSeleccionado={pagoSeleccionado}
@@ -1056,11 +994,11 @@ export default function PagoDetallePage() {
             )}
 
             {activeTab === "penalizacionycover" && (
-            <PenalizacionesCoversTab
-              detalles = {pagoSeleccionado.detalles}
-            />
-          )}
-                  </div>
+              <PenalizacionesCoversTab
+                detalles={pagoSeleccionado.detalles}
+              />
+            )}
+          </div>
         </CardContent>
       </Card>
 

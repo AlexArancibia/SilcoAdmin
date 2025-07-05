@@ -11,62 +11,77 @@ interface PaginationProps {
 
 export function Pagination({ paginaActual, setPaginaActual, totalPaginas, totalItems }: PaginationProps) {
   return (
-    <div className="flex items-center justify-between mt-6">
-      <div className="text-sm text-muted-foreground">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6">
+      <div className="text-sm text-muted-foreground text-center sm:text-left">
         Página {paginaActual} de {totalPaginas} • {totalItems} pagos
       </div>
-      <div className="flex items-center space-x-2">
+      
+      <div className="flex items-center gap-1 sm:gap-2">
         <Button
           variant="outline"
           size="sm"
           onClick={() => setPaginaActual(paginaActual - 1)}
           disabled={paginaActual === 1}
-          className="border-muted"
+          className="border-muted px-3 sm:px-4"
         >
-          Anterior
+          <span className="sr-only sm:not-sr-only">Anterior</span>
+          <span className="sm:hidden">{"<"}</span>
         </Button>
-        <div className="flex items-center gap-1">
-          {Array.from({ length: Math.min(5, totalPaginas) }, (_, i) => {
-            let pageNum
-            if (totalPaginas <= 5) {
-              pageNum = i + 1
-            } else if (paginaActual <= 3) {
-              pageNum = i + 1
-            } else if (paginaActual >= totalPaginas - 2) {
-              pageNum = totalPaginas - 4 + i
-            } else {
-              pageNum = paginaActual - 2 + i
-            }
 
-            return (
-              <Button
-                key={pageNum}
-                variant={pageNum === paginaActual ? "default" : "outline"}
-                size="sm"
-                onClick={() => setPaginaActual(pageNum)}
-                className={pageNum === paginaActual ? "bg-primary text-primary-foreground" : "border-muted"}
-              >
-                {pageNum}
-              </Button>
-            )
-          })}
-          {totalPaginas > 5 && paginaActual < totalPaginas - 2 && (
-            <span className="px-2 text-muted-foreground">...</span>
+        <div className="flex items-center gap-1">
+          {/* Always show first page */}
+          <Button
+            variant={1 === paginaActual ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPaginaActual(1)}
+            className={`border-muted px-2 sm:px-3 ${1 === paginaActual ? "bg-primary text-primary-foreground" : ""}`}
+          >
+            1
+          </Button>
+
+          {/* Show ellipsis if current page is not adjacent to first page */}
+          {paginaActual > 3 && totalPaginas > 3 && (
+            <span className="px-1 text-muted-foreground">...</span>
           )}
-          {totalPaginas > 5 && paginaActual < totalPaginas - 2 && (
-            <Button variant="outline" size="sm" onClick={() => setPaginaActual(totalPaginas)} className="border-muted">
+
+          {/* Show current page and adjacent pages */}
+          {paginaActual > 1 && paginaActual < totalPaginas && (
+            <Button
+              variant="default"
+              size="sm"
+              className="bg-primary text-primary-foreground px-2 sm:px-3"
+            >
+              {paginaActual}
+            </Button>
+          )}
+
+          {/* Show ellipsis if current page is not adjacent to last page */}
+          {paginaActual < totalPaginas - 2 && totalPaginas > 3 && (
+            <span className="px-1 text-muted-foreground">...</span>
+          )}
+
+          {/* Always show last page if there's more than one page */}
+          {totalPaginas > 1 && (
+            <Button
+              variant={totalPaginas === paginaActual ? "default" : "outline"}
+              size="sm"
+              onClick={() => setPaginaActual(totalPaginas)}
+              className={`border-muted px-2 sm:px-3 ${totalPaginas === paginaActual ? "bg-primary text-primary-foreground" : ""}`}
+            >
               {totalPaginas}
             </Button>
           )}
         </div>
+
         <Button
           variant="outline"
           size="sm"
           onClick={() => setPaginaActual(paginaActual + 1)}
           disabled={paginaActual === totalPaginas}
-          className="border-muted"
+          className="border-muted px-3 sm:px-4"
         >
-          Siguiente
+          <span className="sr-only sm:not-sr-only">Siguiente</span>
+          <span className="sm:hidden">{">"}</span>
         </Button>
       </div>
     </div>

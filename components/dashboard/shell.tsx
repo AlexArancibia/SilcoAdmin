@@ -126,7 +126,7 @@ export function DashboardShell({ children, className, ...props }: DashboardShell
   
   console.log(`[DashboardShell] Renderizando contenido autorizado`)
   return (
-    <div className={cn("grid items-start gap-4 w-full max-w-full p-10", className)} {...props}>
+    <div className={cn("grid items-start gap-4 w-full max-w-full p-4 md:p-10", className)} {...props}>
       {children}
     </div>
   )

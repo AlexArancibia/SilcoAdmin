@@ -26,12 +26,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
-// Importar la función calcularPago al inicio del archivo
 import { calcularPago } from "@/lib/formula-evaluator"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 
-// Actualizar la interfaz ClassesTabProps para recibir formulas en lugar de categoriaInstructor y formula
 interface ClassesTabProps {
   clasesInstructor: Clase[]
   pagoSeleccionado: PagoInstructor
@@ -40,7 +39,6 @@ interface ClassesTabProps {
   formulas: FormulaDB[]
 }
 
-// Definir tipos para los filtros
 interface FilterState {
   search: string
   semanas: number[]
@@ -54,7 +52,6 @@ interface FilterState {
   horaFin: string
 }
 
-// Definir tipos para las estadísticas
 interface StatsData {
   totalClases: number
   totalReservas: number
@@ -68,14 +65,12 @@ interface StatsData {
   clasesNoPrime: number
 }
 
-// Tipo para el ordenamiento
 type SortField = "fecha" | "horario" | "estudio" | "disciplina" | "reservas" | "cortesias" | "monto" | null
 type SortDirection = "asc" | "desc"
 
-// Elementos por página para la paginación
-const ITEMS_PER_PAGE = 15
+const ITEMS_PER_PAGE_MOBILE = 10
+const ITEMS_PER_PAGE_DESKTOP = 15
 
-// Horas disponibles para el filtro de rango horario
 const HORAS_DISPONIBLES = [
   "06:00",
   "07:00",
@@ -97,7 +92,6 @@ const HORAS_DISPONIBLES = [
   "23:00",
 ]
 
-// Actualizar la desestructuración de props en la función del componente
 export function ClassesTab({
   clasesInstructor,
   pagoSeleccionado,
@@ -105,7 +99,6 @@ export function ClassesTab({
   formatCurrency,
   formulas,
 }: ClassesTabProps) {
-  // Estado para los filtros
   const [filters, setFilters] = useState<FilterState>({
     search: "",
     semanas: [],
@@ -113,58 +106,44 @@ export function ClassesTab({
     disciplinas: [],
     horario: "todos",
     ocupacionMin: 0,
-    ocupacionMax: 110, // Cambiado de 200 a 110
+    ocupacionMax: 110,
     conCortesias: false,
     horaInicio: "06:00",
     horaFin: "23:00",
   })
 
-  // Estado para mostrar/ocultar estadísticas
   const [showStats, setShowStats] = useState(false)
-
   const { instructores } = useInstructoresStore()
-  // Estado para la paginación
   const [currentPage, setCurrentPage] = useState(1)
-
-  // Estado para el ordenamiento
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
 
-  // Función para cambiar el ordenamiento
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
-      // Si ya estamos ordenando por este campo, cambiamos la dirección
       setSortDirection(sortDirection === "asc" ? "desc" : "asc")
     } else {
-      // Si es un nuevo campo, lo establecemos como el campo de ordenamiento y dirección ascendente
       setSortField(field)
       setSortDirection("asc")
     }
-    // Resetear a la primera página al cambiar el ordenamiento
     setCurrentPage(1)
   }
 
-  // Función para obtener la hora de una fecha
   const obtenerHora = (fecha: any): string => {
     try {
       let hours = 0
       let minutes = 0
 
       if (fecha instanceof Date) {
-        // Get UTC hours and minutes to avoid timezone conversion
         hours = fecha.getUTCHours()
         minutes = fecha.getUTCMinutes()
       } else {
-        // If it's a string or another format, create a Date object
         const dateObj = new Date(fecha)
         if (!isNaN(dateObj.getTime())) {
-          // Get UTC hours and minutes to avoid timezone conversion
           hours = dateObj.getUTCHours()
           minutes = dateObj.getUTCMinutes()
         }
       }
 
-      // Format as HH:MM
       return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
     } catch (error) {
       console.error("Error al obtener hora:", error)
@@ -172,22 +151,16 @@ export function ClassesTab({
     }
   }
 
-  // Función para verificar si una clase es en horario no prime
   const esClaseHorarioNoPrime = (clase: Clase): boolean => {
     const esSiclo = disciplinas.find((d) => d.id === clase.disciplinaId)?.nombre === "Síclo"
-
-    // Si no es Síclo, no es horario no prime
     if (!esSiclo) return false
 
-    // Si es Síclo, entonces verificar el horario
     const hora = obtenerHora(clase.fecha)
     const estudio = clase.estudio || ""
     return esHorarioNoPrime(estudio, hora)
   }
 
-  // Función para verificar si una hora está dentro de un rango
   const estaEnRangoHorario = (hora: string, inicio: string, fin: string): boolean => {
-    // Convertir a minutos para facilitar la comparación
     const convertirAMinutos = (h: string) => {
       const [horas, minutos] = h.split(":").map(Number)
       return horas * 60 + minutos
@@ -197,16 +170,13 @@ export function ClassesTab({
     const minInicio = convertirAMinutos(inicio)
     const minFin = convertirAMinutos(fin)
 
-    // Si el rango cruza la medianoche (fin < inicio), ajustar la lógica
     if (minFin < minInicio) {
       return minHora >= minInicio || minHora <= minFin
     }
 
-    // Caso normal
     return minHora >= minInicio && minHora <= minFin
   }
 
-  // Obtener lista única de estudios
   const estudiosUnicos = useMemo(() => {
     const estudios = new Set<string>()
     clasesInstructor.forEach((clase) => {
@@ -215,7 +185,6 @@ export function ClassesTab({
     return Array.from(estudios).sort()
   }, [clasesInstructor])
 
-  // Reemplazar la función para obtener fechas únicas por una para obtener semanas únicas
   const semanasUnicas = useMemo(() => {
     const semanas = new Set<number>()
     clasesInstructor.forEach((clase) => {
@@ -224,10 +193,8 @@ export function ClassesTab({
     return Array.from(semanas).sort((a, b) => a - b)
   }, [clasesInstructor])
 
-  // Filtrar clases según los criterios seleccionados
   const clasesFiltradas = useMemo(() => {
     return clasesInstructor.filter((clase) => {
-      // Filtro por texto de búsqueda
       if (filters.search) {
         const searchLower = filters.search.toLowerCase()
         const estudioMatch = (clase.estudio || "").toLowerCase().includes(searchLower)
@@ -242,22 +209,18 @@ export function ClassesTab({
         }
       }
 
-      // Filtro por semana
       if (filters.semanas.length > 0 && !filters.semanas.includes(clase.semana)) {
         return false
       }
 
-      // Filtro por estudios
       if (filters.estudios.length > 0 && !filters.estudios.includes(clase.estudio || "")) {
         return false
       }
 
-      // Filtro por disciplinas
       if (filters.disciplinas.length > 0 && !filters.disciplinas.includes(clase.disciplinaId)) {
         return false
       }
 
-      // Filtro por horario (prime/no prime)
       if (filters.horario === "prime" && esClaseHorarioNoPrime(clase)) {
         return false
       }
@@ -265,19 +228,16 @@ export function ClassesTab({
         return false
       }
 
-      // Filtro por rango de horario
       const horaClase = obtenerHora(clase.fecha)
       if (!estaEnRangoHorario(horaClase, filters.horaInicio, filters.horaFin)) {
         return false
       }
 
-      // Filtro por ocupación
       const ocupacionPorcentaje = Math.round((clase.reservasTotales / clase.lugares) * 100)
       if (ocupacionPorcentaje < filters.ocupacionMin || ocupacionPorcentaje > filters.ocupacionMax) {
         return false
       }
 
-      // Filtro por cortesías
       if (filters.conCortesias && clase.cortesias <= 0) {
         return false
       }
@@ -286,14 +246,11 @@ export function ClassesTab({
     })
   }, [clasesInstructor, filters, disciplinas])
 
-  // Ordenar clases según el campo y dirección seleccionados
   const clasesOrdenadas = useMemo(() => {
     const clases = [...clasesFiltradas]
 
     if (!sortField) {
-      // Ordenamiento por defecto: fecha, estudio, hora
       return clases.sort((a, b) => {
-        // Primero ordenar por fecha
         const fechaA = new Date(a.fecha)
         const fechaB = new Date(b.fecha)
         const comparacionFecha = fechaA.getTime() - fechaB.getTime()
@@ -302,12 +259,10 @@ export function ClassesTab({
           return comparacionFecha
         }
 
-        // Si las fechas son iguales, ordenar por estudio
         const estudioA = a.estudio || ""
         const estudioB = b.estudio || ""
         const comparacionEstudio = estudioA.localeCompare(estudioB)
 
-        // Si los estudios son iguales, ordenar por hora
         if (comparacionEstudio === 0) {
           const horaA = obtenerHora(a.fecha)
           const horaB = obtenerHora(b.fecha)
@@ -318,7 +273,6 @@ export function ClassesTab({
       })
     }
 
-    // Ordenamiento según el campo seleccionado
     return clases.sort((a, b) => {
       let comparison = 0
 
@@ -358,12 +312,10 @@ export function ClassesTab({
           break
       }
 
-      // Invertir la comparación si la dirección es descendente
       return sortDirection === "asc" ? comparison : -comparison
     })
   }, [clasesFiltradas, sortField, sortDirection, disciplinas, pagoSeleccionado.detalles?.clases])
 
-  // Calcular estadísticas de las clases filtradas
   const estadisticas = useMemo((): StatsData => {
     const stats: StatsData = {
       totalClases: clasesOrdenadas.length,
@@ -381,32 +333,25 @@ export function ClassesTab({
     let sumaOcupacion = 0
 
     clasesOrdenadas.forEach((clase) => {
-      // Contar reservas
       stats.totalReservas += clase.reservasTotales
 
-      // Calcular ocupación
       const ocupacionPorcentaje = Math.round((clase.reservasTotales / clase.lugares) * 100)
       sumaOcupacion += ocupacionPorcentaje
 
-      // Contar listas de espera y cortesías
       stats.totalListaEspera += clase.listasEspera
       stats.totalCortesias += clase.cortesias
 
-      // Sumar montos
       const detalleClase = pagoSeleccionado.detalles?.clases?.find((d: any) => d.claseId === clase.id)
       if (detalleClase && detalleClase.montoCalculado) {
         stats.totalMonto += detalleClase.montoCalculado
       }
 
-      // Contar por estudio
       const estudio = clase.estudio || "Sin estudio"
       stats.clasesPorEstudio[estudio] = (stats.clasesPorEstudio[estudio] || 0) + 1
 
-      // Contar por disciplina
       const disciplinaId = clase.disciplinaId
       stats.clasesPorDisciplina[disciplinaId] = (stats.clasesPorDisciplina[disciplinaId] || 0) + 1
 
-      // Contar prime vs no prime
       if (esClaseHorarioNoPrime(clase)) {
         stats.clasesNoPrime++
       } else {
@@ -414,13 +359,11 @@ export function ClassesTab({
       }
     })
 
-    // Calcular promedio de ocupación
     stats.promedioOcupacion = clasesOrdenadas.length > 0 ? Math.round(sumaOcupacion / clasesOrdenadas.length) : 0
 
     return stats
   }, [clasesOrdenadas, pagoSeleccionado.detalles?.clases])
 
-  // Actualizar la función para limpiar filtros
   const limpiarFiltros = () => {
     setFilters({
       search: "",
@@ -429,15 +372,14 @@ export function ClassesTab({
       disciplinas: [],
       horario: "todos",
       ocupacionMin: 0,
-      ocupacionMax: 110, // Cambiado de 200% a 110%
+      ocupacionMax: 110,
       conCortesias: false,
       horaInicio: "06:00",
       horaFin: "23:00",
     })
-    setCurrentPage(1) // Resetear a la primera página al limpiar filtros
+    setCurrentPage(1)
   }
 
-  // Actualizar la función para contar filtros activos
   const contarFiltrosActivos = (): number => {
     let count = 0
     if (filters.search) count++
@@ -445,30 +387,25 @@ export function ClassesTab({
     if (filters.estudios.length > 0) count++
     if (filters.disciplinas.length > 0) count++
     if (filters.horario !== "todos") count++
-    if (filters.ocupacionMin > 0 || filters.ocupacionMax < 110) count++ // Cambiado de 200% a 110%
+    if (filters.ocupacionMin > 0 || filters.ocupacionMax < 110) count++
     if (filters.conCortesias) count++
     if (filters.horaInicio !== "06:00" || filters.horaFin !== "23:00") count++
     return count
   }
 
   const filtrosActivos = contarFiltrosActivos()
-
-  // Calcular el total de páginas
-  const totalPages = Math.ceil(clasesOrdenadas.length / ITEMS_PER_PAGE)
-
-  // Asegurarse de que la página actual es válida
+  const itemsPerPage = ITEMS_PER_PAGE_MOBILE
+  const totalPages = Math.ceil(clasesOrdenadas.length / itemsPerPage)
   const validCurrentPage = Math.max(1, Math.min(currentPage, totalPages || 1))
   if (validCurrentPage !== currentPage) {
     setCurrentPage(validCurrentPage)
   }
 
-  // Obtener las clases para la página actual
   const clasesEnPaginaActual = useMemo(() => {
-    const startIndex = (validCurrentPage - 1) * ITEMS_PER_PAGE
-    return clasesOrdenadas.slice(startIndex, startIndex + ITEMS_PER_PAGE)
-  }, [clasesOrdenadas, validCurrentPage])
+    const startIndex = (validCurrentPage - 1) * itemsPerPage
+    return clasesOrdenadas.slice(startIndex, startIndex + itemsPerPage)
+  }, [clasesOrdenadas, validCurrentPage, itemsPerPage])
 
-  // Funciones para la navegación de páginas
   const irAPaginaAnterior = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1)
@@ -487,7 +424,6 @@ export function ClassesTab({
     }
   }
 
-  // Renderizar indicador de ordenamiento
   const renderSortIndicator = (field: SortField) => {
     if (sortField !== field) return null
 
@@ -498,8 +434,6 @@ export function ClassesTab({
     )
   }
 
-  // Podemos eliminarla o reemplazarla con una versión más sutil
-  // Reemplazar la función getReservasColor:
   const getReservasColor = () => {
     return ""
   }
@@ -513,15 +447,276 @@ export function ClassesTab({
             placeholder="Buscar por estudio, salón..."
             value={filters.search}
             onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-            className="pl-9"
+            className="pl-9 text-sm md:text-base"
           />
           <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          {/* Popover de filtros */}
+          {/* Mobile Filter Button */}
+          <Sheet>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="outline" className="gap-1.5">
+                <Filter className="h-4 w-4" />
+                Filtros
+                {filtrosActivos > 0 && (
+                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                    {filtrosActivos}
+                  </Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-[90vh]">
+              
+              <div className="h-full flex flex-col">
+                <SheetTitle className="sr-only">Filtros avanzados</SheetTitle>
+                <div className="border-b p-4 bg-muted/30">
+                  <h4 className="font-medium leading-none">Filtros avanzados</h4>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Configura los filtros para encontrar clases específicas
+                  </p>
+                </div>
+
+                <ScrollArea className="flex-1 p-4">
+                  <div className="space-y-4">
+                    {/* Filtro por semana */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Semanas</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {semanasUnicas.map((semana) => (
+                          <div key={semana} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`semana-${semana}`}
+                              checked={filters.semanas.includes(semana)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setFilters({
+                                    ...filters,
+                                    semanas: [...filters.semanas, semana],
+                                  })
+                                } else {
+                                  setFilters({
+                                    ...filters,
+                                    semanas: filters.semanas.filter((s) => s !== semana),
+                                  })
+                                }
+                                setCurrentPage(1)
+                              }}
+                            />
+                            <Label htmlFor={`semana-${semana}`} className="text-sm cursor-pointer">
+                              Semana {semana}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filtro por estudio */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Estudios</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {estudiosUnicos.map((estudio) => (
+                          <div key={estudio} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`estudio-${estudio}`}
+                              checked={filters.estudios.includes(estudio)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setFilters({
+                                    ...filters,
+                                    estudios: [...filters.estudios, estudio],
+                                  })
+                                } else {
+                                  setFilters({
+                                    ...filters,
+                                    estudios: filters.estudios.filter((e) => e !== estudio),
+                                  })
+                                }
+                                setCurrentPage(1)
+                              }}
+                            />
+                            <Label htmlFor={`estudio-${estudio}`} className="text-sm cursor-pointer">
+                              {estudio}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filtro por disciplina */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Disciplinas</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {disciplinas.map((disciplina) => (
+                          <div key={disciplina.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`disciplina-${disciplina.id}`}
+                              checked={filters.disciplinas.includes(disciplina.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setFilters({
+                                    ...filters,
+                                    disciplinas: [...filters.disciplinas, disciplina.id],
+                                  })
+                                } else {
+                                  setFilters({
+                                    ...filters,
+                                    disciplinas: filters.disciplinas.filter((id) => id !== disciplina.id),
+                                  })
+                                }
+                                setCurrentPage(1)
+                              }}
+                            />
+                            <Label
+                              htmlFor={`disciplina-${disciplina.id}`}
+                              className="text-sm cursor-pointer flex items-center"
+                            >
+                              <span
+                                className="inline-block w-3 h-3 rounded-full mr-1.5"
+                                style={{ backgroundColor: disciplina.color || "#888" }}
+                              ></span>
+                              {disciplina.nombre}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filtro por horario */}
+                    <div className="space-y-2">
+                      <Label htmlFor="horario" className="text-sm font-medium">
+                        Tipo de Horario
+                      </Label>
+                      <Select
+                        value={filters.horario}
+                        onValueChange={(value: "todos" | "prime" | "noPrime") => {
+                          setFilters({ ...filters, horario: value })
+                          setCurrentPage(1)
+                        }}
+                      >
+                        <SelectTrigger id="horario">
+                          <SelectValue placeholder="Seleccionar horario" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos los horarios</SelectItem>
+                          <SelectItem value="prime">Solo Prime</SelectItem>
+                          <SelectItem value="noPrime">Solo No Prime</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Filtro por ocupación */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <Label className="text-sm font-medium">Ocupación</Label>
+                        <span className="text-sm text-muted-foreground">
+                          {filters.ocupacionMin}% - {filters.ocupacionMax}%
+                        </span>
+                      </div>
+                      <Slider
+                        defaultValue={[filters.ocupacionMin, filters.ocupacionMax]}
+                        min={0}
+                        max={110}
+                        step={5}
+                        onValueChange={(values) => {
+                          setFilters({
+                            ...filters,
+                            ocupacionMin: values[0],
+                            ocupacionMax: values[1],
+                          })
+                          setCurrentPage(1)
+                        }}
+                        className="py-4"
+                      />
+                    </div>
+
+                    {/* Filtro por rango de horario */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Rango de Horario</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="horaInicio" className="text-xs text-muted-foreground">
+                            Desde
+                          </Label>
+                          <Select
+                            value={filters.horaInicio}
+                            onValueChange={(value) => {
+                              setFilters({ ...filters, horaInicio: value })
+                              setCurrentPage(1)
+                            }}
+                          >
+                            <SelectTrigger id="horaInicio">
+                              <SelectValue placeholder="Hora inicio" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {HORAS_DISPONIBLES.map((hora) => (
+                                <SelectItem key={`inicio-${hora}`} value={hora}>
+                                  {hora}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="horaFin" className="text-xs text-muted-foreground">
+                            Hasta
+                          </Label>
+                          <Select
+                            value={filters.horaFin}
+                            onValueChange={(value) => {
+                              setFilters({ ...filters, horaFin: value })
+                              setCurrentPage(1)
+                            }}
+                          >
+                            <SelectTrigger id="horaFin">
+                              <SelectValue placeholder="Hora fin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {HORAS_DISPONIBLES.map((hora) => (
+                                <SelectItem key={`fin-${hora}`} value={hora}>
+                                  {hora}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Checkbox para cortesías */}
+                    <div className="mt-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="conCortesias"
+                          checked={filters.conCortesias}
+                          onCheckedChange={(checked) => {
+                            setFilters({ ...filters, conCortesias: !!checked })
+                            setCurrentPage(1)
+                          }}
+                        />
+                        <Label htmlFor="conCortesias" className="text-sm cursor-pointer">
+                          Con cortesías
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                </ScrollArea>
+
+                <div className="flex justify-between p-4 border-t bg-muted/30">
+                  <Button variant="outline" size="sm" onClick={limpiarFiltros}>
+                    Limpiar filtros
+                  </Button>
+                  <Button variant="default" size="sm" onClick={() => document.body.click()}>
+                    Aplicar
+                  </Button>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* Desktop Filter Button */}
           <Popover>
-            <PopoverTrigger asChild>
+            <PopoverTrigger asChild className="hidden md:flex">
               <Button variant="outline" className="gap-1.5">
                 <Filter className="h-4 w-4" />
                 Filtros
@@ -566,7 +761,7 @@ export function ClassesTab({
                                       semanas: filters.semanas.filter((s) => s !== semana),
                                     })
                                   }
-                                  setCurrentPage(1) // Resetear a la primera página al cambiar filtros
+                                  setCurrentPage(1)
                                 }}
                               />
                               <Label htmlFor={`semana-${semana}`} className="text-sm cursor-pointer">
@@ -600,7 +795,7 @@ export function ClassesTab({
                                       estudios: filters.estudios.filter((e) => e !== estudio),
                                     })
                                   }
-                                  setCurrentPage(1) // Resetear a la primera página al cambiar filtros
+                                  setCurrentPage(1)
                                 }}
                               />
                               <Label htmlFor={`estudio-${estudio}`} className="text-sm cursor-pointer">
@@ -637,7 +832,7 @@ export function ClassesTab({
                                       disciplinas: filters.disciplinas.filter((id) => id !== disciplina.id),
                                     })
                                   }
-                                  setCurrentPage(1) // Resetear a la primera página al cambiar filtros
+                                  setCurrentPage(1)
                                 }}
                               />
                               <Label
@@ -665,7 +860,7 @@ export function ClassesTab({
                         value={filters.horario}
                         onValueChange={(value: "todos" | "prime" | "noPrime") => {
                           setFilters({ ...filters, horario: value })
-                          setCurrentPage(1) // Resetear a la primera página al cambiar filtros
+                          setCurrentPage(1)
                         }}
                       >
                         <SelectTrigger id="horario">
@@ -695,7 +890,7 @@ export function ClassesTab({
                       <Slider
                         defaultValue={[filters.ocupacionMin, filters.ocupacionMax]}
                         min={0}
-                        max={110} // Cambiado de 200 a 110
+                        max={110}
                         step={5}
                         onValueChange={(values) => {
                           setFilters({
@@ -703,7 +898,7 @@ export function ClassesTab({
                             ocupacionMin: values[0],
                             ocupacionMax: values[1],
                           })
-                          setCurrentPage(1) // Resetear a la primera página al cambiar filtros
+                          setCurrentPage(1)
                         }}
                         className="py-4"
                       />
@@ -771,7 +966,7 @@ export function ClassesTab({
                         checked={filters.conCortesias}
                         onCheckedChange={(checked) => {
                           setFilters({ ...filters, conCortesias: !!checked })
-                          setCurrentPage(1) // Resetear a la primera página al cambiar filtros
+                          setCurrentPage(1)
                         }}
                       />
                       <Label htmlFor="conCortesias" className="text-sm cursor-pointer">
@@ -792,16 +987,6 @@ export function ClassesTab({
               </div>
             </PopoverContent>
           </Popover>
-
-          {/* Botón para mostrar/ocultar estadísticas */}
-          {/* <Button
-            variant={showStats ? "default" : "outline"}
-            onClick={() => setShowStats(!showStats)}
-            className="gap-1.5"
-          >
-            <BarChart2 className="h-4 w-4" />
-            Estadísticas
-          </Button> */}
         </div>
       </div>
 
@@ -926,116 +1111,6 @@ export function ClassesTab({
         {clasesOrdenadas.length !== clasesInstructor.length && <span> (de un total de {clasesInstructor.length})</span>}
       </div>
 
-      {/* Panel de estadísticas */}
-      {/* {showStats && (
-        <Card className="bg-muted/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center">
-              <BarChart2 className="h-5 w-5 mr-2" />
-              Estadísticas de clases
-            </CardTitle>
-            <CardDescription>Resumen de las {clasesOrdenadas.length} clases filtradas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Información general</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>Total clases:</div>
-                  <div className="font-medium">{estadisticas.totalClases}</div>
-
-                  <div>Total reservas:</div>
-                  <div className="font-medium">{estadisticas.totalReservas}</div>
-
-                  <div>Ocupación promedio:</div>
-                  <div className="font-medium">{estadisticas.promedioOcupacion}%</div>
-
-                  <div>Total lista espera:</div>
-                  <div className="font-medium">{estadisticas.totalListaEspera}</div>
-
-                  <div>Total cortesías:</div>
-                  <div className="font-medium">{estadisticas.totalCortesias}</div>
-
-                  <div>Monto total:</div>
-                  <div className="font-medium">{formatCurrency(estadisticas.totalMonto)}</div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Distribución por horario</h4>
-                <div className="flex items-center gap-2">
-                  <div className="w-full bg-muted/70 rounded-full h-4 overflow-hidden">
-                    {estadisticas.totalClases > 0 && (
-                      <>
-                        <div
-                          className="h-full bg-green-500/90"
-                          style={{
-                            width: `${(estadisticas.clasesPrime / estadisticas.totalClases) * 100}%`,
-                            float: "left",
-                          }}
-                        />
-                        <div
-                          className="h-full bg-amber-500/90"
-                          style={{
-                            width: `${(estadisticas.clasesNoPrime / estadisticas.totalClases) * 100}%`,
-                            float: "left",
-                          }}
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center">
-                    <span className="w-3 h-3 rounded-full bg-green-500/90 mr-1.5"></span>
-                    Prime:
-                  </div>
-                  <div className="font-medium">
-                    {estadisticas.clasesPrime} (
-                    {estadisticas.totalClases > 0
-                      ? Math.round((estadisticas.clasesPrime / estadisticas.totalClases) * 100)
-                      : 0}
-                    %)
-                  </div>
-
-                  <div className="flex items-center">
-                    <span className="w-3 h-3 rounded-full bg-amber-500/90 mr-1.5"></span>
-                    No Prime:
-                  </div>
-                  <div className="font-medium">
-                    {estadisticas.clasesNoPrime} (
-                    {estadisticas.totalClases > 0
-                      ? Math.round((estadisticas.clasesNoPrime / estadisticas.totalClases) * 100)
-                      : 0}
-                    %)
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Distribución por disciplina</h4>
-                <ScrollArea className="h-30">
-                  <div className="space-y-1.5">
-                    {Object.entries(estadisticas.clasesPorDisciplina).map(([disciplinaId, count]) => {
-                      const disciplina = disciplinas.find((d) => d.id === Number(disciplinaId))
-                      return (
-                        <div key={disciplinaId} className="flex items-center justify-between text-sm">
-                          <div className="flex items-center">
-                            <span className="w-3 h-3 rounded-full mr-1.5" style={{ backgroundColor: "#888" }}></span>
-                            {disciplina?.nombre || `Disciplina ${disciplinaId}`}:
-                          </div>
-                          <div className="font-medium">{count}</div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </ScrollArea>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )} */}
-
       {clasesOrdenadas.length === 0 ? (
         <div className="text-center py-8 bg-muted/10 rounded-lg border">
           <Calendar className="mx-auto h-12 w-12 text-muted-foreground" />
@@ -1062,13 +1137,13 @@ export function ClassesTab({
                     Fecha {renderSortIndicator("fecha")}
                   </TableHead>
                   <TableHead
-                    className="text-accent font-medium whitespace-nowrap cursor-pointer w-[140px]"
+                    className="text-accent font-medium whitespace-nowrap cursor-pointer hidden md:table-cell w-[140px]"
                     onClick={() => toggleSort("horario")}
                   >
                     Horario {renderSortIndicator("horario")}
                   </TableHead>
                   <TableHead
-                    className="text-accent font-medium whitespace-nowrap cursor-pointer w-[160px]"
+                    className="text-accent font-medium whitespace-nowrap cursor-pointer hidden md:table-cell w-[160px]"
                     onClick={() => toggleSort("estudio")}
                   >
                     Estudio {renderSortIndicator("estudio")}
@@ -1085,10 +1160,9 @@ export function ClassesTab({
                   >
                     Reservas {renderSortIndicator("reservas")}
                   </TableHead>
-                  <TableHead className="text-accent font-medium whitespace-nowrap cursor-pointer w-[100px]">
+                  <TableHead className="text-accent font-medium whitespace-nowrap cursor-pointer hidden md:table-cell w-[100px]">
                     Lugares
                   </TableHead>
-
                   <TableHead
                     className="text-accent font-medium whitespace-nowrap cursor-pointer w-[120px]"
                     onClick={() => toggleSort("monto")}
@@ -1099,33 +1173,31 @@ export function ClassesTab({
               </TableHeader>
               <TableBody>
                 {clasesEnPaginaActual.map((clase) => {
-                  // Find class detail
                   const detalleClase = pagoSeleccionado.detalles?.clases?.find((d: any) => d.claseId === clase.id)
-
-                  // Get the discipline
                   const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
-
-                  // Check if reservations are equal to or greater than places
                   const reservasCompletas = clase.reservasTotales >= clase.lugares
-
-                  // Determine color based on reservations vs places
-                  const getReservasColor = () => {
-                    if (reservasCompletas) {
-                      return "text-emerald-600 font-medium"
-                    }
-                    return ""
-                  }
-
-                  // Check if class is in non-prime hour
                   const esNoPrime = esClaseHorarioNoPrime(clase)
                   const hora = obtenerHora(clase.fecha)
 
                   return (
                     <TableRow key={clase.id} className="hover:bg-muted/5 transition-colors border-b border-border/30">
                       <TableCell className="font-medium whitespace-nowrap text-foreground">
-                        {new Date(clase.fecha).toLocaleDateString()}
+                        <div>
+                          {new Date(clase.fecha).toLocaleDateString()}
+                          <div className="text-xs text-muted-foreground mt-1 md:hidden">
+                            {hora} • {clase.estudio}
+                            {esNoPrime && (
+                              <Badge
+                                variant="outline"
+                                className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/70 ml-1 text-xs"
+                              >
+                                NP
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-1.5">
                           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                           <span>{hora}</span>
@@ -1140,7 +1212,7 @@ export function ClassesTab({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex flex-col">
                           <span className="text-foreground">{clase.estudio}</span>
                           <span className="text-xs text-muted-foreground">{clase.salon}</span>
@@ -1175,11 +1247,10 @@ export function ClassesTab({
                           }
                         >
                           {clase.reservasTotales}
+                          <span className="text-muted-foreground text-xs ml-1 md:hidden">/ {clase.lugares}</span>
                         </span>
                       </TableCell>
-                      <TableCell className="text-left pl-8">{clase.lugares}</TableCell>
-
-                      {/* Actualizar la celda del monto en la tabla para usar la fórmula correcta según la disciplina */}
+                      <TableCell className="text-left pl-8 hidden md:table-cell">{clase.lugares}</TableCell>
                       <TableCell className="font-medium text-foreground">
                         {detalleClase ? (
                           <TooltipProvider>
@@ -1191,7 +1262,6 @@ export function ClassesTab({
                               <TooltipContent className="w-64 max-w-sm">
                                 {(() => {
                                   try {
-                                    // Encontrar la fórmula correcta para esta disciplina
                                     const formulaParaDisciplina = formulas.find(
                                       (f) => f.disciplinaId === clase.disciplinaId,
                                     )
@@ -1200,7 +1270,6 @@ export function ClassesTab({
                                       throw new Error("No se encontró fórmula para esta disciplina")
                                     }
 
-                                    // Obtener la categoría del instructor para esta disciplina Y periodo desde el pago seleccionado
                                     const categoriaInstructor =
                                       instructores
                                         .find((i) => i.id === pagoSeleccionado.instructorId)
@@ -1210,16 +1279,7 @@ export function ClassesTab({
                                             c.periodoId === pagoSeleccionado.periodoId,
                                         )?.categoria || "INSTRUCTOR"
 
-                                    // Usar la función calcularPago con la fórmula correcta
-                                    // NOTA: Para clases versus, usar los datos tal como vienen porque el hook ya los ajustó
                                     const claseParaCalculo = { ...clase }
-
-                                    // Si es versus, mostrar información adicional pero usar los datos ajustados
-                                    if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
-                                      // El hook ya ajustó reservas y capacidad, solo calculamos normalmente
-                                      // y el resultado será dividido por el hook
-                                    }
-
                                     const resultadoCalculo = calcularPago(
                                       claseParaCalculo,
                                       categoriaInstructor,
@@ -1239,7 +1299,6 @@ export function ClassesTab({
                                       ],
                                     }
 
-                                    // Agregar información sobre mínimo/máximo si aplica
                                     if (resultadoCalculo.minimoAplicado) {
                                       detalleCalculo.pasos.push({
                                         descripcion: `Se aplicó el mínimo garantizado`,
@@ -1252,7 +1311,6 @@ export function ClassesTab({
                                       })
                                     }
 
-                                    // Agregar información sobre bono si existe
                                     if (resultadoCalculo.bonoAplicado) {
                                       detalleCalculo.pasos.push({
                                         descripcion: `Bono aplicable: ${resultadoCalculo.bonoAplicado.toFixed(2)} (no incluido en el total)`,
@@ -1334,21 +1392,17 @@ export function ClassesTab({
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
 
-                {/* Mostrar números de página */}
-                <div className="flex items-center space-x-1">
+                {/* Mostrar números de página solo en desktop */}
+                <div className="hidden md:flex items-center space-x-1">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    // Lógica para mostrar las páginas cercanas a la actual
                     let pageNum = i + 1
 
                     if (totalPages > 5) {
                       if (currentPage <= 3) {
-                        // Estamos cerca del inicio
                         pageNum = i + 1
                       } else if (currentPage >= totalPages - 2) {
-                        // Estamos cerca del final
                         pageNum = totalPages - 4 + i
                       } else {
-                        // Estamos en el medio
                         pageNum = currentPage - 2 + i
                       }
                     }

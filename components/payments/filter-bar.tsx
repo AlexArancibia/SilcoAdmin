@@ -28,26 +28,24 @@ export function FilterBar({
   setFiltroInstructor,
   instructores,
 }: FilterBarProps) {
-  // Obtener el nombre del instructor seleccionado
   const instructorSeleccionado = instructores.find(
     (instructor) => instructor.id.toString() === filtroInstructor,
   )?.nombre
 
-  // Verificar si hay filtros activos
   const hayFiltrosActivos = busqueda !== "" || filtroEstado !== "todos" || filtroInstructor !== "todos"
 
   return (
     <Card className="border-0 shadow-sm bg-card/50 backdrop-blur-sm transition-all duration-200">
-      <CardContent className="p-3 sm:p-4">
-        <div className="flex flex-col gap-4">
+      <CardContent className="p-2 sm:p-4">
+        <div className="flex flex-col gap-3">
           {/* Barra principal de búsqueda y filtros */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <div className="relative flex-1 min-w-[240px]">
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por instructor, periodo o estado..."
+                placeholder="Buscar..."
                 className={cn(
-                  "pl-9 pr-8 h-10 bg-background border-0 shadow-sm rounded-full transition-all",
+                  "pl-9 pr-8 h-10 bg-background border-0 shadow-sm rounded-full transition-all w-full",
                   busqueda && "ring-1 ring-primary/20",
                 )}
                 value={busqueda}
@@ -65,11 +63,11 @@ export function FilterBar({
               )}
             </div>
 
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Select value={filtroEstado} onValueChange={setFiltroEstado}>
                 <SelectTrigger
                   className={cn(
-                    "w-[140px] sm:w-[160px] h-10 bg-background border-0 shadow-sm rounded-full transition-all",
+                    "w-full sm:w-[140px] h-10 bg-background border-0 shadow-sm rounded-full transition-all",
                     filtroEstado !== "todos" && "ring-1 ring-primary/20 text-primary",
                   )}
                 >
@@ -77,7 +75,7 @@ export function FilterBar({
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos los estados</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   <SelectItem value="PENDIENTE">Pendientes</SelectItem>
                   <SelectItem value="APROBADO">Aprobados</SelectItem>
                 </SelectContent>
@@ -86,7 +84,7 @@ export function FilterBar({
               <Select value={filtroInstructor} onValueChange={setFiltroInstructor}>
                 <SelectTrigger
                   className={cn(
-                    "w-[140px] sm:w-[160px] h-10 bg-background border-0 shadow-sm rounded-full transition-all",
+                    "w-full sm:w-[160px] h-10 bg-background border-0 shadow-sm rounded-full transition-all",
                     filtroInstructor !== "todos" && "ring-1 ring-primary/20 text-primary",
                   )}
                 >
@@ -94,7 +92,7 @@ export function FilterBar({
                   <SelectValue placeholder="Instructor" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
-                  <SelectItem value="todos">Todos los instructores</SelectItem>
+                  <SelectItem value="todos">Todos</SelectItem>
                   {instructores.map((instructor) => (
                     <SelectItem key={instructor.id} value={instructor.id.toString()}>
                       {instructor.nombre}
@@ -107,64 +105,66 @@ export function FilterBar({
 
           {/* Filtros activos */}
           {hayFiltrosActivos && (
-            <div className="flex flex-wrap gap-2 items-center text-sm text-muted-foreground">
-              <span>Filtros:</span>
-              {busqueda && (
-                <Badge variant="outline" className="rounded-full bg-background border-0 shadow-sm gap-1 pl-2 pr-1 py-0">
-                  "{busqueda}"
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 ml-1 hover:bg-muted"
-                    onClick={() => setBusqueda("")}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="hidden sm:inline">Filtros:</span>
+                {busqueda && (
+                  <Badge variant="outline" className="rounded-full bg-background border-0 shadow-sm gap-1 pl-2 pr-1 py-0">
+                    "{busqueda}"
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 ml-1 hover:bg-muted"
+                      onClick={() => setBusqueda("")}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
 
-              {filtroEstado !== "todos" && (
-                <Badge variant="outline" className="rounded-full bg-background border-0 shadow-sm gap-1 pl-2 pr-1 py-0">
-                  {filtroEstado === "PENDIENTE" ? "Pendientes" : "Aprobados"}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 ml-1 hover:bg-muted"
-                    onClick={() => setFiltroEstado("todos")}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
+                {filtroEstado !== "todos" && (
+                  <Badge variant="outline" className="rounded-full bg-background border-0 shadow-sm gap-1 pl-2 pr-1 py-0">
+                    {filtroEstado === "PENDIENTE" ? "Pendientes" : "Aprobados"}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 ml-1 hover:bg-muted"
+                      onClick={() => setFiltroEstado("todos")}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
 
-              {filtroInstructor !== "todos" && instructorSeleccionado && (
-                <Badge variant="outline" className="rounded-full bg-background border-0 shadow-sm gap-1 pl-2 pr-1 py-0">
-                  {instructorSeleccionado}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 ml-1 hover:bg-muted"
-                    onClick={() => setFiltroInstructor("todos")}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
+                {filtroInstructor !== "todos" && instructorSeleccionado && (
+                  <Badge variant="outline" className="rounded-full bg-background border-0 shadow-sm gap-1 pl-2 pr-1 py-0">
+                    {instructorSeleccionado.length > 12 
+                      ? `${instructorSeleccionado.substring(0, 10)}...`
+                      : instructorSeleccionado}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 ml-1 hover:bg-muted"
+                      onClick={() => setFiltroInstructor("todos")}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
+              </div>
 
-              {hayFiltrosActivos && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs ml-auto hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => {
-                    setBusqueda("")
-                    setFiltroEstado("todos")
-                    setFiltroInstructor("todos")
-                  }}
-                >
-                  Limpiar filtros
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs sm:ml-auto hover:bg-destructive/10 hover:text-destructive w-full sm:w-auto"
+                onClick={() => {
+                  setBusqueda("")
+                  setFiltroEstado("todos")
+                  setFiltroInstructor("todos")
+                }}
+              >
+                Limpiar todos
+              </Button>
             </div>
           )}
         </div>

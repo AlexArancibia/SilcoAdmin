@@ -27,7 +27,7 @@ export function PeriodSelector() {
     fetchPeriodos()
   }, [fetchPeriodos])
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -35,8 +35,18 @@ export function PeriodSelector() {
       }
     }
 
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false)
+      }
+    }
+
     document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("keydown", handleEscape)
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("keydown", handleEscape)
+    }
   }, [])
 
   const formatFecha = (fecha: Date | string) => {
@@ -99,27 +109,40 @@ export function PeriodSelector() {
     setIsOpen(false)
   }
 
-  // Determine dialog position (right aligned instead of left)
+  // Calculate dropdown position with improved logic
   const getDialogPosition = () => {
     if (!buttonRef.current) return {}
 
     const buttonRect = buttonRef.current.getBoundingClientRect()
-    const dropdownWidth = 350 // Width of the dropdown (matches the w-[350px] class)
+    const dropdownWidth = 380 // Slightly wider for better desktop experience
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    // Calculate right position with boundary check
+    let right = viewportWidth - buttonRect.right
+    if (right < 16) right = 16 // Ensure minimum margin from viewport edge
+
+    // Calculate top position with boundary check
+    let top = buttonRect.bottom + window.scrollY
+    const dropdownHeight = 500 // Estimated max height
+    if (top + dropdownHeight > viewportHeight + window.scrollY) {
+      // If dropdown would go below viewport, show above button
+      top = buttonRect.top + window.scrollY - dropdownHeight - 8
+    }
 
     return {
       position: "fixed" as const,
-      top: `${buttonRect.bottom + window.scrollY}px`,
-      right: `${window.innerWidth - buttonRect.right}px`,
+      top: `${top}px`,
+      right: `${right}px`,
       width: `${dropdownWidth}px`,
-      maxHeight: "80vh",
+      maxHeight: "70vh",
       overflowY: "auto" as const,
     }
   }
 
-  // Add this useEffect after the other useEffects
+  // Auto-scroll to selected item when dropdown opens
   useEffect(() => {
     if (isOpen && rangoSeleccionado) {
-      // Wait for the dropdown to render
       setTimeout(() => {
         const selectedElement = document.querySelector(
           activeTab === "individual"
@@ -128,7 +151,7 @@ export function PeriodSelector() {
         )
 
         if (selectedElement) {
-          selectedElement.scrollIntoView({ behavior: "smooth", block: "center" })
+          selectedElement.scrollIntoView({ behavior: "smooth", block: "nearest" })
         }
       }, 100)
     }
@@ -141,38 +164,46 @@ export function PeriodSelector() {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "w-full justify-between border transition-colors",
-          rangoSeleccionado ? "border-slate-300 text-slate-700 dark:text-slate-300" : "",
+          "min-w-[240px] max-w-[400px]", // Better width control for desktop
+          rangoSeleccionado 
+            ? "border-slate-300 bg-slate-50 text-slate-700 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200" 
+            : "hover:bg-slate-50 dark:hover:bg-slate-800",
           isLoading ? "opacity-70 cursor-not-allowed" : "",
         )}
         disabled={isLoading}
         ref={buttonRef}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
       >
-        <div className="flex items-center gap-2">
-          <Calendar className={cn("h-4 w-4", rangoSeleccionado ? "text-slate-500" : "")} />
-          <span>{isLoading ? "Cargando períodos..." : getDisplayText()}</span>
+        <div className="flex items-center gap-2 truncate">
+          <Calendar className={cn("h-4 w-4 flex-shrink-0", rangoSeleccionado ? "text-slate-500" : "")} />
+          <span className="truncate">{isLoading ? "Cargando períodos..." : getDisplayText()}</span>
         </div>
         {isLoading ? (
-          <Skeleton className="h-4 w-4 rounded-full" />
+          <Skeleton className="h-4 w-4 rounded-full flex-shrink-0" />
         ) : isOpen ? (
-          <ChevronUp className="h-4 w-4" />
+          <ChevronUp className="h-4 w-4 flex-shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4 flex-shrink-0" />
         )}
       </Button>
 
       {isOpen && (
         <Card
-          className="absolute z-50 mt-1 p-4 shadow-lg border-slate-200 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-200"
+          className={cn(
+            "absolute z-50 p-4 shadow-lg border-slate-200 dark:border-slate-700",
+            "animate-in fade-in zoom-in-95 duration-200", // Smoother animation
+          )}
           style={getDialogPosition()}
         >
           <div className="flex justify-between items-center mb-2">
-            <h3 className="font-medium">Selección de periodos</h3>
+            <h3 className="font-medium text-base">Selección de periodos</h3>
             {rangoSeleccionado && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={resetSelection}
-                className="h-8 px-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="h-8 px-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 <X className="h-3.5 w-3.5 mr-1" />
                 <span className="text-xs">Resetear</span>
@@ -181,11 +212,11 @@ export function PeriodSelector() {
           </div>
 
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mt-2">
-            <TabsList className="grid w-full grid-cols-2 mb-2 bg-slate-100 dark:bg-slate-900">
-              <TabsTrigger value="individual" className="text-sm">
+            <TabsList className="grid w-full grid-cols-2 mb-3 bg-slate-100 dark:bg-slate-800">
+              <TabsTrigger value="individual" className="text-sm py-1.5">
                 Periodo individual
               </TabsTrigger>
-              <TabsTrigger value="rango" className="text-sm">
+              <TabsTrigger value="rango" className="text-sm py-1.5">
                 Rango de periodos
               </TabsTrigger>
             </TabsList>
@@ -201,7 +232,7 @@ export function PeriodSelector() {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 -mr-1">
+                <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1 -mr-1 custom-scrollbar">
                   {periodos.map((periodo) => {
                     const isSelected =
                       rangoSeleccionado?.[0] === periodo.id && rangoSeleccionado?.[0] === rangoSeleccionado?.[1]
@@ -213,11 +244,14 @@ export function PeriodSelector() {
                         data-periodo-id={periodo.id}
                         onClick={() => handleIndividualSelect(periodo.id)}
                         className={cn(
-                          "p-2.5 rounded-md cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-900 group",
-                          isSelected && "bg-slate-100 dark:bg-slate-800 font-medium",
-                          isCurrent && "border-l-2 border-slate-300 dark:border-slate-600",
+                          "p-2.5 rounded-md cursor-pointer transition-all",
+                          "hover:bg-slate-50 dark:hover:bg-slate-700/50 group",
+                          "flex flex-col",
+                          isSelected && "bg-slate-100 dark:bg-slate-700 font-medium",
+                          isCurrent && "border-l-2 border-slate-300 dark:border-slate-500",
                           !isSelected && isCurrent && "pl-2",
                         )}
+                        aria-selected={isSelected}
                       >
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
@@ -227,7 +261,7 @@ export function PeriodSelector() {
                             {isCurrent && (
                               <Badge
                                 variant="outline"
-                                className="text-[10px] h-5 bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700"
+                                className="text-[10px] h-5 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600"
                               >
                                 Actual
                               </Badge>
@@ -235,13 +269,13 @@ export function PeriodSelector() {
                           </div>
                           {isSelected && (
                             <div className="flex items-center">
-                              <span className="h-5 w-5 rounded-full bg-slate-400 flex items-center justify-center">
+                              <span className="h-5 w-5 rounded-full bg-slate-500 flex items-center justify-center">
                                 <Check className="h-3 w-3 text-white" />
                               </span>
                             </div>
                           )}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                           {formatFecha(periodo.fechaInicio)} - {formatFecha(periodo.fechaFin)}
                         </div>
                       </div>
@@ -263,14 +297,14 @@ export function PeriodSelector() {
                 </div>
               ) : (
                 <>
-                  <div className="mb-2 text-sm text-muted-foreground">
+                  <div className="mb-3 text-sm text-slate-500 dark:text-slate-400 px-1">
                     {!tempStart
                       ? "Selecciona un periodo inicial"
                       : !tempEnd
                         ? "Ahora selecciona un periodo final"
                         : `Periodo ${periodos.find((p) => p.id === tempStart)?.numero}/${periodos.find((p) => p.id === tempStart)?.año} → ${periodos.find((p) => p.id === tempEnd)?.numero}/${periodos.find((p) => p.id === tempEnd)?.año}`}
                   </div>
-                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 -mr-1">
+                  <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1 -mr-1 custom-scrollbar">
                     {periodos.map((periodo) => {
                       const isStart = periodo.id === tempStart
                       const isEnd = periodo.id === tempEnd
@@ -295,14 +329,14 @@ export function PeriodSelector() {
                             }
                           }}
                           className={cn(
-                            "p-2.5 rounded-md transition-all",
-                            isStart && "bg-slate-100 dark:bg-slate-800",
-                            isEnd && "bg-slate-200 dark:bg-slate-700",
-                            isInRange && !isStart && !isEnd && "bg-slate-50 dark:bg-slate-900",
+                            "p-2.5 rounded-md transition-all flex flex-col",
+                            isStart && "bg-slate-100 dark:bg-slate-700",
+                            isEnd && "bg-slate-200 dark:bg-slate-600",
+                            isInRange && !isStart && !isEnd && "bg-slate-50 dark:bg-slate-800/50",
                             isSelectable
-                              ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900"
+                              ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50"
                               : "cursor-default",
-                            periodo.id === periodoActual?.id && "border-l-2 border-slate-300 dark:border-slate-600",
+                            periodo.id === periodoActual?.id && "border-l-2 border-slate-300 dark:border-slate-500",
                             periodo.id === periodoActual?.id && !isStart && !isEnd && !isInRange && "pl-2",
                           )}
                         >
@@ -314,19 +348,21 @@ export function PeriodSelector() {
                               {periodo.id === periodoActual?.id && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] h-5 bg-slate-50 border-slate-200 dark:bg-slate-900 dark:border-slate-700"
+                                  className="text-[10px] h-5 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-600"
                                 >
                                   Actual
                                 </Badge>
                               )}
                             </div>
-                            {isStart && <Badge className="bg-slate-400 hover:bg-slate-500">Inicio</Badge>}
-                            {isEnd && <Badge className="bg-slate-500 hover:bg-slate-600">Fin</Badge>}
+                            {isStart && <Badge className="bg-slate-500 hover:bg-slate-600">Inicio</Badge>}
+                            {isEnd && <Badge className="bg-slate-600 hover:bg-slate-700">Fin</Badge>}
                             {isInRange && !isStart && !isEnd && (
-                              <Badge className="bg-slate-300 hover:bg-slate-400 text-slate-700">Incluido</Badge>
+                              <Badge className="bg-slate-400 hover:bg-slate-500 text-slate-700 dark:text-slate-200">
+                                Incluido
+                              </Badge>
                             )}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             {formatFecha(periodo.fechaInicio)} - {formatFecha(periodo.fechaFin)}
                           </div>
                         </div>
@@ -334,7 +370,7 @@ export function PeriodSelector() {
                     })}
                   </div>
 
-                  <div className="flex justify-between mt-4 pt-3 border-t">
+                  <div className="flex justify-between mt-4 pt-3 border-t border-slate-200 dark:border-slate-700">
                     <Button
                       variant="outline"
                       size="sm"
@@ -352,7 +388,7 @@ export function PeriodSelector() {
                       size="sm"
                       onClick={applyRangeSelection}
                       disabled={!tempStart}
-                      className="bg-slate-500 hover:bg-slate-600 text-sm"
+                      className="bg-slate-600 hover:bg-slate-700 text-sm"
                     >
                       <Check className="h-3.5 w-3.5 mr-1.5" />
                       {tempStart && tempEnd ? "Aplicar rango" : "Seleccionar"}
