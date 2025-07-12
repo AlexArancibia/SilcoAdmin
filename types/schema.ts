@@ -5,6 +5,7 @@ export type TipoPenalizacion = "CANCELACION_FIJA" | "CANCELACION_FUERA_TIEMPO"  
 export enum Rol {
   SUPER_ADMIN = "SUPER_ADMIN",
   ADMIN = "ADMIN",
+  MANAGER = "MANAGER",
   USUARIO = "USUARIO",
 }
 

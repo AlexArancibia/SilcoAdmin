@@ -172,7 +172,7 @@ model Clase {
 // Nueva tabla para manejar los covers
 model Cover {
   id                    Int      @id @default(autoincrement())
-  claseId               String   // ID de la clase que está siendo cubierta
+  claseId               String?   // ID de la clase que está siendo cubierta
   periodoId             Int      // Periodo al que pertenece
   instructorReemplazoId Int      // Instructor que hace el cover
   justificacion         Boolean  @default(false)
@@ -180,12 +180,13 @@ model Cover {
   pagoFullHouse         Boolean  @default(false)
   comentarios           String?
   cambioDeNombre        String?
+  claseTemp             String?
   
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
   // Relaciones
-  clase             Clase      @relation(fields: [claseId], references: [id])
+  clase             Clase?      @relation(fields: [claseId], references: [id])
   periodo           Periodo    @relation(fields: [periodoId], references: [id])
   instructorReemplazo Instructor @relation("InstructorReemplazo", fields: [instructorReemplazoId], references: [id])
 
