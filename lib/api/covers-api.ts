@@ -44,6 +44,13 @@ export class CoversApi extends ApiClient {
     return this.getCovers({ periodoId })
   }
 
+   async enlazarCoversPeriodo(periodoId: number): Promise<{ updatedCount: number }> {
+    return this.post<{ periodoId: number }, { updatedCount: number }>(
+      "/covers/enlazar",
+      { periodoId }
+    )
+  }
+  
   async getCoversByDisciplina(disciplinaId: number, periodoId?: number): Promise<Cover[]> {
     return this.getCovers({ disciplinaId, periodoId })
   }

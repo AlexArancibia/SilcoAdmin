@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/use-toast'
 import { format, addHours } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-// UI components
+// Componentes UI
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -47,16 +47,13 @@ import { usePeriodosStore } from '@/store/usePeriodosStore'
 import { useClasesStore } from '@/store/useClasesStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { Cover } from '@/types/schema'
+import { Clase, Instructor } from '@/types/schema'
 
 export default function CoversPage() {
   const router = useRouter()
   const { toast } = useToast()
 
-  // Refs for dropdown closing
-  const claseSearchRef = useRef<HTMLDivElement>(null)
-  const instructorSearchRef = useRef<HTMLDivElement>(null)
-
-  // Covers store
+  // Stores
   const {
     covers,
     coverSeleccionado,
@@ -68,17 +65,17 @@ export default function CoversPage() {
     setCoverSeleccionado,
     aprobarCover,
     rechazarCover,
+    enlazarCovers,
     isLoading: isLoadingCovers,
     error: coversError,
   } = useCoversStore()
 
-  // Other stores
   const { instructores, fetchInstructores } = useInstructoresStore()
   const { periodos, fetchPeriodos } = usePeriodosStore()
   const { clases, fetchClases } = useClasesStore()
   const { user } = useAuthStore()
 
-  // State management
+  // Estados
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPeriodo, setSelectedPeriodo] = useState<number | 'all'>('all')
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -110,25 +107,11 @@ export default function CoversPage() {
     cambioDeNombre: '',
   })
   const [isLoadingDetails, setIsLoadingDetails] = useState(false)
+  const [claseSearchResults, setClaseSearchResults] = useState<Clase[]>([])
+  const [instructorSearchResults, setInstructorSearchResults] = useState<Instructor[]>([])
+  const [claseInfo, setClaseInfo] = useState<Partial<Clase> | null>(null)
 
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (claseSearchRef.current && !claseSearchRef.current.contains(event.target as Node)) {
-        setShowClaseResults(false)
-      }
-      if (instructorSearchRef.current && !instructorSearchRef.current.contains(event.target as Node)) {
-        setShowInstructorResults(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
-
-  // Load initial data
+  // Cargar datos iniciales
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -149,6 +132,7 @@ export default function CoversPage() {
     loadData()
   }, [fetchCovers, fetchInstructores, fetchPeriodos, fetchClases, toast])
 
+  // Handlers
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target as HTMLInputElement
     const checked = (e.target as HTMLInputElement).checked
@@ -168,20 +152,6 @@ export default function CoversPage() {
       [name]: type === 'checkbox' ? checked : value,
     }))
   }
-
-  const handleCheckboxChange = useCallback((name: string, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: checked,
-    }))
-  }, [])
-
-  const handleEditCheckboxChange = useCallback((name: string, checked: boolean) => {
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: checked,
-    }))
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -219,23 +189,6 @@ export default function CoversPage() {
     }
   }
 
-  const resetFormData = useCallback(() => {
-    setFormData({
-      claseId: '',
-      periodoId: 0,
-      instructorReemplazoId: 0,
-      justificacion: false,
-      pagoBono: false,
-      pagoFullHouse: false,
-      comentarios: '',
-      cambioDeNombre: '',
-    })
-    setClaseSearch('')
-    setInstructorSearch('')
-    setShowClaseResults(false)
-    setShowInstructorResults(false)
-  }, [])
-
   const handleDelete = async () => {
     if (!coverSeleccionado) return
     try {
@@ -254,22 +207,21 @@ export default function CoversPage() {
     }
   }
 
-const handleViewDetails = async (cover: Cover) => {
-  try {
-    setIsLoadingDetails(true)
-    // En lugar de hacer fetch, usar directamente el cover pasado como parámetro
-    setCoverSeleccionado(cover)
-    setIsViewDialogOpen(true)
-  } catch (error) {
-    toast({
-      title: 'Error',
-      description: 'No se pudo cargar la información del cover',
-      variant: 'destructive',
-    })
-  } finally {
-    setIsLoadingDetails(false)
+  const handleViewDetails = async (cover: Cover) => {
+    try {
+      setIsLoadingDetails(true)
+      setCoverSeleccionado(cover)
+      setIsViewDialogOpen(true)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo cargar la información del cover',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsLoadingDetails(false)
+    }
   }
-}
 
   const handleApprove = async () => {
     if (!coverSeleccionado) return
@@ -308,16 +260,85 @@ const handleViewDetails = async (cover: Cover) => {
     }
   }
 
-  const startEditing = useCallback((cover: Cover) => {
-    setEditingCoverId(cover.id)
-    setEditFormData({
-      justificacion: cover.justificacion,
-      pagoBono: cover.pagoBono,
-      pagoFullHouse: cover.pagoFullHouse,
-      comentarios: cover.comentarios || '',
-      cambioDeNombre: cover.cambioDeNombre || '',
+  const handleEnlazarCovers = async () => {
+    if (selectedPeriodo === 'all') {
+      toast({
+        title: 'Error',
+        description: 'Debes seleccionar un período específico',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      const updatedCount = await enlazarCovers(selectedPeriodo)
+      toast({
+        title: 'Éxito',
+        description: `Se han enlazado ${updatedCount} covers correctamente`,
+      })
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Ocurrió un error al enlazar covers',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // Funciones auxiliares
+  const resetFormData = useCallback(() => {
+    setFormData({
+      claseId: '',
+      periodoId: 0,
+      instructorReemplazoId: 0,
+      justificacion: false,
+      pagoBono: false,
+      pagoFullHouse: false,
+      comentarios: '',
+      cambioDeNombre: '',
     })
+    setClaseSearch('')
+    setInstructorSearch('')
+    setShowClaseResults(false)
+    setShowInstructorResults(false)
+    setClaseInfo(null)
   }, [])
+
+  const startEditing = useCallback((cover: Cover) => {
+  setEditingCoverId(cover.id);
+
+  // Determinar el valor a mostrar en el input de búsqueda de clase
+  const claseSearchValue = cover.claseId || cover.claseTemp || '';
+  
+  // Establecer el valor de búsqueda en el estado
+  setClaseSearch(claseSearchValue);
+  
+  // Actualizar el editFormData con el valor correcto
+  setEditFormData({
+    claseId: cover.claseId || '',
+    claseTemp: cover.claseTemp || '',
+    periodoId: cover.periodoId,
+    instructorReemplazoId: cover.instructorReemplazoId,
+    justificacion: cover.justificacion,
+    pagoBono: cover.pagoBono,
+    pagoFullHouse: cover.pagoFullHouse,
+    comentarios: cover.comentarios || '',
+    cambioDeNombre: cover.cambioDeNombre || '',
+  });
+  
+  // Si hay una clase asociada, cargar su información
+  if (cover.claseId) {
+    const clase = clases.find(c => c.id === cover.claseId);
+    setClaseInfo(clase || null);
+  } else if (cover.claseTemp) {
+    // Para clases temporales, mostramos la info básica
+ 
+  }
+  
+  // Cargar información del instructor
+  const instructor = instructores.find(i => i.id === cover.instructorReemplazoId);
+  setInstructorSearch(instructor?.nombre || '');
+}, [clases, instructores]);
 
   const cancelEditing = useCallback(() => {
     setEditingCoverId(null)
@@ -326,7 +347,8 @@ const handleViewDetails = async (cover: Cover) => {
   const filteredCovers = useCallback(() => {
     return covers.filter(cover => {
       const matchesSearch = searchTerm === '' || 
-        cover.claseId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (cover.claseId && cover.claseId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (cover.claseTemp && cover.claseTemp.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (cover.comentarios?.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (cover.cambioDeNombre?.toLowerCase().includes(searchTerm.toLowerCase()))
       
@@ -336,28 +358,22 @@ const handleViewDetails = async (cover: Cover) => {
     })
   }, [covers, searchTerm, selectedPeriodo])
 
-  const filteredClases = useCallback(() => {
-    return clases.filter(clase => 
-      clase.id.toLowerCase().includes(claseSearch.toLowerCase()) ||
-      clase.estudio.toLowerCase().includes(claseSearch.toLowerCase())
-    )
-  }, [clases, claseSearch])
-
-  const filteredInstructores = useCallback(() => {
-    return instructores.filter(instructor => 
-      instructor.nombre.toLowerCase().includes(instructorSearch.toLowerCase())
-    )
-  }, [instructores, instructorSearch])
-
   const getInstructorName = useCallback((id: number) => {
     const instructor = instructores.find(i => i.id === id)
     return instructor ? instructor.nombre : `ID: ${id}`
   }, [instructores])
 
   const getClaseInfo = useCallback((cover: Cover) => {
-    if (!cover.clase) return `ID: ${cover.claseId}`
-    return `${cover.clase.estudio}`
-  }, [])
+  if (cover.clase) {
+    // Para clases existentes, mostrar estudio + fecha/hora
+    return `${cover.clase.estudio} - ${format(new Date(cover.clase.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}`;
+  }
+  if (cover.claseTemp) {
+    // Para clases temporales
+    return `Clase temporal: ${cover.claseTemp}`;
+  }
+  return 'Sin clase asignada';
+}, []);
 
   const getPeriodoInfo = useCallback((id: number) => {
     const periodo = periodos.find(p => p.id === id)
@@ -366,7 +382,7 @@ const handleViewDetails = async (cover: Cover) => {
 
   const formatPeruDateTime = useCallback((date: Date | string) => {
     if (!date) return 'N/A'
-    const d = addHours(new Date(date), 5) // Add 5 hours for Peru time
+    const d = addHours(new Date(date), 5)
     return (
       <div className="flex flex-col">
         <span className="flex items-center text-sm">
@@ -381,151 +397,233 @@ const handleViewDetails = async (cover: Cover) => {
     )
   }, [])
 
-  const handleClaseSelect = useCallback((claseId: string) => {
-    const selectedClase = clases.find(c => c.id === claseId)
-    if (selectedClase) {
-      setFormData(prev => ({
-        ...prev,
-        claseId: selectedClase.id,
-        periodoId: selectedClase.periodoId
-      }))
-      setClaseSearch(selectedClase.id)
-    }
-    setShowClaseResults(false)
-  }, [clases])
+  const formatClaseFecha = useCallback((clase: Clase | undefined | null) => {
+  if (!clase?.fecha) return '';
+  return format(new Date(clase.fecha), 'dd/MM/yyyy', { locale: es });
+}, []);
 
-  const handleInstructorSelect = useCallback((instructorId: number) => {
-    const selectedInstructor = instructores.find(i => i.id === instructorId)
-    if (selectedInstructor) {
-      setFormData(prev => ({
-        ...prev,
-        instructorReemplazoId: instructorId
-      }))
-      setInstructorSearch(selectedInstructor.nombre)
+const formatClaseHora = useCallback((clase: Clase | undefined | null) => {
+  if (!clase?.fecha) return '';
+  return format(new Date(clase.fecha), 'HH:mm', { locale: es });
+}, []);
+
+
+
+  // Funciones para los buscadores
+  const handleClaseSearch = (term: string) => {
+  setClaseSearch(term);
+  setShowClaseResults(term.length > 0);
+  
+  // Actualizar el formData con el valor ingresado como claseId
+  setFormData(prev => ({
+    ...prev,
+    claseId: term
+  }));
+
+  if (term.length > 0) {
+    const results = clases.filter(clase => 
+      clase.id.toLowerCase().includes(term.toLowerCase()) || 
+      clase.estudio.toLowerCase().includes(term.toLowerCase())
+    );
+    setClaseSearchResults(results);
+  } else {
+    setClaseSearchResults([]);
+  }
+};
+
+  const handleInstructorSearch = (term: string) => {
+    setInstructorSearch(term)
+    setShowInstructorResults(term.length > 0)
+    
+    if (term.length > 0) {
+      const results = instructores.filter(instructor => 
+        instructor.nombre.toLowerCase().includes(term.toLowerCase()) ||
+        instructor.nombreCompleto?.toLowerCase().includes(term.toLowerCase())
+      )
+      setInstructorSearchResults(results)
+    } else {
+      setInstructorSearchResults([])
     }
+  }
+
+ const selectClase = (clase: Clase) => {
+  setClaseSearch(clase.id);
+  setFormData(prev => ({ 
+    ...prev, 
+    claseId: clase.id, // Asegurarse de guardar el ID de la clase
+    periodoId: clase.periodoId
+  }));
+  setShowClaseResults(false);
+  
+  // Autocompletar información adicional de la clase
+  setClaseInfo({
+    estudio: clase.estudio,
+    fecha: clase.fecha,
+    disciplinaId: clase.disciplinaId,
+    salon: clase.salon
+  });
+};
+
+  const selectInstructor = (instructor: Instructor) => {
+    setInstructorSearch(instructor.nombre)
+    setFormData(prev => ({ ...prev, instructorReemplazoId: instructor.id }))
     setShowInstructorResults(false)
-  }, [instructores])
+  }
 
-  // Memoized components
+  // Componentes renderizados
   const renderLoadingSkeleton = () => (
     <div className="space-y-4">
-      <div className="flex items-center space-x-4">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-      </div>
       {[...Array(5)].map((_, i) => (
         <Skeleton key={i} className="h-16 w-full" />
       ))}
     </div>
   )
 
+  const renderClaseSearch = () => (
+    <div className="relative">
+      <div className="flex items-center">
+        <Hash className="h-4 w-4 mr-1 text-muted-foreground" />
+        <Input
+          placeholder="ID de clase..."
+          value={formData.claseId || ''}
+          onChange={(e) => handleClaseSearch(e.target.value)}
+          className="w-full"
+        />
+      </div>
+      {showClaseResults && (
+        <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+          {claseSearchResults.length > 0 ? (
+            claseSearchResults.map(clase => (
+              <div
+                key={clase.id}
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => selectClase(clase)}
+              >
+                <div className="font-medium">{clase.id}</div>
+                <div className="text-sm text-muted-foreground">
+                  {clase.estudio} - {format(new Date(clase.fecha), 'dd/MM/yyyy HH:mm')}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-2 text-sm text-muted-foreground">No se encontraron clases</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  const renderInstructorSearch = () => (
+    <div className="relative">
+      <Input
+        placeholder="Buscar instructor..."
+        value={instructorSearch}
+        onChange={(e) => handleInstructorSearch(e.target.value)}
+        className="w-full"
+      />
+      {showInstructorResults && (
+        <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+          {instructorSearchResults.length > 0 ? (
+            instructorSearchResults.map(instructor => (
+              <div
+                key={instructor.id}
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => selectInstructor(instructor)}
+              >
+                <div className="font-medium">{instructor.nombre}</div>
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-2 text-sm text-muted-foreground">No se encontraron instructores</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
   const renderNewCoverRow = () => (
     <TableRow className="bg-blue-50">
       <TableCell>
-        <div className="relative" ref={claseSearchRef}>
-          <div className="flex items-center">
-            <Hash className="h-4 w-4 mr-1 text-muted-foreground" />
-            <Input
-              placeholder="ID de clase"
-              value={claseSearch}
-              onChange={(e) => {
-                setClaseSearch(e.target.value)
-                setShowClaseResults(true)
-              }}
-              onFocus={() => setShowClaseResults(true)}
-              className="w-full"
-            />
-          </div>
-          {showClaseResults && claseSearch && (
-            <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-              {filteredClases().map(clase => (
-                <div 
-                  key={clase.id}
-                  className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-                  onClick={() => handleClaseSelect(clase.id)}
-                >
-                  <div className="font-medium">{clase.id}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {clase.estudio}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatPeruDateTime(clase.fecha)}
-                  </div>
+        {renderClaseSearch()}
+        {claseInfo && (
+            <div className="mt-2 p-2 bg-gray-50 rounded-md border border-gray-200">
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div>
+                  <span className="font-medium">Estudio:</span> {claseInfo.estudio}
                 </div>
-              ))}
+                <div>
+                  <span className="font-medium">Fecha:</span> {claseInfo.fecha ? format(new Date(claseInfo.fecha), 'dd/MM/yyyy', { locale: es }) : 'N/A'}
+                </div>
+                <div>
+                  <span className="font-medium">Hora:</span> {claseInfo.fecha ? format(new Date(claseInfo.fecha), 'HH:mm', { locale: es }) : 'N/A'}
+                </div>
+                {claseInfo.salon && (
+                  <div>
+                    <span className="font-medium">Id:</span> {claseInfo.id}
+                  </div>
+                )}
+              </div>
             </div>
           )}
-        </div>
       </TableCell>
+
       <TableCell>
-        <div className="relative" ref={instructorSearchRef}>
-          <Input
-            placeholder="Instructor"
-            value={instructorSearch}
-            onChange={(e) => {
-              setInstructorSearch(e.target.value)
-              setShowInstructorResults(true)
-            }}
-            onFocus={() => setShowInstructorResults(true)}
-            className="w-full"
-          />
-          {showInstructorResults && instructorSearch && (
-            <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-              {filteredInstructores().map(instructor => (
-                <div 
-                  key={instructor.id}
-                  className="p-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => handleInstructorSelect(instructor.id)}
-                >
-                  {instructor.nombre}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </TableCell>
+      {claseInfo?.fecha ? format(new Date(claseInfo.fecha), 'dd/MM/yyyy', { locale: es }) : ''}
+    </TableCell>
+    
+    <TableCell>
+      {claseInfo?.fecha ? format(new Date(claseInfo.fecha), 'HH:mm', { locale: es }) : ''}
+    </TableCell>
+      
       <TableCell>
-        {formData.claseId ? (
-          clases.find(c => c.id === formData.claseId)?.fecha ? (
-            formatPeruDateTime(clases.find(c => c.id === formData.claseId)!.fecha)
-          ) : 'Fecha no disponible'
-        ) : 'Seleccione clase'}
+        {renderInstructorSearch()}
       </TableCell>
+      
       <TableCell>
-        {formData.periodoId ? (
-          <Badge variant="outline">
-            {getPeriodoInfo(formData.periodoId)}
-          </Badge>
-        ) : (
-          <span className="text-sm text-muted-foreground">Seleccione clase</span>
-        )}
+        <Select
+          value={formData.periodoId?.toString() || ''}
+          onValueChange={(value) => setFormData(prev => ({ ...prev, periodoId: parseInt(value) }))}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Seleccione período" />
+          </SelectTrigger>
+          <SelectContent>
+            {periodos.map(periodo => (
+              <SelectItem key={periodo.id} value={periodo.id.toString()}>
+                P{periodo.numero}-{periodo.año}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </TableCell>
+      
       <TableCell className="text-center">
         <input
           type="checkbox"
           checked={formData.justificacion || false}
-          onChange={(e) => handleCheckboxChange('justificacion', e.target.checked)}
+          onChange={(e) => setFormData(prev => ({ ...prev, justificacion: e.target.checked }))}
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
       </TableCell>
+      
       <TableCell className="text-center">
         <input
           type="checkbox"
           checked={formData.pagoBono || false}
-          onChange={(e) => handleCheckboxChange('pagoBono', e.target.checked)}
+          onChange={(e) => setFormData(prev => ({ ...prev, pagoBono: e.target.checked }))}
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
       </TableCell>
+      
       <TableCell className="text-center">
         <input
           type="checkbox"
           checked={formData.pagoFullHouse || false}
-          onChange={(e) => handleCheckboxChange('pagoFullHouse', e.target.checked)}
+          onChange={(e) => setFormData(prev => ({ ...prev, pagoFullHouse: e.target.checked }))}
           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
       </TableCell>
+      
       <TableCell>
         <div className="flex flex-col gap-2">
           <Input
@@ -557,7 +655,7 @@ const handleViewDetails = async (cover: Cover) => {
             <Button 
               size="sm" 
               onClick={handleSubmit}
-              disabled={!formData.claseId || !formData.instructorReemplazoId}
+              disabled={!formData.claseId || !formData.instructorReemplazoId || !formData.periodoId}
             >
               <Check className="h-4 w-4 mr-1" /> Crear
             </Button>
@@ -569,7 +667,7 @@ const handleViewDetails = async (cover: Cover) => {
 
   const renderAddNewCoverButton = () => (
     <TableRow>
-      <TableCell colSpan={8} className="text-center py-4">
+      <TableCell colSpan={10} className="text-center py-4">
         <Button 
           variant="ghost" 
           className="text-blue-500 hover:text-blue-600"
@@ -581,92 +679,83 @@ const handleViewDetails = async (cover: Cover) => {
     </TableRow>
   )
 
-  const renderCoverRow = (cover: Cover) => (
-    <TableRow key={cover.id} className="hover:bg-gray-50">
-      <TableCell>
-        <div className="font-medium">{cover.claseId}</div>
-        <div className="text-sm text-muted-foreground">
-          {getClaseInfo(cover)}
-        </div>
-      </TableCell>
-      <TableCell className="font-medium">
-        {cover.instructorReemplazo?.nombre || getInstructorName(cover.instructorReemplazoId)}
-      </TableCell>
-      <TableCell>
-        {cover.clase?.fecha ? (
-          formatPeruDateTime(cover.clase.fecha)
-        ) : 'N/A'}
-      </TableCell>
-      <TableCell>
-        <Badge variant="outline">
-          {getPeriodoInfo(cover.periodoId)}
-        </Badge>
-      </TableCell>
-      
-      <TableCell className="text-center">
-        {editingCoverId === cover.id ? (
-          <input
-            type="checkbox"
-            checked={editFormData.justificacion || false}
-            onChange={(e) => handleEditCheckboxChange('justificacion', e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-        ) : (
-          <Badge variant={cover.justificacion ? "default" : "secondary"}>
-            {cover.justificacion ? 'Justificado' : 'Sin justificar'}
-          </Badge>
-        )}
-      </TableCell>
+  const renderCoverRow = (cover: Cover) => {
+    if (editingCoverId === cover.id) {
+      return (
+        <TableRow key={cover.id} className="bg-blue-50">
+          <TableCell>
+            {renderClaseSearch()}
+            {claseInfo && (
+              <div className="mt-2 p-2 bg-gray-50 rounded-md border border-gray-200">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="font-medium">Estudio:</span> {claseInfo.estudio}
+                  </div>
+                  <div>
+                    <span className="font-medium">Fecha:</span> {claseInfo.fecha ? format(new Date(claseInfo.fecha), 'dd/MM/yyyy HH:mm') : '-'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Id:</span> {claseInfo.id || '-'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Disciplina:</span> {claseInfo.disciplina?.nombre || '-'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </TableCell>
 
-      <TableCell className="text-center">
-        {editingCoverId === cover.id ? (
-          <input
-            type="checkbox"
-            checked={editFormData.pagoBono || false}
-            onChange={(e) => handleEditCheckboxChange('pagoBono', e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-        ) : cover.pagoBono ? (
-          <Check className="h-4 w-4 text-green-500 mx-auto" />
-        ) : (
-          <X className="h-4 w-4 text-red-500 mx-auto" />
-        )}
-      </TableCell>
-
-      <TableCell className="text-center">
-        {editingCoverId === cover.id ? (
-          <input
-            type="checkbox"
-            checked={editFormData.pagoFullHouse || false}
-            onChange={(e) => handleEditCheckboxChange('pagoFullHouse', e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-        ) : cover.pagoFullHouse ? (
-          <Check className="h-4 w-4 text-green-500 mx-auto" />
-        ) : (
-          <X className="h-4 w-4 text-red-500 mx-auto" />
-        )}
-      </TableCell>
-
-      <TableCell>
-        {editingCoverId === cover.id ? (
-          <div className="flex flex-col gap-2">
-            <Input
-              placeholder="Cambio de nombre"
-              name="cambioDeNombre"
-              value={editFormData.cambioDeNombre || ''}
+           <TableCell>
+              {cover.clase ? formatClaseFecha(cover.clase) : ''}
+            </TableCell>
+            
+            {/* Nueva columna Hora */}
+            <TableCell>
+              {cover.clase ? formatClaseHora(cover.clase) : ''}
+            </TableCell>
+          
+          <TableCell>
+            {renderInstructorSearch()}
+          </TableCell>
+          
+          <TableCell>
+            <Badge variant="outline">
+              {getPeriodoInfo(cover.periodoId)}
+            </Badge>
+          </TableCell>
+          
+          <TableCell className="text-center">
+            <input
+              type="checkbox"
+              checked={editFormData.justificacion || false}
               onChange={handleEditInputChange}
-              className="w-full"
+              name="justificacion"
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <Textarea
-              placeholder="Comentarios"
-              name="comentarios"
-              value={editFormData.comentarios || ''}
+          </TableCell>
+          
+          <TableCell className="text-center">
+            <input
+              type="checkbox"
+              checked={editFormData.pagoBono || false}
               onChange={handleEditInputChange}
-              className="w-full text-sm"
-              rows={2}
+              name="pagoBono"
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <div className="flex justify-end gap-2 pt-1">
+          </TableCell>
+          
+          <TableCell className="text-center">
+            <input
+              type="checkbox"
+              checked={editFormData.pagoFullHouse || false}
+              onChange={handleEditInputChange}
+              name="pagoFullHouse"
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          </TableCell>
+          
+          <TableCell>
+            <div className="flex gap-2">
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -681,8 +770,62 @@ const handleViewDetails = async (cover: Cover) => {
                 <Save className="h-4 w-4 mr-1" /> Guardar
               </Button>
             </div>
+          </TableCell>
+        </TableRow>
+      )
+    }
+
+    return (
+      <TableRow key={cover.id} className="hover:bg-gray-50">
+        <TableCell>
+          <div className="font-medium">{cover.claseId || cover.claseTemp}</div>
+          <div className="text-sm text-muted-foreground">
+            {getClaseInfo(cover)}
           </div>
-        ) : (
+        </TableCell>
+
+         <TableCell>
+          {cover.clase ? formatClaseFecha(cover.clase) : ''}
+        </TableCell>
+        
+        {/* Nueva columna Hora */}
+        <TableCell>
+          {cover.clase ? formatClaseHora(cover.clase) : ''}
+        </TableCell>
+        
+        <TableCell className="font-medium">
+          {getInstructorName(cover.instructorReemplazoId)}
+        </TableCell>
+        
+        <TableCell>
+          <Badge variant="outline">
+            {getPeriodoInfo(cover.periodoId)}
+          </Badge>
+        </TableCell>
+        
+        <TableCell className="text-center">
+          <Badge variant={cover.justificacion ? "default" : "secondary"}>
+            {cover.justificacion ? 'Justificado' : 'Sin justificar'}
+          </Badge>
+        </TableCell>
+
+        <TableCell className="text-center">
+          {cover.pagoBono ? (
+            <Check className="h-4 w-4 text-green-500 mx-auto" />
+          ) : (
+            <X className="h-4 w-4 text-red-500 mx-auto" />
+          )}
+        </TableCell>
+
+        <TableCell className="text-center">
+          {cover.pagoFullHouse ? (
+            <Check className="h-4 w-4 text-green-500 mx-auto" />
+          ) : (
+            <X className="h-4 w-4 text-red-500 mx-auto" />
+          )}
+        </TableCell>
+
+        <TableCell>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -690,289 +833,24 @@ const handleViewDetails = async (cover: Cover) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => handleViewDetails(cover)}>
-  Ver detalles
-</DropdownMenuItem>
-
-              {user?.rol !== 'USUARIO' && (
-                <>
-                  <DropdownMenuItem onClick={() => startEditing(cover)}>
-                    <Edit className="mr-2 h-4 w-4" /> Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setCoverSeleccionado(cover)
-                      setIsDeleteDialogOpen(true)
-                    }}
-                    className="text-red-500 focus:text-red-500"
-                  >
-                    Eliminar
-                  </DropdownMenuItem>
-                  {!cover.justificacion && (
-                    <>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setCoverSeleccionado(cover)
-                          setIsApproveDialogOpen(true)
-                        }}
-                        className="text-green-500 focus:text-green-500"
-                      >
-                        Aprobar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setCoverSeleccionado(cover)
-                          setIsRejectDialogOpen(true)
-                        }}
-                        className="text-orange-500 focus:text-orange-500"
-                      >
-                        Rechazar
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </>
-              )}
+              <DropdownMenuItem onClick={() => startEditing(cover)}>
+                <Edit className="mr-2 h-4 w-4" /> Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setCoverSeleccionado(cover)
+                  setIsDeleteDialogOpen(true)
+                }}
+                className="text-red-500 focus:text-red-500"
+              >
+                Eliminar
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
-      </TableCell>
-    </TableRow>
-  )
-
-  const renderViewDialogContent = () => {
-    if (isLoadingDetails) {
-    return (
-      <div className="py-8 flex justify-center">
-        <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          <span className="text-muted-foreground">Cargando detalles...</span>
-        </div>
-      </div>
+        </TableCell>
+      </TableRow>
     )
   }
-
-  if (!coverSeleccionado) {
-    return (
-      <div className="py-8 text-center">
-        <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-          <X className="h-6 w-6 text-gray-400" />
-        </div>
-        <p className="text-muted-foreground">No se encontraron detalles del cover</p>
-      </div>
-    )
-  }
-
-  const cover = coverSeleccionado
-
-
-    return (
-    <div className="space-y-6">
-      {/* Header con estado del cover */}
-      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <Hash className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{cover.claseId}</h3>
-            <p className="text-sm text-muted-foreground">{getClaseInfo(cover)}</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <Badge 
-            variant={cover.justificacion ? "default" : "secondary"}
-            className={`text-sm px-3 py-1 ${
-              cover.justificacion 
-                ? 'bg-green-100 text-green-800 border-green-200' 
-                : 'bg-yellow-100 text-yellow-800 border-yellow-200'
-            }`}
-          >
-            {cover.justificacion ? (
-              <><Check className="h-3 w-3 mr-1" /> Justificado</>
-            ) : (
-              <><Clock className="h-3 w-3 mr-1" /> Pendiente</>
-            )}
-          </Badge>
-        </div>
-      </div>
-
-      {/* Información principal en cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card de Instructor */}
-        <div className="p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center space-x-3 mb-3">
-            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-              <User className="h-4 w-4 text-purple-600" />
-            </div>
-            <h4 className="font-medium text-gray-900">Instructor Reemplazo</h4>
-          </div>
-          <p className="text-lg font-semibold text-gray-800">
-            {cover.instructorReemplazo?.nombre || getInstructorName(cover.instructorReemplazoId)}
-          </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            ID: {cover.instructorReemplazoId}
-          </p>
-        </div>
-
-        {/* Card de Fecha y Periodo */}
-        <div className="p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center space-x-3 mb-3">
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <Calendar className="h-4 w-4 text-blue-600" />
-            </div>
-            <h4 className="font-medium text-gray-900">Programación</h4>
-          </div>
-          <div className="space-y-2">
-            {cover.clase?.fecha ? (
-              <div className="flex items-center text-sm">
-                <Clock className="mr-2 h-3 w-3 text-muted-foreground" />
-                <span className="font-medium">
-                  {format(addHours(new Date(cover.clase.fecha), 5), 'EEEE, dd MMMM yyyy', { locale: es })}
-                </span>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Fecha no disponible</p>
-            )}
-            <div className="flex items-center">
-              <Badge variant="outline" className="text-xs">
-                {getPeriodoInfo(cover.periodoId)}
-              </Badge>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Información de pagos */}
-      <div className="p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border-green-100">
-        <h4 className="font-medium text-gray-900 mb-4 flex items-center">
-          <DollarSign className="h-4 w-4 mr-2 text-green-600" />
-          Información de Pagos
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center justify-between p-3 bg-white rounded-md border border-green-100">
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${cover.pagoBono ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm font-medium">Pago de S/80</span>
-            </div>
-            <Badge variant={cover.pagoBono ? "default" : "secondary"}>
-              {cover.pagoBono ? 'Aprobado' : 'Pendiente'}
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-white rounded-md border border-green-100">
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${cover.pagoFullHouse ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm font-medium">Pago Full House</span>
-            </div>
-            <Badge variant={cover.pagoFullHouse ? "default" : "secondary"}>
-              {cover.pagoFullHouse ? 'Aprobado' : 'Pendiente'}
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      {/* Información adicional */}
-      {(cover.cambioDeNombre || cover.comentarios) && (
-        <div className="space-y-4">
-          {cover.cambioDeNombre && (
-            <div className="p-4 border rounded-lg bg-orange-50 border-orange-200">
-              <div className="flex items-center space-x-2 mb-2">
-                <Edit className="h-4 w-4 text-orange-600" />
-                <h4 className="font-medium text-orange-900">Cambio de Nombre</h4>
-              </div>
-              <p className="text-orange-800 bg-white p-3 rounded border border-orange-200">
-                {cover.cambioDeNombre}
-              </p>
-            </div>
-          )}
-
-          {cover.comentarios && (
-            <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
-              <div className="flex items-center space-x-2 mb-2">
-                <MessageSquare className="h-4 w-4 text-blue-600" />
-                <h4 className="font-medium text-blue-900">Comentarios</h4>
-              </div>
-              <div className="bg-white p-3 rounded border border-blue-200">
-                <p className="text-blue-800 whitespace-pre-line">
-                  {cover.comentarios}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Metadatos del cover */}
-      <div className="pt-4 border-t border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-3 w-3" />
-            <span>Creado: </span>
-            <span className="font-medium">
-              {cover.createdAt ? 
-                format(addHours(new Date(cover.createdAt), 5), 'dd/MM/yyyy HH:mm', { locale: es }) 
-                : 'N/A'
-              }
-            </span>
-          </div>
-          {cover.updatedAt && cover.updatedAt !== cover.createdAt && (
-            <div className="flex items-center space-x-2">
-              <Clock className="h-3 w-3" />
-              <span>Actualizado: </span>
-              <span className="font-medium">
-                {format(addHours(new Date(cover.updatedAt), 5), 'dd/MM/yyyy HH:mm', { locale: es })}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Acciones rápidas para administradores */}
-      {user?.rol !== 'USUARIO' && !cover.justificacion && (
-        <div className="pt-4 border-t border-gray-200">
-          <h4 className="font-medium text-gray-900 mb-3">Acciones Rápidas</h4>
-          <div className="flex space-x-3">
-            <Button
-              size="sm"
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => {
-                setIsViewDialogOpen(false)
-                setCoverSeleccionado(cover)
-                setIsApproveDialogOpen(true)
-              }}
-            >
-              <Check className="h-3 w-3 mr-1" />
-              Aprobar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-orange-300 text-orange-600 hover:bg-orange-50"
-              onClick={() => {
-                setIsViewDialogOpen(false)
-                setCoverSeleccionado(cover)
-                setIsRejectDialogOpen(true)
-              }}
-            >
-              <X className="h-3 w-3 mr-1" />
-              Rechazar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setIsViewDialogOpen(false)
-                startEditing(cover)
-              }}
-            >
-              <Edit className="h-3 w-3 mr-1" />
-              Editar
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
   return (
     <div className="px-12 mx-auto py-8 space-y-6">
@@ -991,22 +869,32 @@ const handleViewDetails = async (cover: Cover) => {
           />
         </div>
         
-        <Select 
-          value={selectedPeriodo.toString()} 
-          onValueChange={(value) => setSelectedPeriodo(value === 'all' ? 'all' : parseInt(value))}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrar por período" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los períodos</SelectItem>
-            {periodos.map(periodo => (
-              <SelectItem key={periodo.id} value={periodo.id.toString()}>
-                P{periodo.numero}-{periodo.año}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <Select 
+            value={selectedPeriodo.toString()} 
+            onValueChange={(value) => setSelectedPeriodo(value === 'all' ? 'all' : parseInt(value))}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filtrar por período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los períodos</SelectItem>
+              {periodos.map(periodo => (
+                <SelectItem key={periodo.id} value={periodo.id.toString()}>
+                  P{periodo.numero}-{periodo.año}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button 
+            variant="outline" 
+            onClick={handleEnlazarCovers}
+            disabled={selectedPeriodo === 'all' || isLoadingCovers}
+          >
+            Enlazar Covers
+          </Button>
+        </div>
       </div>
 
       {isLoadingCovers ? (
@@ -1017,68 +905,27 @@ const handleViewDetails = async (cover: Cover) => {
         <div className="border rounded-lg">
           <Table>
             <TableHeader className="bg-gray-50">
-              <TableRow>
-                <TableHead className="w-[200px]">Clase</TableHead>
-                <TableHead className="w-[200px]">Instructor</TableHead>
-                <TableHead>Fecha Clase (PET)</TableHead>
-                <TableHead>Periodo</TableHead>
-                <TableHead className="text-center">Estado</TableHead>
-                <TableHead className="text-center">Pago de S/80</TableHead>
-                <TableHead className="text-center">Full</TableHead>
-                <TableHead>Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
+            <TableRow>
+              <TableHead className="w-[300px]">Clase</TableHead>
+              <TableHead className="w-[120px]">Fecha</TableHead>  
+              <TableHead className="w-[80px]">Hora</TableHead>  
+              <TableHead className="w-[300px]">Instructor</TableHead>
+              <TableHead className='w-[150px]'>Periodo</TableHead>
+              <TableHead className="w-[150px] text-center">Estado</TableHead>
+              <TableHead className="w-[100px] text-center">Pago de S/80</TableHead>
+              <TableHead className="w-[100px] text-center">Full</TableHead>
+              <TableHead>Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
             <TableBody>
-              {/* New Cover Row */}
               {user?.rol !== 'USUARIO' && (isCreating ? renderNewCoverRow() : renderAddNewCoverButton())}
-
-              {/* Existing Covers */}
               {filteredCovers().map(renderCoverRow)}
             </TableBody>
           </Table>
         </div>
       )}
 
-      {/* View Details Dialog */}
-      <AlertDialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-  <AlertDialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-    <AlertDialogHeader className="border-b border-gray-200 pb-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <AlertDialogTitle className="text-2xl font-bold text-gray-900">
-            Detalles del Cover
-          </AlertDialogTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Información completa del cover seleccionado
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsViewDialogOpen(false)}
-          className="h-8 w-8 p-0"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-    </AlertDialogHeader>
-    
-    <div className="py-6">
-      {renderViewDialogContent()}
-    </div>
-    
-    <AlertDialogFooter className="border-t border-gray-200 pt-4">
-      <AlertDialogAction 
-        className="bg-blue-600 hover:bg-blue-700 px-6"
-        onClick={() => setIsViewDialogOpen(false)}
-      >
-        Cerrar
-      </AlertDialogAction>
-    </AlertDialogFooter>
-  </AlertDialogContent>
-</AlertDialog>
-
-      {/* Delete Dialog */}
+      {/* Diálogos de confirmación */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1099,7 +946,6 @@ const handleViewDetails = async (cover: Cover) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Approve Dialog */}
       <AlertDialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1120,7 +966,6 @@ const handleViewDetails = async (cover: Cover) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reject Dialog */}
       <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1144,6 +989,185 @@ const handleViewDetails = async (cover: Cover) => {
               className="bg-orange-500 hover:bg-orange-600"
             >
               Rechazar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de detalles */}
+      <AlertDialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <AlertDialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <AlertDialogHeader className="border-b border-gray-200 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <AlertDialogTitle className="text-2xl font-bold text-gray-900">
+                  Detalles del Cover
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Información completa del cover seleccionado
+                </AlertDialogDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsViewDialogOpen(false)}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </AlertDialogHeader>
+          
+          {isLoadingDetails ? (
+            <div className="py-8 flex justify-center">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span className="text-muted-foreground">Cargando detalles...</span>
+              </div>
+            </div>
+          ) : coverSeleccionado ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Hash className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{coverSeleccionado.claseId || coverSeleccionado.claseTemp}</h3>
+                    <p className="text-sm text-muted-foreground">{getClaseInfo(coverSeleccionado)}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <Badge variant={coverSeleccionado.justificacion ? "default" : "secondary"}>
+                    {coverSeleccionado.justificacion ? 'Justificado' : 'Pendiente'}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                      <User className="h-4 w-4 text-purple-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-900">Instructor Reemplazo</h4>
+                  </div>
+                  <p className="text-lg font-semibold text-gray-800">
+                    {getInstructorName(coverSeleccionado.instructorReemplazoId)}
+                  </p>
+                </div>
+
+                <div className="p-4 border rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Calendar className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <h4 className="font-medium text-gray-900">Periodo</h4>
+                  </div>
+                  <div className="flex items-center">
+                    <Badge variant="outline" className="text-xs">
+                      {getPeriodoInfo(coverSeleccionado.periodoId)}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border-green-100">
+                <h4 className="font-medium text-gray-900 mb-4 flex items-center">
+                  <DollarSign className="h-4 w-4 mr-2 text-green-600" />
+                  Información de Pagos
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between p-3 bg-white rounded-md border border-green-100">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-3 h-3 rounded-full ${coverSeleccionado.pagoBono ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className="text-sm font-medium">Pago de S/80</span>
+                    </div>
+                    <Badge variant={coverSeleccionado.pagoBono ? "default" : "secondary"}>
+                      {coverSeleccionado.pagoBono ? 'Aprobado' : 'Pendiente'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-white rounded-md border border-green-100">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-3 h-3 rounded-full ${coverSeleccionado.pagoFullHouse ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className="text-sm font-medium">Pago Full House</span>
+                    </div>
+                    <Badge variant={coverSeleccionado.pagoFullHouse ? "default" : "secondary"}>
+                      {coverSeleccionado.pagoFullHouse ? 'Aprobado' : 'Pendiente'}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {(coverSeleccionado.cambioDeNombre || coverSeleccionado.comentarios) && (
+                <div className="space-y-4">
+                  {coverSeleccionado.cambioDeNombre && (
+                    <div className="p-4 border rounded-lg bg-orange-50 border-orange-200">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Edit className="h-4 w-4 text-orange-600" />
+                        <h4 className="font-medium text-orange-900">Cambio de Nombre</h4>
+                      </div>
+                      <p className="text-orange-800 bg-white p-3 rounded border border-orange-200">
+                        {coverSeleccionado.cambioDeNombre}
+                      </p>
+                    </div>
+                  )}
+
+                  {coverSeleccionado.comentarios && (
+                    <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <MessageSquare className="h-4 w-4 text-blue-600" />
+                        <h4 className="font-medium text-blue-900">Comentarios</h4>
+                      </div>
+                      <div className="bg-white p-3 rounded border border-blue-200">
+                        <p className="text-blue-800 whitespace-pre-line">
+                          {coverSeleccionado.comentarios}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="pt-4 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="h-3 w-3" />
+                    <span>Creado: </span>
+                    <span className="font-medium">
+                      {coverSeleccionado.createdAt ? 
+                        format(addHours(new Date(coverSeleccionado.createdAt), 5), 'dd/MM/yyyy HH:mm', { locale: es }) 
+                        : 'N/A'
+                      }
+                    </span>
+                  </div>
+                  {coverSeleccionado.updatedAt && (
+                    <div className="flex items-center space-x-2">
+                      <Clock className="h-3 w-3" />
+                      <span>Actualizado: </span>
+                      <span className="font-medium">
+                        {format(addHours(new Date(coverSeleccionado.updatedAt), 5), 'dd/MM/yyyy HH:mm', { locale: es })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-8 text-center">
+              <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <X className="h-6 w-6 text-gray-400" />
+              </div>
+              <p className="text-muted-foreground">No se encontraron detalles del cover</p>
+            </div>
+          )}
+          
+          <AlertDialogFooter className="border-t border-gray-200 pt-4">
+            <AlertDialogAction 
+              className="bg-blue-600 hover:bg-blue-700 px-6"
+              onClick={() => setIsViewDialogOpen(false)}
+            >
+              Cerrar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

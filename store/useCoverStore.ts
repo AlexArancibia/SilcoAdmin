@@ -30,6 +30,7 @@ interface CoversState {
   fetchCoversPorPeriodo: (periodoId: number) => Promise<void>
   aprobarCover: (id: number) => Promise<Cover>
   rechazarCover: (id: number, comentarios?: string) => Promise<Cover>
+  enlazarCovers: (periodoId: number) => Promise<number>
 }
 
 export const useCoversStore = create<CoversState>((set, get) => ({
@@ -121,6 +122,49 @@ export const useCoversStore = create<CoversState>((set, get) => ({
       })
       console.error(`Error al eliminar el cover con ID ${id}:`, error)
       throw error
+    }
+  },
+
+  enlazarCovers: async (periodoId: number) => {
+    set({ isLoading: true, error: null })
+    
+    try {
+      // 1. Llamar al endpoint para enlazar los covers del período
+      const { updatedCount } = await coversApi.enlazarCoversPeriodo(periodoId)
+      
+      // 2. Actualizar el estado local con los cambios
+      const coversActualizados = await coversApi.getCovers({ periodoId })
+      
+      set((state) => ({
+        covers: state.covers.map(cover => {
+          // Reemplazar los covers del período con los actualizados
+          if (cover.periodoId === periodoId) {
+            const actualizado = coversActualizados.find(c => c.id === cover.id)
+            return actualizado || cover
+          }
+          return cover
+        }),
+        isLoading: false
+      }))
+      
+      // 3. Mostrar feedback al usuario
+      if (updatedCount > 0) {
+        console.log(`Se enlazaron ${updatedCount} covers correctamente`)
+      } else {
+        console.log('No se encontraron covers para enlazar en este período')
+      }
+      
+      return updatedCount
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al enlazar covers'
+      
+      set({
+        error: errorMessage,
+        isLoading: false
+      })
+      
+      console.error('Error en enlazarCovers:', error)
+      throw new Error(errorMessage)
     }
   },
 

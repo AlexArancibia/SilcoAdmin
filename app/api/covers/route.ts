@@ -118,35 +118,54 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify that the clase exists
+    // Check if the clase exists
     const claseExists = await prisma.clase.findUnique({
       where: { id: parsedBody.claseId }
     })
 
-    if (!claseExists) {
-      return NextResponse.json({ error: "La clase especificada no existe" }, { status: 404 })
+    // Check if the instructor exists
+    const instructorExists = await prisma.instructor.findUnique({
+      where: { id: parsedBody.instructorReemplazoId }
+    })
+    if (!instructorExists) {
+      return NextResponse.json({ error: "El instructor de reemplazo no existe" }, { status: 404 })
+    }
+
+    // Check if the periodo exists
+    const periodoExists = await prisma.periodo.findUnique({
+      where: { id: parsedBody.periodoId }
+    })
+    if (!periodoExists) {
+      return NextResponse.json({ error: "El periodo no existe" }, { status: 404 })
+    }
+
+    // Prepare the cover data
+    const coverData = {
+      claseId: claseExists ? parsedBody.claseId : null, // Solo asignar claseId si existe
+      periodoId: parsedBody.periodoId,
+      instructorReemplazoId: parsedBody.instructorReemplazoId,
+      justificacion: parsedBody.justificacion || false,
+      pagoBono: parsedBody.pagoBono || false,
+      pagoFullHouse: parsedBody.pagoFullHouse || false,
+      comentarios: parsedBody.comentarios || null,
+      cambioDeNombre: parsedBody.cambioDeNombre || null,
+      claseTemp: !claseExists ? parsedBody.claseId : null, // Almacenar ID temporal si la clase no existe
     }
 
     // Create the cover in the database
     const cover = await prisma.cover.create({
-      data: {
-        claseId: parsedBody.claseId,
-        periodoId: parsedBody.periodoId,
-        instructorReemplazoId: parsedBody.instructorReemplazoId,
-        justificacion: parsedBody.justificacion || false,
-        pagoBono: parsedBody.pagoBono || false,
-        pagoFullHouse: parsedBody.pagoFullHouse || false,
-        comentarios: parsedBody.comentarios || null,
-        cambioDeNombre: parsedBody.cambioDeNombre || null,
-      },
+      data: coverData,
       include: {
-        clase: {
-          include: {
-            instructor: true,
-            disciplina: true,
-            periodo: true,
+        // Solo incluir relación clase si existe
+        ...(claseExists && {
+          clase: {
+            include: {
+              instructor: true,
+              disciplina: true,
+              periodo: true,
+            }
           }
-        },
+        }),
         periodo: true,
         instructorReemplazo: true,
       },

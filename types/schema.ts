@@ -243,6 +243,7 @@ export interface Cover {
   cambioDeNombre?: string
   createdAt?: Date
   updatedAt?: Date
+  claseTemp?: string
 
   // Relaciones
   clase?: Clase
