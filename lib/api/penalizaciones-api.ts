@@ -8,6 +8,7 @@ export type TipoPenalizacion =
   | "CANCELAR_MENOS_24HRS"
   | "COVER_DEL_COVER"
   | "SALIR_TARDE"
+  | "LLEGO_TARDE"
   | "PERSONALIZADA"
 
 export class PenalizacionesApi extends ApiClient {

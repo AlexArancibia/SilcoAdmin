@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         "CANCELAR_MENOS_24HRS",
         "COVER_DEL_COVER",
         "SALIR_TARDE",
+        "LLEGO_TARDE",
         "PERSONALIZADA"
       ]
       
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
       "CANCELAR_MENOS_24HRS",
       "COVER_DEL_COVER",
       "SALIR_TARDE",
+      "LLEGO_TARDE",
       "PERSONALIZADA"
     ]
     

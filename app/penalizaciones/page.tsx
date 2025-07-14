@@ -203,7 +203,7 @@ export default function PenalizacionesPage() {
       disciplinaId: undefined,
       periodoId: 0,
       tipo: "CANCELACION_FIJA",
-      puntos: 0,
+      puntos: 2,
       descripcion: '',
       activa: true,
       aplicadaEn: new Date(),
@@ -321,6 +321,7 @@ export default function PenalizacionesPage() {
       CANCELAR_MENOS_24HRS: 'bg-yellow-100 text-yellow-800',
       COVER_DEL_COVER: 'bg-blue-100 text-blue-800',
       SALIR_TARDE: 'bg-purple-100 text-purple-800',
+      LLEGO_TARDE: 'bg-sky-100 text-sky-800',
       PERSONALIZADA: 'bg-gray-100 text-gray-800',
     }
     
@@ -329,7 +330,8 @@ export default function PenalizacionesPage() {
       CANCELACION_FUERA_TIEMPO: 'Cancelación fuera de tiempo',
       CANCELAR_MENOS_24HRS: 'Cancelar <24hrs',
       COVER_DEL_COVER: 'Cover del cover',
-      SALIR_TARDE: 'Salir tarde',
+      SALIR_TARDE: 'Salió tarde',
+      LLEGO_TARDE: 'Llegó tarde',
       PERSONALIZADA: 'Personalizada',
     }
 
@@ -417,7 +419,8 @@ export default function PenalizacionesPage() {
               <SelectItem value="CANCELACION_FUERA_TIEMPO">Cancelación fuera de tiempo</SelectItem>
               <SelectItem value="CANCELAR_MENOS_24HRS">Cancelar con menos de 24hrs</SelectItem>
               <SelectItem value="COVER_DEL_COVER">Cover del cover</SelectItem>
-              <SelectItem value="SALIR_TARDE">Salir tarde</SelectItem>
+              <SelectItem value="SALIR_TARDE">Salió tarde</SelectItem>
+              <SelectItem value="LLEGO_TARDE">LLegó tarde</SelectItem>
               <SelectItem value="PERSONALIZADA">Personalizada</SelectItem>
             </SelectContent>
           </Select>
@@ -572,8 +575,11 @@ export default function PenalizacionesPage() {
                 <SelectItem value="CANCELACION_FUERA_TIEMPO">Cancelación fuera de tiempo</SelectItem>
                 <SelectItem value="CANCELAR_MENOS_24HRS">Cancelar con menos de 24hrs</SelectItem>
                 <SelectItem value="COVER_DEL_COVER">Cover del cover</SelectItem>
-                <SelectItem value="SALIR_TARDE">Salir tarde</SelectItem>
+                <SelectItem value="SALIR_TARDE">Salió tarde</SelectItem>
+               <SelectItem value="LLEGO_TARDE">LLegó tarde</SelectItem>
+
                 <SelectItem value="PERSONALIZADA">Personalizada</SelectItem>
+
               </SelectContent>
             </Select>
             <Textarea
@@ -786,7 +792,9 @@ export default function PenalizacionesPage() {
             <SelectItem value="CANCELACION_FUERA_TIEMPO">Cancelación fuera de tiempo</SelectItem>
             <SelectItem value="CANCELAR_MENOS_24HRS">Cancelar con menos de 24hrs</SelectItem>
             <SelectItem value="COVER_DEL_COVER">Cover del cover</SelectItem>
-            <SelectItem value="SALIR_TARDE">Salir tarde</SelectItem>
+            <SelectItem value="SALIR_TARDE">Salió tarde</SelectItem>
+           <SelectItem value="LLEGO_TARDE">LLegó tarde</SelectItem>
+
             <SelectItem value="PERSONALIZADA">Personalizada</SelectItem>
           </SelectContent>
         </Select>
