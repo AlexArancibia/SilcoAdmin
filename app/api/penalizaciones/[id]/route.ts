@@ -69,6 +69,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         "CANCELAR_MENOS_24HRS",
         "COVER_DEL_COVER",
         "SALIR_TARDE",
+        "LLEGO_TARDE",
         "PERSONALIZADA"
       ]
       

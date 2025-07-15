@@ -7,9 +7,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     if (isNaN(id)) return NextResponse.json({ error: "ID de pago inválido" }, { status: 400 });
 
     const pago = await prisma.pagoInstructor.findUnique({
-      where: { id },
-      include: { instructor: true, periodo: true },
-    });
+  where: { id },
+  include: { 
+    instructor: {
+      include: {
+        covers: true
+      }
+    }, 
+    periodo: true 
+  },
+});
 
     if (!pago) return NextResponse.json({ error: "Pago no encontrado" }, { status: 404 });
     return NextResponse.json(pago);

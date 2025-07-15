@@ -13,6 +13,7 @@ import { instructoresApi } from "@/lib/api/instructores-api"
 import { retencionValor } from "@/utils/const"
 import { mostrarCategoriaVisual, HORARIOS_NO_PRIME } from "@/utils/config"
 import type { CategoriaInstructor, EstadoPago, FormulaDB, CategoriaInstructorModel, Periodo, Penalizacion, Clase } from "@/types/schema"
+import { useCoversStore } from "@/store/useCoverStore"
 
 // Función auxiliar para obtener una clave de fecha consistente
 function obtenerClaveFecha(fecha: any): string {
@@ -619,6 +620,21 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
       return
     }
 
+    try {
+    addProcessLog("🔗 Enlazando covers con clases...");
+    const { enlazarCovers } = useCoversStore();
+    const updatedCount = await enlazarCovers(periodoId);
+    addProcessLog(`✅ ${updatedCount} covers enlazados correctamente`);
+  } catch (error) {
+    addProcessLog(`❌ Error al enlazar covers: ${error instanceof Error ? error.message : "Error desconocido"}`);
+    toast({
+      title: "Error al enlazar covers",
+      description: "No se pudieron enlazar los covers con las clases",
+      variant: "destructive",
+    });
+    return;
+  }
+
     if (!verificarFormulasExistentes(periodoId)) {
       const periodoOrigen = encontrarPeriodoConFormulas(periodoId)
       setPeriodoOrigenFormulas(periodoOrigen)
@@ -868,55 +884,78 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
           // Calcular pago por cada clase
           for (const clase of clasesDisciplina) {
             try {
-              let claseParaCalculo = { ...clase }
+              // Verificar si esta clase debe considerarse Full House
+              const esFullHouse = instructor.covers?.some(
+                c => c.claseId === clase.id && c.periodoId === periodoId && c.pagoFullHouse === true
+              );
 
+              let claseParaCalculo = { ...clase };
+
+              // Ajustar para Full House si corresponde
+              if (esFullHouse) {
+                claseParaCalculo = {
+                  ...claseParaCalculo,
+                  reservasTotales: claseParaCalculo.lugares, // Forzar 100% ocupación
+                };
+                addProcessLog(
+                  `🏠 FULL HOUSE: Clase ${clase.id} se considera al 100% de ocupación`,
+                  instructor.id
+                );
+              }
+
+              // Ajustar para clases versus
               if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
-                const reservasAjustadas = clase.reservasTotales * clase.vsNum
-                const lugaresAjustados = clase.lugares * clase.vsNum
+                const reservasAjustadas = claseParaCalculo.reservasTotales * clase.vsNum;
+                const lugaresAjustados = claseParaCalculo.lugares * clase.vsNum;
 
                 claseParaCalculo = {
-                  ...clase,
+                  ...claseParaCalculo,
                   reservasTotales: reservasAjustadas,
                   lugares: lugaresAjustados,
-                }
+                };
 
                 addProcessLog(
                   `⚖️ CLASE VS: Ajustando para cálculo: Reservas ${clase.reservasTotales} x ${clase.vsNum} = ${reservasAjustadas}, Lugares ${clase.lugares} x ${clase.vsNum} = ${lugaresAjustados}`,
                   instructor.id,
-                )
+                );
               }
 
-              const resultado = calcularPago(claseParaCalculo, categoriaInstructor, formula)
+              const resultado = calcularPago(claseParaCalculo, categoriaInstructor, formula);
+              let detalleCalculo = resultado.detalleCalculo;
+                if (esFullHouse) {
+                  detalleCalculo = `FULL HOUSE (ocupación forzada al 100%) - ${detalleCalculo}`;
+                }
 
-              let montoPagoFinal = resultado.montoPago
+              let montoPagoFinal = resultado.montoPago;
               if (clase.esVersus && clase.vsNum && clase.vsNum > 1) {
-                montoPagoFinal = resultado.montoPago / clase.vsNum
+                montoPagoFinal = resultado.montoPago / clase.vsNum;
                 addProcessLog(
                   `⚖️ CLASE VS: Dividiendo pago entre ${clase.vsNum} instructores: ${resultado.montoPago.toFixed(2)} / ${clase.vsNum} = ${montoPagoFinal.toFixed(2)}`,
                   instructor.id,
-                )
+                );
               }
 
-              montoTotal += montoPagoFinal
+              montoTotal += montoPagoFinal;
 
               addProcessLog(
                 `💰 PAGO POR CLASE [${clase.id}]: ${disciplina.nombre} - ${new Date(clase.fecha).toLocaleDateString()} ${obtenerHora(clase.fecha)}` +
-                  `\n   Monto: ${montoPagoFinal.toFixed(2)} | Categoría: ${categoriaInstructor}` +
-                  `\n   Reservas: ${clase.reservasTotales}/${clase.lugares} (${Math.round((clase.reservasTotales / clase.lugares) * 100)}% ocupación)` +
+                  `\n   Monto: ${Number(montoPagoFinal).toFixed(2)} | Categoría: ${categoriaInstructor}` +
+                  `\n   Reservas: ${claseParaCalculo.reservasTotales}/${claseParaCalculo.lugares} (${Math.round((claseParaCalculo.reservasTotales / claseParaCalculo.lugares) * 100)}% ocupación)` +
                   (clase.esVersus ? `\n   Versus: Sí (${clase.vsNum} instructores)` : "") +
+                  (esFullHouse ? `\n   FULL HOUSE: Sí` : "") +
                   `\n   Detalle: ${resultado.detalleCalculo}`,
                 instructor.id,
-              )
+              );
 
               // Check if this is a non-prime hour class
-              const hora = obtenerHora(clase.fecha)
-              const estudio = clase.estudio || ""
-              let esNoPrime = false
+              const hora = obtenerHora(clase.fecha);
+              const estudio = clase.estudio || "";
+              let esNoPrime = false;
 
               for (const [estudioConfig, horarios] of Object.entries(HORARIOS_NO_PRIME)) {
                 if (estudio.toLowerCase().includes(estudioConfig.toLowerCase()) && horarios[hora]) {
-                  esNoPrime = true
-                  break
+                  esNoPrime = true;
+                  break;
                 }
               }
 
@@ -925,7 +964,7 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
                   `⏱️ HORARIO NO PRIME: ${disciplina.nombre} - ${new Date(clase.fecha).toLocaleDateString()} ${hora}` +
                     `\n   Estudio: ${estudio} | Hora: ${hora}`,
                   instructor.id,
-                )
+                );
               }
 
               detallesClases.push({
@@ -934,13 +973,14 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
                 disciplinaId: clase.disciplinaId,
                 disciplinaNombre: disciplina.nombre,
                 fechaClase: clase.fecha,
-                detalleCalculo: resultado.detalleCalculo,
+                detalleCalculo: resultado.detalleCalculo + (esFullHouse ? " (FULL HOUSE)" : ""),
                 categoria: categoriaInstructor,
                 esVersus: clase.esVersus,
                 vsNum: clase.vsNum,
-              })
+                esFullHouse: esFullHouse || false,
+              });
             } catch (error) {
-              addProcessLog(`Error al calcular pago para clase ${clase.id}`, instructor.id)
+              addProcessLog(`Error al calcular pago para clase ${clase.id}`, instructor.id);
             }
           }
         }
@@ -994,7 +1034,7 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
             // Asegurarse que el cover pertenece al periodo correcto
             return c.periodoId === periodoId && 
                   // Verificar que no esté marcado como justificado (si aplica)
-                  (c.justificacion !== true); 
+                  (c.pagoBono == true); 
           }) || [];
 
           const detallesCovers = coversInstructor.map(cover => {

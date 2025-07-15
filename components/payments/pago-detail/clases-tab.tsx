@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ArrowDown,
   ArrowUp,
+  Check,
 } from "lucide-react"
 import type { Clase, Disciplina, PagoInstructor, FormulaDB } from "@/types/schema"
 import { esHorarioNoPrime } from "@/utils/config"
@@ -1173,204 +1174,246 @@ export function ClassesTab({
               </TableHeader>
               <TableBody>
                 {clasesEnPaginaActual.map((clase) => {
-                  const detalleClase = pagoSeleccionado.detalles?.clases?.find((d: any) => d.claseId === clase.id)
-                  const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId)
-                  const reservasCompletas = clase.reservasTotales >= clase.lugares
-                  const esNoPrime = esClaseHorarioNoPrime(clase)
-                  const hora = obtenerHora(clase.fecha)
+  const instructorId = pagoSeleccionado.instructorId;
+  const detalleClase = pagoSeleccionado.detalles?.clases?.find((d: any) => d.claseId === clase.id);
+  const disciplina = disciplinas.find((d) => d.id === clase.disciplinaId);
+  const reservasCompletas = clase.reservasTotales >= clase.lugares;
+  const esNoPrime = esClaseHorarioNoPrime(clase);
+  const hora = obtenerHora(clase.fecha);
+  const esFullHouse = detalleClase?.esFullHouse || false;
 
-                  return (
-                    <TableRow key={clase.id} className="hover:bg-muted/5 transition-colors border-b border-border/30">
-                      <TableCell className="font-medium whitespace-nowrap text-foreground">
-                        <div>
-                          {new Date(clase.fecha).toLocaleDateString()}
-                          <div className="text-xs text-muted-foreground mt-1 md:hidden">
-                            {hora} • {clase.estudio}
-                            {esNoPrime && (
-                              <Badge
-                                variant="outline"
-                                className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/70 ml-1 text-xs"
-                              >
-                                NP
-                              </Badge>
-                            )}
+  return (
+    <TableRow key={clase.id} className="hover:bg-muted/5 transition-colors border-b border-border/30">
+      <TableCell className="font-medium whitespace-nowrap text-foreground">
+        <div>
+          {new Date(clase.fecha).toLocaleDateString()}
+          <div className="text-xs text-muted-foreground mt-1 md:hidden">
+            {hora} • {clase.estudio}
+            {esNoPrime && (
+              <Badge
+                variant="outline"
+                className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/70 ml-1 text-xs"
+              >
+                NP
+              </Badge>
+            )}
+            {esFullHouse && (
+              <Badge
+                variant="outline"
+                className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800/70 ml-1 text-xs"
+              >
+                FH
+              </Badge>
+            )}
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        <div className="flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+          <span>{hora}</span>
+          {esNoPrime && (
+            <Badge
+              variant="outline"
+              className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/70 ml-1 text-xs"
+            >
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              No Prime
+            </Badge>
+          )}
+          {esFullHouse && (
+            <Badge
+              variant="outline"
+              className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800/70 ml-1 text-xs"
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Full House
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        <div className="flex flex-col">
+          <span className="text-foreground">{clase.estudio}</span>
+          <span className="text-xs text-muted-foreground">{clase.salon}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="bg-primary/20 text-slate-800 dark:text-accent border-primary/30 font-medium"
+            style={{
+              backgroundColor: disciplina?.color ? `${disciplina.color}40` : undefined,
+              borderColor: disciplina?.color ? `${disciplina.color}50` : undefined,
+            }}
+          >
+            {disciplina?.nombre || `Disciplina ${clase.disciplinaId}`}
+          </Badge>
+          {clase.esVersus && clase.vsNum && clase.vsNum > 1 && (
+            <Badge
+              variant="secondary"
+              className="bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/70 text-xs"
+            >
+              VS {clase.vsNum}
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-left">
+        <span
+          className={
+            reservasCompletas || esFullHouse ? "text-emerald-600 font-medium pl-4" : "pl-4"
+          }
+        >
+          {esFullHouse ? clase.lugares : clase.reservasTotales}
+          {esFullHouse && (
+            <span className="text-xs text-green-600 ml-1">(FH)</span>
+          )}
+          <span className="text-muted-foreground text-xs ml-1 md:hidden">/ {clase.lugares}</span>
+        </span>
+      </TableCell>
+      <TableCell className="text-left pl-8 hidden md:table-cell">{clase.lugares}</TableCell>
+      <TableCell className="font-medium text-foreground">
+        {detalleClase ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger className="flex items-center gap-1">
+                <span>{formatCurrency(detalleClase.montoCalculado)}</span>
+                <Info className="h-3.5 w-3.5 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent className="w-64 max-w-sm">
+                {(() => {
+                  try {
+                    const formulaParaDisciplina = formulas.find(
+                      (f) => f.disciplinaId === clase.disciplinaId,
+                    )
+
+                    if (!formulaParaDisciplina) {
+                      throw new Error("No se encontró fórmula para esta disciplina")
+                    }
+
+                    const categoriaInstructor =
+                      instructores
+                        .find((i) => i.id === pagoSeleccionado.instructorId)
+                        ?.categorias?.find(
+                          (c) =>
+                            c.disciplinaId === clase.disciplinaId &&
+                            c.periodoId === pagoSeleccionado.periodoId,
+                        )?.categoria || "INSTRUCTOR"
+
+                    const claseParaCalculo = { 
+                      ...clase,
+                      reservasTotales: esFullHouse ? clase.lugares : clase.reservasTotales
+                    }
+                    const resultadoCalculo = calcularPago(
+                      claseParaCalculo,
+                      categoriaInstructor,
+                      formulaParaDisciplina,
+                    )
+                    const montoCalculado = resultadoCalculo.montoPago
+                    const detalleCalculo = {
+                      mensaje: resultadoCalculo.detalleCalculo,
+                      pasos: [
+                        {
+                          descripcion: `Tarifa aplicada: ${resultadoCalculo.tarifaAplicada} (${resultadoCalculo.tipoTarifa})`,
+                        },
+                        {
+                          descripcion: `Reservas: ${esFullHouse ? clase.lugares + ' (Full House)' : clase.reservasTotales} de ${clase.lugares} lugares`,
+                        },
+                        { descripcion: `Monto calculado: ${resultadoCalculo.montoPago.toFixed(2)}` },
+                      ],
+                    }
+
+                    if (esFullHouse) {
+                      detalleCalculo.pasos.unshift({
+                        descripcion: `Clase considerada FULL HOUSE (ocupación al 100%)`,
+                      })
+                    }
+
+                    if (resultadoCalculo.minimoAplicado) {
+                      detalleCalculo.pasos.push({
+                        descripcion: `Se aplicó el mínimo garantizado`,
+                      })
+                    }
+
+                    if (resultadoCalculo.maximoAplicado) {
+                      detalleCalculo.pasos.push({
+                        descripcion: `Se aplicó el máximo permitido`,
+                      })
+                    }
+
+                    if (resultadoCalculo.bonoAplicado) {
+                      detalleCalculo.pasos.push({
+                        descripcion: `Bono aplicable: ${resultadoCalculo.bonoAplicado.toFixed(2)} (no incluido en el total)`,
+                      })
+                    }
+
+                    return (
+                      <div className="space-y-1">
+                        <p className="font-semibold">Detalle de cálculo:</p>
+                        {clase.esVersus && clase.vsNum && clase.vsNum > 1 && (
+                          <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded text-xs border border-purple-200 dark:border-purple-800/50">
+                            <span className="font-medium text-purple-700 dark:text-purple-300">
+                              Clase Versus ({clase.vsNum} instructores)
+                            </span>
+                            <p className="text-purple-600 dark:text-purple-400 mt-1">
+                              Los valores mostrados ya están ajustados para el cálculo individual
+                            </p>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span>{hora}</span>
-                          {esNoPrime && (
-                            <Badge
-                              variant="outline"
-                              className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800/70 ml-1 text-xs"
-                            >
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                              No Prime
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <div className="flex flex-col">
-                          <span className="text-foreground">{clase.estudio}</span>
-                          <span className="text-xs text-muted-foreground">{clase.salon}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className="bg-primary/20 text-slate-800 dark:text-accent border-primary/30 font-medium"
-                            style={{
-                              backgroundColor: disciplina?.color ? `${disciplina.color}40` : undefined,
-                              borderColor: disciplina?.color ? `${disciplina.color}50` : undefined,
-                            }}
-                          >
-                            {disciplina?.nombre || `Disciplina ${clase.disciplinaId}`}
-                          </Badge>
-                          {clase.esVersus && clase.vsNum && clase.vsNum > 1 && (
-                            <Badge
-                              variant="secondary"
-                              className="bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800/70 text-xs"
-                            >
-                              VS {clase.vsNum}
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-left">
-                        <span
-                          className={
-                            clase.reservasTotales >= clase.lugares ? "text-emerald-600 font-medium pl-4" : "pl-4"
-                          }
-                        >
-                          {clase.reservasTotales}
-                          <span className="text-muted-foreground text-xs ml-1 md:hidden">/ {clase.lugares}</span>
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-left pl-8 hidden md:table-cell">{clase.lugares}</TableCell>
-                      <TableCell className="font-medium text-foreground">
-                        {detalleClase ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger className="flex items-center gap-1">
-                                <span>{formatCurrency(detalleClase.montoCalculado)}</span>
-                                <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                              </TooltipTrigger>
-                              <TooltipContent className="w-64 max-w-sm">
-                                {(() => {
-                                  try {
-                                    const formulaParaDisciplina = formulas.find(
-                                      (f) => f.disciplinaId === clase.disciplinaId,
-                                    )
-
-                                    if (!formulaParaDisciplina) {
-                                      throw new Error("No se encontró fórmula para esta disciplina")
-                                    }
-
-                                    const categoriaInstructor =
-                                      instructores
-                                        .find((i) => i.id === pagoSeleccionado.instructorId)
-                                        ?.categorias?.find(
-                                          (c) =>
-                                            c.disciplinaId === clase.disciplinaId &&
-                                            c.periodoId === pagoSeleccionado.periodoId,
-                                        )?.categoria || "INSTRUCTOR"
-
-                                    const claseParaCalculo = { ...clase }
-                                    const resultadoCalculo = calcularPago(
-                                      claseParaCalculo,
-                                      categoriaInstructor,
-                                      formulaParaDisciplina,
-                                    )
-                                    const montoCalculado = resultadoCalculo.montoPago
-                                    const detalleCalculo = {
-                                      mensaje: resultadoCalculo.detalleCalculo,
-                                      pasos: [
-                                        {
-                                          descripcion: `Tarifa aplicada: ${resultadoCalculo.tarifaAplicada} (${resultadoCalculo.tipoTarifa})`,
-                                        },
-                                        {
-                                          descripcion: `Reservas: ${clase.reservasTotales} de ${clase.lugares} lugares`,
-                                        },
-                                        { descripcion: `Monto calculado: ${resultadoCalculo.montoPago.toFixed(2)}` },
-                                      ],
-                                    }
-
-                                    if (resultadoCalculo.minimoAplicado) {
-                                      detalleCalculo.pasos.push({
-                                        descripcion: `Se aplicó el mínimo garantizado`,
-                                      })
-                                    }
-
-                                    if (resultadoCalculo.maximoAplicado) {
-                                      detalleCalculo.pasos.push({
-                                        descripcion: `Se aplicó el máximo permitido`,
-                                      })
-                                    }
-
-                                    if (resultadoCalculo.bonoAplicado) {
-                                      detalleCalculo.pasos.push({
-                                        descripcion: `Bono aplicable: ${resultadoCalculo.bonoAplicado.toFixed(2)} (no incluido en el total)`,
-                                      })
-                                    }
-
-                                    return (
-                                      <div className="space-y-1">
-                                        <p className="font-semibold">Detalle de cálculo:</p>
-                                        {clase.esVersus && clase.vsNum && clase.vsNum > 1 && (
-                                          <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded text-xs border border-purple-200 dark:border-purple-800/50">
-                                            <span className="font-medium text-purple-700 dark:text-purple-300">
-                                              Clase Versus ({clase.vsNum} instructores)
-                                            </span>
-                                            <p className="text-purple-600 dark:text-purple-400 mt-1">
-                                              Los valores mostrados ya están ajustados para el cálculo individual
-                                            </p>
-                                          </div>
-                                        )}
-                                        {detalleCalculo.mensaje && (
-                                          <p className="text-xs text-muted-foreground">{detalleCalculo.mensaje}</p>
-                                        )}
-                                        <ul className="text-xs space-y-1">
-                                          {detalleCalculo.pasos.map((paso, idx) => (
-                                            <li key={idx} className="flex items-start gap-1">
-                                              <span className="text-primary">•</span>
-                                              <span>{paso.descripcion}</span>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                        {resultadoCalculo.bonoAplicado && (
-                                          <div className="mt-2 pt-2 border-t text-xs">
-                                            <span className="font-medium text-green-600">Bono potencial: </span>
-                                            {formatCurrency(resultadoCalculo.bonoAplicado)}
-                                            <p className="text-muted-foreground mt-1">
-                                              El bono se aplica al final del periodo según cumplimiento de requisitos
-                                            </p>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )
-                                  } catch (error) {
-                                    console.error(`Error al calcular pago para clase ${clase.id}:`, error)
-                                    return (
-                                      <p className="text-red-500">
-                                        Error: {error instanceof Error ? error.message : "Error desconocido"}
-                                      </p>
-                                    )
-                                  }
-                                })()}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          <span>-</span>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+                        {esFullHouse && (
+                          <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs border border-green-200 dark:border-green-800/50 mb-2">
+                            <span className="font-medium text-green-700 dark:text-green-300">
+                              <Check className="h-3 w-3 inline mr-1" />
+                              Clase FULL HOUSE
+                            </span>
+                            <p className="text-green-600 dark:text-green-400 mt-1">
+                              Se considera al 100% de ocupación para el cálculo
+                            </p>
+                          </div>
+                        )}
+                        {detalleCalculo.mensaje && (
+                          <p className="text-xs text-muted-foreground">{detalleCalculo.mensaje}</p>
+                        )}
+                        <ul className="text-xs space-y-1">
+                          {detalleCalculo.pasos.map((paso, idx) => (
+                            <li key={idx} className="flex items-start gap-1">
+                              <span className="text-primary">•</span>
+                              <span>{paso.descripcion}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {resultadoCalculo.bonoAplicado && (
+                          <div className="mt-2 pt-2 border-t text-xs">
+                            <span className="font-medium text-green-600">Bono potencial: </span>
+                            {formatCurrency(resultadoCalculo.bonoAplicado)}
+                            <p className="text-muted-foreground mt-1">
+                              El bono se aplica al final del periodo según cumplimiento de requisitos
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  } catch (error) {
+                    console.error(`Error al calcular pago para clase ${clase.id}:`, error)
+                    return (
+                      <p className="text-red-500">
+                        Error: {error instanceof Error ? error.message : "Error desconocido"}
+                      </p>
+                    )
+                  }
+                })()}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <span>-</span>
+        )}
+      </TableCell>
+    </TableRow>
+  )
+})}
               </TableBody>
             </Table>
           </div>
