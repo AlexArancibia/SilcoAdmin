@@ -609,45 +609,24 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
 
   // FUNCIÓN PRINCIPAL CORREGIDA: calcularPagosPeriodo
   const calcularPagosPeriodo = async () => {
-    const periodoId = selectedPeriodoId || periodoActual?.id
+  const periodoId = selectedPeriodoId || periodoActual?.id;
 
-    if (!periodoId) {
-      toast({
-        title: "Error",
-        description: "Debes seleccionar un periodo para calcular los pagos",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-    addProcessLog("🔗 Enlazando covers con clases...");
-    const { enlazarCovers } = useCoversStore();
-    const updatedCount = await enlazarCovers(periodoId);
-    addProcessLog(`✅ ${updatedCount} covers enlazados correctamente`);
-  } catch (error) {
-    addProcessLog(`❌ Error al enlazar covers: ${error instanceof Error ? error.message : "Error desconocido"}`);
+  if (!periodoId) {
     toast({
-      title: "Error al enlazar covers",
-      description: "No se pudieron enlazar los covers con las clases",
+      title: "Error",
+      description: "Debes seleccionar un periodo para calcular los pagos",
       variant: "destructive",
     });
     return;
   }
 
-    if (!verificarFormulasExistentes(periodoId)) {
-      const periodoOrigen = encontrarPeriodoConFormulas(periodoId)
-      setPeriodoOrigenFormulas(periodoOrigen)
-      setShowFormulaDuplicationDialog(true)
-      setShowCalculateDialog(false)
-      return
-    }
+  setProcessLogs([]);
+  setShowProcessLogsDialog(true);
+  addProcessLog("🚀 Iniciando proceso de cálculo de pagos...");
+  setIsCalculatingPayments(true);
+  setShowCalculateDialog(false);
 
-    setProcessLogs([])
-    setShowProcessLogsDialog(true)
-    addProcessLog("🚀 Iniciando proceso de cálculo de pagos...")
-    setIsCalculatingPayments(true)
-    setShowCalculateDialog(false)
+ 
 
     let pagosActualizados = 0
     let pagosCreados = 0
