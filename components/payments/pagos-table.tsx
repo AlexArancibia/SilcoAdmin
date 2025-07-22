@@ -25,16 +25,9 @@ import type { PagoInstructor, Instructor, Periodo, EstadoPago, TipoReajuste } fr
 import { InstructorWithCategory } from "./instructor-with-category"
 import { useReajuste } from "@/hooks/use-reajuste"
 
-interface PagosTableProps {
-  page?: number
-  limit?: number
-  estado?: string
-  instructorId?: number
-  periodoId?: number
-  busqueda?: string
-}
 
-export function PagosTable({ page, limit, estado, instructorId, periodoId, busqueda }: PagosTableProps) {
+
+export function PagosTable() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -62,7 +55,6 @@ export function PagosTable({ page, limit, estado, instructorId, periodoId, busqu
   } = useReajuste()
 
   useEffect(() => {
-    // Fetch instructores and periodos if not already loaded
     if (instructores.length === 0) {
       fetchInstructores()
     }
@@ -70,18 +62,6 @@ export function PagosTable({ page, limit, estado, instructorId, periodoId, busqu
       fetchPeriodos()
     }
   }, [instructores.length, periodos.length, fetchInstructores, fetchPeriodos])
-
-  useEffect(() => {
-    const queryParams = {
-      page: page || 1,
-      limit: limit || 10,
-      estado: estado as any, // Cast to avoid type issues with EstadoPago
-      instructorId,
-      periodoId,
-      busqueda,
-    }
-    fetchPagos(queryParams)
-  }, [page, limit, estado, instructorId, periodoId, busqueda, fetchPagos])
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams)

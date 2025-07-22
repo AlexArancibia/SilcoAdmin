@@ -33,36 +33,31 @@ export function PagosFilter({
   const searchParams = useSearchParams()
 
   const [page, setPage] = useState(initialPage || 1)
-  const [limit, setLimit] = useState(initialLimit || 10)
+  const [limit, setLimit] = useState(initialLimit || 20)
   const [estado, setEstado] = useState(initialEstado)
   const [instructorId, setInstructorId] = useState(initialInstructorId)
   const [periodoId, setPeriodoId] = useState(initialPeriodoId)
   const [busqueda, setBusqueda] = useState(initialBusqueda)
 
-  const { periodos, fetchPeriodos, isLoading: isLoadingPeriodos } = usePeriodosStore()
-  const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
-
-  useEffect(() => {
-    if (periodos.length === 0) fetchPeriodos()
-    if (instructores.length === 0) fetchInstructores()
-  }, [periodos.length, instructores.length, fetchPeriodos, fetchInstructores])
+  const { periodos, isLoading: isLoadingPeriodos } = usePeriodosStore()
+  const { instructores, isLoading: isLoadingInstructores } = useInstructoresStore()
 
   const handleApplyFilters = () => {
     const params = new URLSearchParams(searchParams.toString())
     params.set("page", "1") // Reset page to 1 when filters change
 
-    if (estado) params.set("estado", estado); else params.delete("estado")
-    if (instructorId) params.set("instructorId", String(instructorId)); else params.delete("instructorId")
-    if (periodoId) params.set("periodoId", String(periodoId)); else params.delete("periodoId")
+    if (estado && estado !== 'all') params.set("estado", estado); else params.delete("estado")
+    if (instructorId && instructorId.toString() !== 'all') params.set("instructorId", String(instructorId)); else params.delete("instructorId")
+    if (periodoId && periodoId.toString() !== 'all') params.set("periodoId", String(periodoId)); else params.delete("periodoId")
     if (busqueda) params.set("busqueda", busqueda); else params.delete("busqueda")
-    if (limit !== 10) params.set("limit", String(limit)); else params.delete("limit")
+    if (limit !== 20) params.set("limit", String(limit)); else params.delete("limit")
 
     router.push(`${pathname}?${params.toString()}`)
   }
 
   const handleReset = () => {
     setPage(1)
-    setLimit(10)
+    setLimit(20)
     setEstado(undefined)
     setInstructorId(undefined)
     setPeriodoId(undefined)
@@ -103,9 +98,10 @@ export function PagosFilter({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="pendiente">Pendiente</SelectItem>
-                <SelectItem value="pagado">Pagado</SelectItem>
-                <SelectItem value="cancelado">Cancelado</SelectItem>
+                <SelectItem value="PENDIENTE">Pendiente</SelectItem>
+                <SelectItem value="PAGADO">Pagado</SelectItem>
+                <SelectItem value="APROBADO">Aprobado</SelectItem>
+                <SelectItem value="CANCELADO">Cancelado</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -38,6 +38,7 @@ export interface PagosQueryParams extends PaginationParams {
   estudio?: string
   claseId?: string
   estado?: EstadoPago
+  busqueda?: string
 }
 export type CategoriaInstructor = "INSTRUCTOR" | "EMBAJADOR_JUNIOR" | "EMBAJADOR" | "EMBAJADOR_SENIOR"
 export type TipoPenalizacion = "CANCELACION_FIJA" | "LLEGO_TARDE" | "CANCELACION_FUERA_TIEMPO"  | "CANCELAR_MENOS_24HRS" | "COVER_DEL_COVER" | "SALIR_TARDE" | "PERSONALIZADA"
