@@ -1,19 +1,15 @@
 import { ApiClient } from "./api-client"
-import type { Clase } from "@/types/schema"
+import type { Clase, PaginatedResponse, ClasesQueryParams } from "@/types/schema"
 
 export class ClasesApi extends ApiClient {
   constructor() {
     super("/api")
   }
 
-  async getClases(params?: {
-    periodoId?: number
-    instructorId?: number
-    disciplinaId?: number
-    semana?: number
-    fecha?: string
-  }): Promise<Clase[]> {
-    return this.get<Clase[]>("/clases", params)
+  async getClases(
+    params?: ClasesQueryParams
+  ): Promise<PaginatedResponse<Clase>> {
+    return this.get<PaginatedResponse<Clase>>("/clases", params as Record<string, any>)
   }
 
   async getClaseById(id: string): Promise<Clase> {
@@ -34,13 +30,14 @@ export class ClasesApi extends ApiClient {
 
   async deleteClasesByPeriodoAndSemana(periodoId: number, semana: number): Promise<{ count: number }> {
     // First get all classes for this period and week
-    const clases = await this.getClases({ periodoId, semana })
+    const response = await this.getClases({ periodoId, semana });
+    const clases = response.data;
 
     // Then delete each class
-    const deletePromises = clases.map((clase) => this.deleteClase(clase.id))
-    await Promise.all(deletePromises)
+    const deletePromises = clases.map((clase: Clase) => this.deleteClase(clase.id));
+    await Promise.all(deletePromises);
 
-    return { count: clases.length }
+    return { count: clases.length };
   }
 }
 

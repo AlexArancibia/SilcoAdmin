@@ -15,6 +15,7 @@ export default function ClassesPage({
   searchParams,
 }: {
   searchParams: { 
+    id?: string;
     periodoId?: string; 
     instructorId?: string; 
     disciplinaId?: string; 
@@ -23,6 +24,7 @@ export default function ClassesPage({
   }
 }) {
   // Parse search params
+  const id = searchParams.id || undefined
   const periodoId = searchParams.periodoId ? Number.parseInt(searchParams.periodoId) : undefined
   const instructorId = searchParams.instructorId ? Number.parseInt(searchParams.instructorId) : undefined
   const disciplinaId = searchParams.disciplinaId ? Number.parseInt(searchParams.disciplinaId) : undefined
@@ -30,7 +32,7 @@ export default function ClassesPage({
   const estudio = searchParams.estudio || undefined
 
   return (
-    <div className="  p-10">
+    <div className="p-10">
       <div className="mb-8">
         <h1 className="text-3xl text-accent font-bold tracking-tight">Clases</h1>
         <p className="text-muted-foreground">
@@ -38,21 +40,14 @@ export default function ClassesPage({
         </p>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-          <CardDescription>Filtra las clases por diferentes criterios</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ClassesFilter
-            initialPeriodoId={periodoId}
-            initialInstructorId={instructorId}
-            initialDisciplinaId={disciplinaId}
-            initialSemana={semana}
-            initialEstudio={estudio}
-          />
-        </CardContent>
-      </Card>
+      <ClassesFilter
+        initialId={id}
+        initialPeriodoId={periodoId}
+        initialInstructorId={instructorId}
+        initialDisciplinaId={disciplinaId}
+        initialSemana={semana}
+        initialEstudio={estudio}
+      />
 
       <Suspense
         fallback={
@@ -72,6 +67,7 @@ export default function ClassesPage({
         }
       >
         <ClassesTable
+          id={id}
           periodoId={periodoId}
           instructorId={instructorId}
           disciplinaId={disciplinaId}

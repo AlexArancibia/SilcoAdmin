@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,16 +68,18 @@ export function CalculateDialog({
   aplicarCategoriasManual,
   isCalculatingPayments,
 }: CalculateDialogProps) {
-  const [activeTab, setActiveTab] = useState("calcular")
-  const [instructorSearch, setInstructorSearch] = useState("")
+  const [activeTab, setActiveTab] = useState("calcular");
+  const [instructorSearch, setInstructorSearch] = useState("");
 
   // Establecer disciplina fija como Síclo (ID 1)
-  const SICLO_DISCIPLINE_ID = 1
+  const SICLO_DISCIPLINE_ID = 1;
 
-  // Asegurarse de que la disciplina seleccionada siempre sea Síclo
-  if (selectedDisciplinaId !== SICLO_DISCIPLINE_ID) {
-    setSelectedDisciplinaId(SICLO_DISCIPLINE_ID)
-  }
+  useEffect(() => {
+    // Asegurarse de que la disciplina seleccionada siempre sea Síclo
+    if (selectedDisciplinaId !== SICLO_DISCIPLINE_ID) {
+      setSelectedDisciplinaId(SICLO_DISCIPLINE_ID);
+    }
+  }, [selectedDisciplinaId, setSelectedDisciplinaId]);
 
   // Filtrar instructores basados en la búsqueda
   const filteredInstructores = instructores.filter((instructor) =>

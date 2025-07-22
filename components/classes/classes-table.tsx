@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -48,6 +49,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 
 interface ClassesTableProps {
+  id?: string
   periodoId?: number
   instructorId?: number
   disciplinaId?: number
@@ -55,12 +57,19 @@ interface ClassesTableProps {
   estudio?: string
 }
 
-export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, estudio }: ClassesTableProps) {
+export function ClassesTable({ id, periodoId, instructorId, disciplinaId, semana, estudio }: ClassesTableProps) {
   const { toast } = useToast()
-  const { clases, isLoading, error, fetchClases, eliminarClase, actualizarClase } = useClasesStore()
-  const { instructores } = useInstructoresStore()
-  const [filteredClases, setFilteredClases] = useState<Clase[]>([])
-  const [currentPage, setCurrentPage] = useState(1)
+  const {
+    clases,
+    pagination,
+    isLoading,
+    error,
+    fetchClases,
+    eliminarClase,
+    actualizarClase,
+  } = useClasesStore()
+  const { instructores, fetchInstructores } = useInstructoresStore()
+
   const [editingClassId, setEditingClassId] = useState<string | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -68,41 +77,30 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
   const [isDeleting, setIsDeleting] = useState(false)
   const [updatingReemplazo, setUpdatingReemplazo] = useState<string | null>(null)
   const [showReemplazoSelect, setShowReemplazoSelect] = useState<string | null>(null)
-  const itemsPerPage = 10
+
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    fetchClases()
-  }, [fetchClases])
+    // Fetch instructores if not already loaded
+    if (instructores.length === 0) {
+      fetchInstructores()
+    }
+  }, [instructores.length, fetchInstructores])
 
-  // Filtrar las clases según los parámetros recibidos
   useEffect(() => {
-    let filtered = [...clases]
-    
-    if (periodoId) {
-      filtered = filtered.filter(clase => clase.periodoId === periodoId)
+    const page = Number(searchParams.get('page')) || 1
+    const queryParams = {
+      page,
+      limit: 10, // Or get from a state/constant
+      id,
+      periodoId,
+      instructorId,
+      disciplinaId,
+      semana,
+      estudio,
     }
-    
-    if (instructorId) {
-      filtered = filtered.filter(clase => clase.instructorId === instructorId)
-    }
-    
-    if (disciplinaId) {
-      filtered = filtered.filter(clase => clase.disciplinaId === disciplinaId)
-    }
-    
-    if (semana) {
-      filtered = filtered.filter(clase => clase.semana === semana)
-    }
-    
-    if (estudio) {
-      filtered = filtered.filter(clase => 
-        clase.estudio.toLowerCase().includes(estudio.toLowerCase())
-      )
-    }
-    
-    setFilteredClases(filtered)
-    setCurrentPage(1) // Reset to first page when filters change
-  }, [clases, periodoId, instructorId, disciplinaId, semana, estudio])
+    fetchClases(queryParams)
+  }, [searchParams, id, periodoId, instructorId, disciplinaId, semana, estudio, fetchClases])
 
   const formatDate = (date: Date) => {
     // Añadir 5 horas para mostrar en la tabla
@@ -116,37 +114,45 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
     return format(adjustedDate, "HH:mm", { locale: es })
   }
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredClases.length / itemsPerPage)
-  const paginatedClases = filteredClases.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   // Función para generar páginas visibles con ellipsis cuando sea necesario
   const getVisiblePages = () => {
-    const delta = 2 // Número de páginas a mostrar a cada lado de la página actual
-    const range = []
-    const rangeWithDots = []
-    let l
+    if (!pagination || pagination.totalPages <= 1) return [];
+
+    const { page: currentPage, totalPages } = pagination;
+    const delta = 2; // Número de páginas a mostrar a cada lado de la página actual
+    const range = [];
+    const rangeWithDots = [];
+    let l;
 
     for (let i = 1; i <= totalPages; i++) {
       if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
-        range.push(i)
+        range.push(i);
       }
     }
 
     for (const i of range) {
       if (l) {
         if (i - l === 2) {
-          rangeWithDots.push(l + 1)
+          rangeWithDots.push(l + 1);
         } else if (i - l !== 1) {
-          rangeWithDots.push("...")
+          rangeWithDots.push("...");
         }
       }
-      rangeWithDots.push(i)
-      l = i
+      rangeWithDots.push(i);
+      l = i;
     }
 
-    return rangeWithDots
-  }
+    return rangeWithDots;
+  };
 
   const handleEditClass = (classId: string) => {
     setEditingClassId(classId)
@@ -261,7 +267,7 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
     )
   }
 
-  if (filteredClases.length === 0) {
+  if (!isLoading && clases.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -281,7 +287,9 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Clases</CardTitle>
-            <CardDescription>Mostrando {filteredClases.length} clases</CardDescription>
+            <CardDescription>
+              Mostrando {clases.length} de {pagination.total || 0} clases
+            </CardDescription>
           </div>
           <Button onClick={() => setIsEditDialogOpen(true)}>Nueva clase</Button>
         </CardHeader>
@@ -303,7 +311,7 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedClases.map((clase) => (
+              {clases.map((clase) => (
                 <TableRow key={clase.id}>
                   <TableCell className="text-xs font-mono text-muted-foreground">{clase.id}</TableCell>
                   <TableCell className="font-medium">{formatDate(clase.fecha)}</TableCell>
@@ -410,17 +418,19 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
             </TableBody>
           </Table>
 
-          {totalPages > 1 && (
+          {pagination && pagination.totalPages > 1 && (
             <Pagination className="mt-4">
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
                     href="#"
                     onClick={(e) => {
-                      e.preventDefault()
-                      if (currentPage > 1) setCurrentPage(currentPage - 1)
+                      e.preventDefault();
+                      if (pagination.hasPrev) {
+                        handlePageChange(pagination.page - 1);
+                      }
                     }}
-                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                    className={!pagination.hasPrev ? "pointer-events-none opacity-50" : ""}
                   />
                 </PaginationItem>
 
@@ -432,10 +442,10 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
                       <PaginationLink
                         href="#"
                         onClick={(e) => {
-                          e.preventDefault()
-                          setCurrentPage(Number(page))
+                          e.preventDefault();
+                          handlePageChange(Number(page));
                         }}
-                        isActive={currentPage === page}
+                        isActive={pagination.page === page}
                       >
                         {page}
                       </PaginationLink>
@@ -447,10 +457,12 @@ export function ClassesTable({ periodoId, instructorId, disciplinaId, semana, es
                   <PaginationNext
                     href="#"
                     onClick={(e) => {
-                      e.preventDefault()
-                      if (currentPage < totalPages) setCurrentPage(currentPage + 1)
+                      e.preventDefault();
+                      if (pagination.hasNext) {
+                        handlePageChange(pagination.page + 1);
+                      }
                     }}
-                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                    className={!pagination.hasNext ? "pointer-events-none opacity-50" : ""}
                   />
                 </PaginationItem>
               </PaginationContent>

@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
-import { useClasesStore } from "@/store/useClasesStore"
-import { Loader2, X } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Loader2 } from "lucide-react"
 
 interface ClassesFilterProps {
   initialPeriodoId?: number
@@ -18,6 +18,7 @@ interface ClassesFilterProps {
   initialDisciplinaId?: number
   initialSemana?: number
   initialEstudio?: string
+  initialId?: string
 }
 
 export function ClassesFilter({
@@ -26,92 +27,39 @@ export function ClassesFilter({
   initialDisciplinaId,
   initialSemana,
   initialEstudio,
+  initialId,
 }: ClassesFilterProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [periodoId, setPeriodoId] = useState<number | undefined>(initialPeriodoId)
-  const [instructorId, setInstructorId] = useState<number | undefined>(initialInstructorId)
-  const [disciplinaId, setDisciplinaId] = useState<number | undefined>(initialDisciplinaId)
-  const [semana, setSemana] = useState<number | undefined>(initialSemana)
-  const [estudio, setEstudio] = useState<string | undefined>(initialEstudio)
+  const [periodoId, setPeriodoId] = useState(initialPeriodoId)
+  const [instructorId, setInstructorId] = useState(initialInstructorId)
+  const [disciplinaId, setDisciplinaId] = useState(initialDisciplinaId)
+  const [semana, setSemana] = useState(initialSemana)
+  const [estudio, setEstudio] = useState(initialEstudio)
+  const [id, setId] = useState(initialId)
 
   const { periodos, fetchPeriodos, isLoading: isLoadingPeriodos } = usePeriodosStore()
   const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
-  const { clases, fetchClases, isLoading: isLoadingClases } = useClasesStore()
-
-  // Lista de estudios únicos extraída de las clases
-  const [estudios, setEstudios] = useState<string[]>([])
 
   useEffect(() => {
     if (periodos.length === 0) fetchPeriodos()
     if (instructores.length === 0) fetchInstructores()
     if (disciplinas.length === 0) fetchDisciplinas()
+  }, [periodos.length, instructores.length, disciplinas.length, fetchPeriodos, fetchInstructores, fetchDisciplinas])
 
-    // Obtener clases para extraer estudios únicos
-    if (clases.length === 0) fetchClases()
-  }, [
-    periodos.length,
-    instructores.length,
-    disciplinas.length,
-    clases.length,
-    fetchPeriodos,
-    fetchInstructores,
-    fetchDisciplinas,
-    fetchClases,
-  ])
-
-  // Extraer estudios únicos de las clases
-  useEffect(() => {
-    if (clases.length > 0) {
-      const uniqueEstudios = Array.from(new Set(clases.map((clase) => clase.estudio)))
-        .filter(Boolean)
-        .sort()
-      setEstudios(uniqueEstudios)
-    }
-  }, [clases])
-
-  // Aplicar filtros automáticamente cuando cambian los valores
-  const applyFilters = (
-    newPeriodoId?: number,
-    newInstructorId?: number,
-    newDisciplinaId?: number,
-    newSemana?: number,
-    newEstudio?: string,
-  ) => {
+  const handleApplyFilters = () => {
     const params = new URLSearchParams(searchParams.toString())
+    params.set("page", "1") // Reset page to 1 when filters change
 
-    if (newPeriodoId) {
-      params.set("periodoId", newPeriodoId.toString())
-    } else {
-      params.delete("periodoId")
-    }
-
-    if (newInstructorId) {
-      params.set("instructorId", newInstructorId.toString())
-    } else {
-      params.delete("instructorId")
-    }
-
-    if (newDisciplinaId) {
-      params.set("disciplinaId", newDisciplinaId.toString())
-    } else {
-      params.delete("disciplinaId")
-    }
-
-    if (newSemana) {
-      params.set("semana", newSemana.toString())
-    } else {
-      params.delete("semana")
-    }
-
-    if (newEstudio) {
-      params.set("estudio", newEstudio)
-    } else {
-      params.delete("estudio")
-    }
+    if (id) params.set("id", id); else params.delete("id")
+    if (periodoId) params.set("periodoId", String(periodoId)); else params.delete("periodoId")
+    if (instructorId) params.set("instructorId", String(instructorId)); else params.delete("instructorId")
+    if (disciplinaId) params.set("disciplinaId", String(disciplinaId)); else params.delete("disciplinaId")
+    if (semana) params.set("semana", String(semana)); else params.delete("semana")
+    if (estudio) params.set("estudio", estudio); else params.delete("estudio")
 
     router.push(`${pathname}?${params.toString()}`)
   }
@@ -122,248 +70,139 @@ export function ClassesFilter({
     setDisciplinaId(undefined)
     setSemana(undefined)
     setEstudio(undefined)
+    setId(undefined)
     router.push(pathname)
   }
 
-  const isLoading = isLoadingPeriodos || isLoadingInstructores || isLoadingDisciplinas || isLoadingClases
-
-  // Obtener nombres de los filtros seleccionados
-  const selectedPeriodo = periodos.find((p) => p.id === periodoId)
-  const selectedInstructor = instructores.find((i) => i.id === instructorId)
-  const selectedDisciplina = disciplinas.find((d) => d.id === disciplinaId)
-
-  // Contar filtros activos
-  const activeFiltersCount = [
-    periodoId !== undefined,
-    instructorId !== undefined,
-    disciplinaId !== undefined,
-    semana !== undefined,
-    estudio !== undefined,
-  ].filter(Boolean).length
+  const isLoading = isLoadingPeriodos || isLoadingInstructores || isLoadingDisciplinas
 
   return (
-    <div className="mb-4">
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-5 mb-3">
-        <div className="space-y-1">
-          <Label htmlFor="periodo" className="text-xs">
-            Periodo
-          </Label>
-          <Select
-            value={periodoId?.toString() || ""}
-            onValueChange={(value) => {
-              const newPeriodoId = value && value !== "all" ? Number.parseInt(value) : undefined
-              setPeriodoId(newPeriodoId)
-              applyFilters(newPeriodoId, instructorId, disciplinaId, semana, estudio)
-            }}
-            disabled={isLoadingPeriodos}
-          >
-            <SelectTrigger id="periodo" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar periodo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los periodos</SelectItem>
-              {periodos.map((periodo) => (
-                <SelectItem key={periodo.id} value={periodo.id.toString()}>
-                  Periodo {periodo.numero} - {periodo.año}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <Card className="mb-4">
+      <CardHeader>
+        <CardTitle>Filtros de Clases</CardTitle>
+        <CardDescription>Usa los filtros para encontrar clases específicas.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Filtro por ID de Clase */}
+          <div className="space-y-1">
+            <Label htmlFor="clase-id">ID de Clase</Label>
+            <Input
+              id="clase-id"
+              placeholder="Buscar por ID..."
+              value={id || ""}
+              onChange={(e) => setId(e.target.value)}
+            />
+          </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="instructor" className="text-xs">
-            Instructor
-          </Label>
-          <Select
-            value={instructorId?.toString() || ""}
-            onValueChange={(value) => {
-              const newInstructorId = value && value !== "all" ? Number.parseInt(value) : undefined
-              setInstructorId(newInstructorId)
-              applyFilters(periodoId, newInstructorId, disciplinaId, semana, estudio)
-            }}
-            disabled={isLoadingInstructores}
-          >
-            <SelectTrigger id="instructor" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar instructor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los instructores</SelectItem>
-              {instructores.map((instructor) => (
-                <SelectItem key={instructor.id} value={instructor.id.toString()}>
-                  {instructor.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="disciplina" className="text-xs">
-            Disciplina
-          </Label>
-          <Select
-            value={disciplinaId?.toString() || ""}
-            onValueChange={(value) => {
-              const newDisciplinaId = value && value !== "all" ? Number.parseInt(value) : undefined
-              setDisciplinaId(newDisciplinaId)
-              applyFilters(periodoId, instructorId, newDisciplinaId, semana, estudio)
-            }}
-            disabled={isLoadingDisciplinas}
-          >
-            <SelectTrigger id="disciplina" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar disciplina" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las disciplinas</SelectItem>
-              {disciplinas.map((disciplina) => (
-                <SelectItem key={disciplina.id} value={disciplina.id.toString()}>
-                  {disciplina.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="semana" className="text-xs">
-            Semana
-          </Label>
-          <Select
-            value={semana?.toString() || ""}
-            onValueChange={(value) => {
-              const newSemana = value && value !== "all" ? Number.parseInt(value) : undefined
-              setSemana(newSemana)
-              applyFilters(periodoId, instructorId, disciplinaId, newSemana, estudio)
-            }}
-          >
-            <SelectTrigger id="semana" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar semana" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las semanas</SelectItem>
-              <SelectItem value="1">Semana 1</SelectItem>
-              <SelectItem value="2">Semana 2</SelectItem>
-              <SelectItem value="3">Semana 3</SelectItem>
-              <SelectItem value="4">Semana 4</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="estudio" className="text-xs">
-            Estudio
-          </Label>
-          <Select
-            value={estudio || ""}
-            onValueChange={(value) => {
-              const newEstudio = value && value !== "all" ? value : undefined
-              setEstudio(newEstudio)
-              applyFilters(periodoId, instructorId, disciplinaId, semana, newEstudio)
-            }}
-            disabled={isLoadingClases || estudios.length === 0}
-          >
-            <SelectTrigger id="estudio" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar estudio" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los estudios</SelectItem>
-              {estudios.map((studio) => (
-                <SelectItem key={studio} value={studio}>
-                  {studio}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Indicadores de filtros activos */}
-      {activeFiltersCount > 0 && (
-        <div className="flex flex-wrap gap-1 items-center mb-3">
-          {periodoId !== undefined && selectedPeriodo && (
-            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
-              Periodo {selectedPeriodo.numero}/{selectedPeriodo.año}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setPeriodoId(undefined)
-                  applyFilters(undefined, instructorId, disciplinaId, semana, estudio)
-                }}
-              />
-            </Badge>
-          )}
-
-          {instructorId !== undefined && selectedInstructor && (
-            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
-              {selectedInstructor.nombre}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setInstructorId(undefined)
-                  applyFilters(periodoId, undefined, disciplinaId, semana, estudio)
-                }}
-              />
-            </Badge>
-          )}
-
-          {disciplinaId !== undefined && selectedDisciplina && (
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-1 h-6 text-xs"
-              style={{
-                backgroundColor: selectedDisciplina.color ? `${selectedDisciplina.color}20` : undefined,
-              }}
+          {/* Filtro por Periodo */}
+          <div className="space-y-1">
+            <Label htmlFor="periodo">Periodo</Label>
+            <Select
+              value={periodoId?.toString() || ""}
+              onValueChange={(value) => setPeriodoId(value ? Number(value) : undefined)}
+              disabled={isLoadingPeriodos}
             >
-              {selectedDisciplina.nombre}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setDisciplinaId(undefined)
-                  applyFilters(periodoId, instructorId, undefined, semana, estudio)
-                }}
-              />
-            </Badge>
-          )}
+              <SelectTrigger id="periodo">
+                <SelectValue placeholder="Seleccionar periodo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los periodos</SelectItem>
+                {periodos.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    Periodo {p.numero} - {p.año}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {semana !== undefined && (
-            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
-              Semana {semana}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setSemana(undefined)
-                  applyFilters(periodoId, instructorId, disciplinaId, undefined, estudio)
-                }}
-              />
-            </Badge>
-          )}
+          {/* Filtro por Instructor */}
+          <div className="space-y-1">
+            <Label htmlFor="instructor">Instructor</Label>
+            <Select
+              value={instructorId?.toString() || ""}
+              onValueChange={(value) => setInstructorId(value ? Number(value) : undefined)}
+              disabled={isLoadingInstructores}
+            >
+              <SelectTrigger id="instructor">
+                <SelectValue placeholder="Seleccionar instructor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los instructores</SelectItem>
+                {instructores.map((i) => (
+                  <SelectItem key={i.id} value={String(i.id)}>
+                    {i.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {estudio !== undefined && (
-            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
-              {estudio}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setEstudio(undefined)
-                  applyFilters(periodoId, instructorId, disciplinaId, semana, undefined)
-                }}
-              />
-            </Badge>
-          )}
+          {/* Filtro por Disciplina */}
+          <div className="space-y-1">
+            <Label htmlFor="disciplina">Disciplina</Label>
+            <Select
+              value={disciplinaId?.toString() || ""}
+              onValueChange={(value) => setDisciplinaId(value ? Number(value) : undefined)}
+              disabled={isLoadingDisciplinas}
+            >
+              <SelectTrigger id="disciplina">
+                <SelectValue placeholder="Seleccionar disciplina" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las disciplinas</SelectItem>
+                {disciplinas.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Button variant="ghost" size="sm" onClick={handleReset} className="h-6 px-2 text-xs">
-            Limpiar todos
-          </Button>
+          {/* Filtro por Semana */}
+          <div className="space-y-1">
+            <Label htmlFor="semana">Semana</Label>
+            <Select
+              value={semana?.toString() || ""}
+              onValueChange={(value) => setSemana(value ? Number(value) : undefined)}
+            >
+              <SelectTrigger id="semana">
+                <SelectValue placeholder="Seleccionar semana" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las semanas</SelectItem>
+                {[...Array(4).keys()].map((i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>
+                    Semana {i + 1}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filtro por Estudio */}
+          <div className="space-y-1">
+            <Label htmlFor="estudio">Estudio</Label>
+            <Input
+              id="estudio"
+              placeholder="Buscar por estudio..."
+              value={estudio || ""}
+              onChange={(e) => setEstudio(e.target.value)}
+            />
+          </div>
         </div>
-      )}
-
-      {isLoading && (
-        <div className="flex items-center text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin mr-1" />
-          Cargando...
-        </div>
-      )}
-    </div>
+      </CardContent>
+      <CardFooter className="flex justify-end gap-2">
+        <Button variant="outline" onClick={handleReset} disabled={isLoading}>
+          Limpiar
+        </Button>
+        <Button onClick={handleApplyFilters} disabled={isLoading}>
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Aplicar Filtros
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }

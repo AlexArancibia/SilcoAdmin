@@ -69,9 +69,7 @@ export function PageHeader({
           </Button>
         </div>
 
-        <div className="flex flex-row flex-wrap gap-2">
-          <PeriodSelector   />
-          
+        <div className="flex flex-row flex-wrap gap-2">          
           <Button 
             onClick={setShowCalculateDialog} 
             disabled={isCalculatingPayments}

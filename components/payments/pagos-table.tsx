@@ -1,36 +1,54 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ArrowUpDown, Calendar, Download, Eye, FileText, Printer } from "lucide-react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { usePagosStore } from "@/store/usePagosStore"
+import { useInstructoresStore } from "@/store/useInstructoresStore"
+import { usePeriodosStore } from "@/store/usePeriodosStore"
 import { ReajusteEditor } from "./reajuste-editor"
 import type { PagoInstructor, Instructor, Periodo, EstadoPago, TipoReajuste } from "@/types/schema"
 import { InstructorWithCategory } from "./instructor-with-category"
 import { useReajuste } from "@/hooks/use-reajuste"
 
 interface PagosTableProps {
-  paginatedPagos: PagoInstructor[]
-  requestSort: (key: keyof PagoInstructor) => void
-  sortConfig: { key: string; direction: "asc" | "desc" }
-  instructores: Instructor[]
-  periodosSeleccionados: Periodo[]
-  exportarPagoPDF: (pagoId: number) => void
-  imprimirPagoPDF: (pagoId: number) => void
+  page?: number
+  limit?: number
+  estado?: string
+  instructorId?: number
+  periodoId?: number
+  busqueda?: string
 }
 
-export function PagosTable({
-  paginatedPagos,
-  requestSort,
-  sortConfig,
-  instructores,
-  periodosSeleccionados,
-  exportarPagoPDF,
-  imprimirPagoPDF,
-}: PagosTableProps) {
+export function PagosTable({ page, limit, estado, instructorId, periodoId, busqueda }: PagosTableProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const {
+    pagos,
+    pagination,
+    isLoading,
+    error,
+    fetchPagos,
+  } = usePagosStore()
+  const { instructores, fetchInstructores } = useInstructoresStore()
+  const { periodos, fetchPeriodos } = usePeriodosStore()
+
   const {
     editandoPagoId,
     nuevoReajuste,
@@ -43,10 +61,87 @@ export function PagosTable({
     actualizarReajuste,
   } = useReajuste()
 
+  useEffect(() => {
+    // Fetch instructores and periodos if not already loaded
+    if (instructores.length === 0) {
+      fetchInstructores()
+    }
+    if (periodos.length === 0) {
+      fetchPeriodos()
+    }
+  }, [instructores.length, periodos.length, fetchInstructores, fetchPeriodos])
+
+  useEffect(() => {
+    const queryParams = {
+      page: page || 1,
+      limit: limit || 10,
+      estado: estado as any, // Cast to avoid type issues with EstadoPago
+      instructorId,
+      periodoId,
+      busqueda,
+    }
+    fetchPagos(queryParams)
+  }, [page, limit, estado, instructorId, periodoId, busqueda, fetchPagos])
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams)
+    params.set('page', newPage.toString())
+    router.push(`${pathname}?${params.toString()}`)
+  }
+
+  // Función para generar páginas visibles con ellipsis cuando sea necesario
+  const getVisiblePages = () => {
+    if (!pagination || pagination.totalPages <= 1) return []
+
+    const current = pagination.page
+    const total = pagination.totalPages
+    const pages: (number | string)[] = []
+
+    if (total <= 7) {
+      // Si hay 7 páginas o menos, mostrar todas
+      for (let i = 1; i <= total; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Siempre mostrar la primera página
+      pages.push(1)
+
+      if (current <= 4) {
+        // Si estamos cerca del inicio
+        for (let i = 2; i <= 5; i++) {
+          pages.push(i)
+        }
+        pages.push('...')
+        pages.push(total)
+      } else if (current >= total - 3) {
+        // Si estamos cerca del final
+        pages.push('...')
+        for (let i = total - 4; i <= total; i++) {
+          pages.push(i)
+        }
+      } else {
+        // Si estamos en el medio
+        pages.push('...')
+        for (let i = current - 1; i <= current + 1; i++) {
+          pages.push(i)
+        }
+        pages.push('...')
+        pages.push(total)
+      }
+    }
+
+    return pages
+  }
+
   // Helper functions
   const getNombrePeriodo = (periodoId: number): string => {
-    const periodo = periodosSeleccionados.find((p) => p.id === periodoId)
+    const periodo = periodos.find((p) => p.id === periodoId)
     return periodo ? `${periodo.numero}-${periodo.año}` : `${periodoId}`
+  }
+
+  const getNombreInstructor = (instructorId: number): string => {
+    const instructor = instructores.find((i) => i.id === instructorId)
+    return instructor?.nombre || `Instructor ${instructorId}`
   }
 
   const formatCurrency = (amount: number): string => {
@@ -68,21 +163,56 @@ export function PagosTable({
     }
   }
 
-  const filteredPaginatedPagos = paginatedPagos.filter((pago) => {
-    return periodosSeleccionados.length === 0 || 
-           periodosSeleccionados.some((periodo) => periodo.id === pago.periodoId)
-  })
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Pagos</CardTitle>
+          <CardDescription>Cargando pagos...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Error</CardTitle>
+          <CardDescription>Error al cargar los pagos</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-destructive">{error}</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
-    <div className="rounded-lg border shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <Table className="min-w-[1200px]">
+    <Card>
+      <CardHeader>
+        <CardTitle>Pagos de Instructores</CardTitle>
+        <CardDescription>
+          {pagination ? `Mostrando ${pagination.page} de ${pagination.totalPages} páginas (${pagination.total} pagos total)` : "Cargando..."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-lg border shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table className="min-w-[1200px]">
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="text-foreground font-medium">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => requestSort("instructorId")} 
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push(`${pathname}?sort=instructorId`)}
                   className="text-foreground group"
                 >
                   Instructor
@@ -90,9 +220,9 @@ export function PagosTable({
                 </Button>
               </TableHead>
               <TableHead className="text-foreground font-medium">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => requestSort("periodoId")} 
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push(`${pathname}?sort=periodoId`)}
                   className="text-foreground group"
                 >
                   Periodo
@@ -100,9 +230,9 @@ export function PagosTable({
                 </Button>
               </TableHead>
               <TableHead className="text-foreground font-medium">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => requestSort("monto")} 
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push(`${pathname}?sort=monto`)}
                   className="text-foreground group"
                 >
                   Monto Base
@@ -111,14 +241,13 @@ export function PagosTable({
               </TableHead>
               <TableHead className="text-foreground font-medium">Cover</TableHead>
               <TableHead className="text-foreground font-medium">Penalización</TableHead>
-              {/* <TableHead className="text-foreground font-medium">Bono</TableHead> */}
               <TableHead className="text-foreground font-medium">Reajuste</TableHead>
               <TableHead className="text-foreground font-medium">Retención</TableHead>
               <TableHead className="text-foreground font-medium">Total</TableHead>
               <TableHead className="text-foreground font-medium">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => requestSort("estado")} 
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push(`${pathname}?sort=estado`)}
                   className="text-primary group"
                 >
                   Estado
@@ -129,20 +258,20 @@ export function PagosTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPaginatedPagos.length === 0 ? (
+            {pagos.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                   No se encontraron pagos
                 </TableCell>
               </TableRow>
             ) : (
-              filteredPaginatedPagos.map((pago) => {
+              pagos.map((pago) => {
                 const isEditing = editandoPagoId === pago.id
                 const bono = pago.bono ?? 0
                 const penalizacion = pago.penalizacion ?? 0
                 const cover = pago.cover ?? 0
-                const reajusteCalculado = pago.tipoReajuste === "PORCENTAJE" 
-                  ? (pago.monto * pago.reajuste) / 100 
+                const reajusteCalculado = pago.tipoReajuste === "PORCENTAJE"
+                  ? (pago.monto * pago.reajuste) / 100
                   : pago.reajuste
                 const retencion = pago.retencion ?? 0
                 const total = pago.monto + cover - penalizacion + bono + reajusteCalculado - retencion
@@ -179,13 +308,6 @@ export function PagosTable({
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
-                    {/* <TableCell>
-                      {bono > 0 ? (
-                        <span className="text-green-600 text-sm">+{formatCurrency(bono)}</span>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell> */}
                     <TableCell>
                       {isEditing ? (
                         <ReajusteEditor
@@ -208,8 +330,8 @@ export function PagosTable({
                             </span>
                           ) : reajusteCalculado < 0 ? (
                             <span className="text-red-600 text-sm">
-                              {pago.tipoReajuste === "PORCENTAJE" 
-                                ? `${pago.reajuste}%` 
+                              {pago.tipoReajuste === "PORCENTAJE"
+                                ? `${pago.reajuste}%`
                                 : formatCurrency(pago.reajuste)}
                             </span>
                           ) : (
@@ -237,8 +359,8 @@ export function PagosTable({
                       {formatCurrency(total)}
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant="outline" 
+                      <Badge
+                        variant="outline"
                         className={`text-xs ${getEstadoColor(pago.estado)}`}
                       >
                         {pago.estado === "APROBADO" ? "APR" : "PEN"}
@@ -253,16 +375,16 @@ export function PagosTable({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="min-w-[150px]">
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="cursor-pointer text-sm"
-                              onClick={() => exportarPagoPDF(pago.id)}
+                              onClick={() => router.push(`/pagos/${pago.id}/exportar`)}
                             >
                               <FileText className="mr-2 h-3 w-3" />
                               Exportar
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="cursor-pointer text-sm"
-                              onClick={() => imprimirPagoPDF(pago.id)}
+                              onClick={() => router.push(`/pagos/${pago.id}/imprimir`)}
                             >
                               <Printer className="mr-2 h-3 w-3" />
                               Imprimir
@@ -284,8 +406,61 @@ export function PagosTable({
               })
             )}
           </TableBody>
-        </Table>
-      </div>
-    </div>
+            </Table>
+          </div>
+        </div>
+
+        {pagination && pagination.totalPages > 1 && (
+          <Pagination className="mt-4">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (pagination.hasPrev) {
+                      handlePageChange(pagination.page - 1)
+                    }
+                  }}
+                  className={!pagination.hasPrev ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+
+              {getVisiblePages().map((page, index) => (
+                <PaginationItem key={index}>
+                  {page === "..." ? (
+                    <span className="mx-1 px-2">...</span>
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handlePageChange(Number(page))
+                      }}
+                      isActive={pagination.page === page}
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (pagination.hasNext) {
+                      handlePageChange(pagination.page + 1)
+                    }
+                  }}
+                  className={!pagination.hasNext ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
+      </CardContent>
+    </Card>
   )
 }

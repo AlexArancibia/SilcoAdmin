@@ -1,5 +1,44 @@
 export type EstadoPago = "PENDIENTE" | "APROBADO" | "PAGADO" | "CANCELADO"
 export type TipoReajuste = "FIJO" | "PORCENTAJE"
+
+// Pagination types
+export interface PaginationParams {
+  page?: number
+  limit?: number
+  offset?: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
+}
+
+// Query parameter types for filtering
+export interface ClasesQueryParams extends PaginationParams {
+  periodoId?: number
+  instructorId?: number
+  disciplinaId?: number
+  semana?: number
+  fecha?: string
+  estudio?: string
+}
+
+export interface PagosQueryParams extends PaginationParams {
+  periodoId?: number
+  instructorId?: number
+  disciplinaId?: number
+  semana?: number
+  estudio?: string
+  claseId?: string
+  estado?: EstadoPago
+}
 export type CategoriaInstructor = "INSTRUCTOR" | "EMBAJADOR_JUNIOR" | "EMBAJADOR" | "EMBAJADOR_SENIOR"
 export type TipoPenalizacion = "CANCELACION_FIJA" | "LLEGO_TARDE" | "CANCELACION_FUERA_TIEMPO"  | "CANCELAR_MENOS_24HRS" | "COVER_DEL_COVER" | "SALIR_TARDE" | "PERSONALIZADA"
 export enum Rol {

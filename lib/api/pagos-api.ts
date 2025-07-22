@@ -1,13 +1,13 @@
 import { ApiClient } from "./api-client"
-import type { PagoInstructor } from "@/types/schema"
+import type { PagoInstructor, PaginatedResponse } from "@/types/schema"
 
 export class PagosApi extends ApiClient {
   constructor() {
     super("/api")
   }
 
-  async getPagos(params?: { periodoId?: number; instructorId?: number }): Promise<PagoInstructor[]> {
-    return this.get<PagoInstructor[]>("/pagos", params)
+    async getPagos(params?: { periodoId?: number; instructorId?: number }): Promise<PaginatedResponse<PagoInstructor>> {
+    return this.get<PaginatedResponse<PagoInstructor>>("/pagos", params)
   }
 
   async getPago(id: number): Promise<PagoInstructor> {

@@ -1,14 +1,24 @@
 import { type NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import type { ClasesQueryParams, PaginatedResponse, Clase } from "@/types/schema"
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
+    
+    // Parse pagination parameters
+    const page = Number(searchParams.get("page")) || 1
+    const limit = Math.min(Number(searchParams.get("limit")) || 10, 100) // Max 100 items per page
+    const offset = (page - 1) * limit
+
+    // Parse filter parameters
     const periodoId = searchParams.get("periodoId")
     const instructorId = searchParams.get("instructorId")
     const disciplinaId = searchParams.get("disciplinaId")
     const semana = searchParams.get("semana")
     const fecha = searchParams.get("fecha")
+    const estudio = searchParams.get("estudio")
+    const id = searchParams.get("id") // Nuevo parámetro para filtrar por ID
 
     // Build the where clause based on the provided parameters
     const where: any = {}
@@ -55,6 +65,22 @@ export async function GET(request: NextRequest) {
       where.fecha = parsedDate
     }
 
+    if (estudio) {
+      where.estudio = {
+        contains: estudio,
+        mode: 'insensitive'
+      }
+    }
+
+    if (id) {
+      where.id = id
+    }
+
+    // Get total count for pagination
+    const total = await prisma.clase.count({ where })
+    const totalPages = Math.ceil(total / limit)
+
+    // Get paginated results
     const clases = await prisma.clase.findMany({
       where,
       include: {
@@ -62,12 +88,28 @@ export async function GET(request: NextRequest) {
         disciplina: true,
         periodo: true,
       },
-      orderBy: {
-        fecha: "asc",
-      },
+      orderBy: [
+        { fecha: "desc" },
+        { semana: "desc" },
+        { id: "asc" }
+      ],
+      skip: offset,
+      take: limit,
     })
 
-    return NextResponse.json(clases)
+    const response: PaginatedResponse<any> = {
+      data: clases,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    }
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Error en GET /api/clases:", error)
 
