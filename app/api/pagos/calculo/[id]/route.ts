@@ -86,6 +86,8 @@ export async function POST(
     const resumen: any[] = [];
     const clasesDetalles: any[] = [];
     let pagoTotal = 0;
+    let retencionTotal = 0;
+    let montoSinRetencion = 0;
     let categoriaPorDisciplina: Record<number, string> = {};
     let metricasPorDisciplina: Record<number, any> = {};
     let penalizacionesPorDisciplina: Record<number, Penalizacion[]> = {};
@@ -131,7 +133,9 @@ export async function POST(
       const categoria = determinarCategoria(formula, metricas);
       categoriaPorDisciplina[disciplinaId] = categoria;
       // Calcular pago y logs
-      const { pago, logs: calculoLogs } = calcularPago(clasesDisciplina, formula, categoria, penalizacionesDisciplina);
+      const { pago, logs: calculoLogs, retencion, pagoSinRetencion } = calcularPago(clasesDisciplina, formula, categoria, penalizacionesDisciplina);
+      montoSinRetencion += pagoSinRetencion;
+      retencionTotal += retencion;
       pagoTotal += pago;
       logs.push(`[Disciplina ${disciplinaObj?.nombre || disciplinaId}]`);
       logs.push(...calculoLogs);
@@ -200,7 +204,13 @@ export async function POST(
     if (pagoExistente) {
       const pagoActualizado = await prisma.pagoInstructor.update({
         where: { id: pagoExistente.id },
-        data: { monto: pagoTotal, pagoFinal: pagoTotal, detalles: resultado as any, estado: "PENDIENTE" },
+        data: {
+          monto: montoSinRetencion,
+          retencion: retencionTotal,
+          pagoFinal: montoSinRetencion - retencionTotal,
+          detalles: resultado as any,
+          estado: "PENDIENTE",
+        },
       });
       (resultado as any).pagoId = pagoActualizado.id;
       logs.push(`Pago existente actualizado. ID: ${pagoActualizado.id}`);
@@ -209,8 +219,9 @@ export async function POST(
         data: {
           instructorId,
           periodoId,
-          monto: pagoTotal,
-          pagoFinal: pagoTotal,
+          monto: montoSinRetencion,
+          retencion: retencionTotal,
+          pagoFinal: montoSinRetencion - retencionTotal,
           detalles: resultado as any,
           estado: "PENDIENTE",
         },

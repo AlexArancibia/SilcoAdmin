@@ -98,12 +98,14 @@ function calcularPagoClase(clase: Clase, instructorType: CategoriaInstructor, fo
 /**
  * Calcula el pago total para un conjunto de clases y aplica penalizaciones.
  */
+import { retencionValor } from "@/utils/const";
+
 export function calcularPago(
   clases: Clase[],
   formula: FormulaDB,
   categoria: CategoriaInstructor,
   penalizaciones: Penalizacion[] = [],
-): { pago: number; logs: string[] } {
+): { pago: number; logs: string[]; retencion: number; pagoSinRetencion: number } {
   const logs: string[] = []
   
   const resultadosClases = clases.map((clase) => {
@@ -124,7 +126,20 @@ export function calcularPago(
     logs.push(`Total penalizaciones: -S/. ${totalPenalizaciones.toFixed(2)}`);
   }
 
-  const pagoFinal = pagoBase - totalPenalizaciones;
-  logs.push(`PAGO FINAL: S/. ${pagoFinal.toFixed(2)} (Subtotal - Penalizaciones)`);
+  const pagoSinRetencion = pagoBase - totalPenalizaciones;
+  logs.push(`SUBTOTAL DESPUÉS DE PENALIZACIONES: S/. ${pagoSinRetencion.toFixed(2)}`);
 
-  return { pago: pagoFinal > 0 ? pagoFinal : 0, logs };}
+  // Retención
+  const retencion = pagoSinRetencion * retencionValor;
+  logs.push(`RETENCIÓN (8%): -S/. ${retencion.toFixed(2)}`);
+
+  const pagoFinal = pagoSinRetencion - retencion;
+  logs.push(`PAGO FINAL: S/. ${pagoFinal.toFixed(2)} (Subtotal - Retención)`);
+
+  return {
+    pago: pagoFinal > 0 ? pagoFinal : 0,
+    logs,
+    retencion,
+    pagoSinRetencion,
+  };
+}

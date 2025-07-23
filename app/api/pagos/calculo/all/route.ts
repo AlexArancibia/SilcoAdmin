@@ -16,6 +16,7 @@ import {
 } from "@/types/schema";
 
 export async function POST(req: Request) {
+  const logs: string[] = [];
   try {
     const body = await req.json();
     const { periodoId, manualCategorias } = body;
@@ -23,6 +24,12 @@ export async function POST(req: Request) {
     if (!periodoId) {
       return NextResponse.json({ error: "periodoId es requerido" }, { status: 400 });
     }
+
+    // Eliminar pagos con monto 0 para el periodo antes de calcular
+    const deleted = await prisma.pagoInstructor.deleteMany({
+      where: { periodoId, monto: 0 }
+    });
+    logs.push(`Pagos eliminados con monto 0 antes de cálculo: ${deleted.count}`);
 
     // 1. Obtener instructores activos con sus clases para el período especificado
     const instructoresConClases = await prisma.instructor.findMany({
@@ -48,12 +55,10 @@ export async function POST(req: Request) {
       },
     });
 
-    const logs: string[] = [];
     logs.push(`Iniciando cálculo para ${instructoresConClases.length} instructores con clases en el período ${periodoId}.`);
 
     for (const instructor of instructoresConClases) {
-      logs.push(`
---- Procesando a ${instructor.nombre} ---`);
+      logs.push(`\n--- Procesando a ${instructor.nombre} ---`);
       const clasesDelInstructor = instructor.clases as Clase[];
       const penalizacionesDelInstructor = instructor.penalizaciones as Penalizacion[];
 
@@ -68,6 +73,7 @@ export async function POST(req: Request) {
       }, {} as Record<number, Clase[]>);
 
       let pagoTotalInstructor = 0;
+      let retencionTotalInstructor = 0;
 
       for (const disciplinaIdStr in clasesPorDisciplina) {
         const disciplinaId = parseInt(disciplinaIdStr, 10);
@@ -105,19 +111,27 @@ export async function POST(req: Request) {
           totalDobleteos,
           totalLocales: localesUnicos.length,
           horariosNoPrime: calcularHorariosNoPrime(clases, disciplinaId),
-          participacionEventos: false, // Ajusta si tienes fuente real
-          cumpleLineamientos: true, // Ajusta si tienes fuente real
+          participacionEventos: false,
+          cumpleLineamientos: true,
         };
 
-        const categoriaManual = manualCategorias?.find((mc: any) => mc.instructorId === instructor.id && mc.disciplinaId === disciplinaId)?.categoria;
+        const categoriaManual = manualCategorias?.find((mc: any) => 
+          mc.instructorId === instructor.id && mc.disciplinaId === disciplinaId)?.categoria;
         const categoria = categoriaManual || determinarCategoria(formula, metricas);
         logs.push(`  Categoría determinada: ${categoria} ${categoriaManual ? '(Manual)' : ''}`);
 
         const penalizacionesDeDisciplina = penalizacionesDelInstructor.filter(p => p.disciplinaId === disciplinaId);
 
-        const { pago, logs: calculoLogs } = calcularPago(clases, formula, categoria, penalizacionesDeDisciplina);
+        const { pago, logs: calculoLogs, retencion, pagoSinRetencion } = calcularPago(
+          clases, 
+          formula, 
+          categoria, 
+          penalizacionesDeDisciplina
+        );
+        
         logs.push(...calculoLogs.map(l => `    > ${l}`));
-        pagoTotalInstructor += pago;
+        pagoTotalInstructor += pagoSinRetencion;
+        retencionTotalInstructor += retencion;
       }
 
       // Guardar o actualizar el pago total del instructor para el período
@@ -128,24 +142,33 @@ export async function POST(req: Request) {
       if (pagoExistente) {
         await prisma.pagoInstructor.update({
           where: { id: pagoExistente.id },
-          data: { monto: pagoTotalInstructor, pagoFinal: pagoTotalInstructor, estado: "PENDIENTE" },
+          data: {
+            monto: pagoTotalInstructor,
+            retencion: retencionTotalInstructor,
+            pagoFinal: pagoTotalInstructor - retencionTotalInstructor,
+            estado: "PENDIENTE",
+          },
         });
-        logs.push(`[SUCCESS] Pago para ${instructor.nombre} actualizado. Monto: ${pagoTotalInstructor.toFixed(2)}`);
+        logs.push(`[SUCCESS] Pago para ${instructor.nombre} actualizado. Monto: ${pagoTotalInstructor.toFixed(2)} Retención: ${retencionTotalInstructor.toFixed(2)}`);
       } else {
         await prisma.pagoInstructor.create({
           data: {
             instructorId: instructor.id,
             periodoId,
             monto: pagoTotalInstructor,
-            pagoFinal: pagoTotalInstructor,
+            retencion: retencionTotalInstructor,
+            pagoFinal: pagoTotalInstructor - retencionTotalInstructor,
             estado: "PENDIENTE",
           },
         });
-        logs.push(`[SUCCESS] Nuevo pago para ${instructor.nombre} creado. Monto: ${pagoTotalInstructor.toFixed(2)}`);
+        logs.push(`[SUCCESS] Nuevo pago para ${instructor.nombre} creado. Monto: ${pagoTotalInstructor.toFixed(2)} Retención: ${retencionTotalInstructor.toFixed(2)}`);
       }
     }
 
-    return NextResponse.json({ message: "Cálculo completado para todos los instructores.", logs });
+    return NextResponse.json({ 
+      message: "Cálculo completado para todos los instructores.", 
+      logs 
+    });
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';

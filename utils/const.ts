@@ -1,0 +1,1 @@
+export const retencionValor = 0.08;
