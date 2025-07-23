@@ -31,6 +31,10 @@ export async function POST(req: Request) {
     });
     logs.push(`Pagos eliminados con monto 0 antes de cálculo: ${deleted.count}`);
 
+    // Load all disciplines for name resolution
+    const disciplinasDb = await prisma.disciplina.findMany();
+    const disciplinaMap = Object.fromEntries(disciplinasDb.map(d => [d.id, d.nombre]));
+
     // 1. Obtener instructores activos con sus clases para el período especificado
     const instructoresConClases = await prisma.instructor.findMany({
       where: {
@@ -74,6 +78,112 @@ export async function POST(req: Request) {
 
       let pagoTotalInstructor = 0;
       let retencionTotalInstructor = 0;
+
+      // --- DETALLES STRUCTURE ---
+      const detallesClases: any[] = [];
+      let penalizacionesTotales: Penalizacion[] = [];
+      let penalizacionesDetalle: any[] = [];
+      let penalizacionesResumen = {
+        totalPuntos: 0,
+        maxPuntosPermitidos: 0,
+        puntosExcedentes: 0,
+        porcentajeDescuento: 0,
+        montoDescuento: 0,
+        detalle: [] as any[],
+      };
+      const detallesCovers: any[] = [];
+      const resumen: any = {
+        totalClases: 0,
+        totalMonto: 0,
+        bono: 0,
+        disciplinas: 0,
+        categorias: [],
+        comentarios: `Calculado el ${new Date().toLocaleDateString()}`,
+      };
+
+      // Build per-class details (flatten all clases)
+      for (const disciplinaIdStr in clasesPorDisciplina) {
+        const disciplinaId = parseInt(disciplinaIdStr, 10);
+        const clases = clasesPorDisciplina[disciplinaId];
+        for (const clase of clases) {
+          // Find the category for this class
+          let categoriaClase = '';
+          // Try to find the category for this discipline (manual or calculated)
+          const categoriaManual = manualCategorias?.find((mc: any) => mc.instructorId === instructor.id && mc.disciplinaId === clase.disciplinaId)?.categoria;
+          let formula = null;
+          if (!categoriaManual) {
+            formula = await prisma.formula.findFirst({ where: { disciplinaId: clase.disciplinaId, periodoId } });
+          }
+          categoriaClase = categoriaManual || (formula ? determinarCategoria(formula, {
+            totalClases: 1,
+            ocupacionPromedio: clase.lugares > 0 ? (clase.reservasPagadas / clase.lugares) * 100 : 0,
+            totalAsistentes: clase.reservasPagadas,
+            totalDobleteos: 0,
+            totalLocales: 1,
+            horariosNoPrime: calcularHorariosNoPrime([clase], clase.disciplinaId),
+            participacionEventos: false,
+            cumpleLineamientos: true,
+          }) : '');
+
+          // Calculate payment for this class
+          let montoCalculado = null;
+          let detalleCalculo = '';
+          if (formula && categoriaClase) {
+            const penalizacionesDeDisciplina = penalizacionesDelInstructor.filter(p => p.disciplinaId === clase.disciplinaId);
+            const calc = calcularPago([clase], formula, categoriaClase, penalizacionesDeDisciplina);
+            montoCalculado = calc.pagoSinRetencion;
+            detalleCalculo = (calc.logs || []).join('; ');
+          }
+
+          detallesClases.push({
+            claseId: clase.id,
+            montoCalculado,
+            disciplinaId: clase.disciplinaId,
+            disciplinaNombre: disciplinaMap[clase.disciplinaId] || '',
+            fechaClase: clase.fecha,
+            detalleCalculo,
+            categoria: categoriaClase,
+            esVersus: clase.esVersus,
+            vsNum: clase.vsNum,
+            esFullHouse: clase.esFullHouse || false,
+          });
+        }
+      }
+
+      // Penalizaciones: flatten all penalizaciones for this instructor
+      penalizacionesTotales = penalizacionesDelInstructor;
+      penalizacionesDetalle = penalizacionesTotales.map(p => ({
+        tipo: p.tipo,
+        puntos: p.puntos,
+        descripcion: p.descripcion || 'Sin descripción',
+        fecha: p.aplicadaEn,
+        disciplina: disciplinaMap[p.disciplinaId] || 'General',
+      }));
+      penalizacionesResumen = {
+        totalPuntos: penalizacionesTotales.reduce((sum, p) => sum + p.puntos, 0),
+        maxPuntosPermitidos: 0, // Optionally calculate
+        puntosExcedentes: 0, // Optionally calculate
+        porcentajeDescuento: 0, // Optionally calculate
+        montoDescuento: 0, // Optionally calculate
+        detalle: penalizacionesDetalle,
+      };
+
+      // detallesCovers: leave empty or fill if you have cover logic
+
+      // resumen
+      resumen.totalClases = detallesClases.length;
+      resumen.totalMonto = pagoTotalInstructor;
+      resumen.bono = 0; // Optionally fill if you have bono logic
+      resumen.disciplinas = Object.keys(clasesPorDisciplina).length;
+      resumen.categorias = [];
+
+      // Build the final detalles object
+      const detallesInstructor = {
+        clases: detallesClases,
+        penalizaciones: penalizacionesResumen,
+        detallesCovers,
+        resumen,
+      };
 
       for (const disciplinaIdStr in clasesPorDisciplina) {
         const disciplinaId = parseInt(disciplinaIdStr, 10);
@@ -147,6 +257,7 @@ export async function POST(req: Request) {
             retencion: retencionTotalInstructor,
             pagoFinal: pagoTotalInstructor - retencionTotalInstructor,
             estado: "PENDIENTE",
+            detalles: detallesInstructor,
           },
         });
         logs.push(`[SUCCESS] Pago para ${instructor.nombre} actualizado. Monto: ${pagoTotalInstructor.toFixed(2)} Retención: ${retencionTotalInstructor.toFixed(2)}`);
@@ -159,6 +270,7 @@ export async function POST(req: Request) {
             retencion: retencionTotalInstructor,
             pagoFinal: pagoTotalInstructor - retencionTotalInstructor,
             estado: "PENDIENTE",
+            detalles: detallesInstructor,
           },
         });
         logs.push(`[SUCCESS] Nuevo pago para ${instructor.nombre} creado. Monto: ${pagoTotalInstructor.toFixed(2)} Retención: ${retencionTotalInstructor.toFixed(2)}`);
