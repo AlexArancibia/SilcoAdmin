@@ -118,7 +118,7 @@ model CategoriaInstructor {
   disciplinaId Int
   periodoId    Int
   categoria    String   // Valores: "INSTRUCTOR", "EMBAJADOR_JUNIOR", "EMBAJADOR", "EMBAJADOR_SENIOR"
-  
+  esManual Boolean? @default(false)
   // Métricas de rendimiento actuales (opcionales)
   metricas     Json?    // Almacena las métricas actuales del instructor (ocupación, clases, etc.)
   

@@ -639,6 +639,11 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
       ]
       const todosInstructores = instructores.filter((i) => instructoresConClases.includes(i.id))
 
+      console.log(
+        "[Cálculo de Pagos] Instructores a procesar:",
+        todosInstructores.map((i) => ({ id: i.id, nombre: i.nombre }))
+      );
+
       addProcessLog(`👥 Total instructores con clases: ${todosInstructores.length}`)
 
       // PASO 1: CREAR/ACTUALIZAR CATEGORÍAS PARA TODOS LOS INSTRUCTORES

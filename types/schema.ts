@@ -151,6 +151,7 @@ export interface CategoriaInstructorModel {
   disciplinaId: number
   periodoId: number
   categoria: CategoriaInstructor
+  esManual: boolean
   metricas?: {
   ocupacion: number
   clases: number
@@ -184,12 +185,12 @@ export interface Clase {
   cortesias: number
   lugares: number
   reservasPagadas: number
-  textoEspecial?: string
+  textoEspecial?: string | null
   fecha: Date
   
   // Nuevos campos
   esVersus: boolean
-  vsNum?: number
+  vsNum?: number | null
 
   
   createdAt?: Date
@@ -295,7 +296,7 @@ export interface Cover {
 export interface Penalizacion {
   id: number
   instructorId: number
-  disciplinaId?: number
+  disciplinaId?: number | null
   periodoId: number
   tipo: TipoPenalizacion
   puntos: number
@@ -345,6 +346,20 @@ export interface FormulaDB {
   periodo?: Periodo
 }
 
+export interface ResultadoCalculo {
+  pago: number;
+  categoria: CategoriaInstructor;
+  metricas: {
+    totalClases: number;
+    ocupacionPromedio: number;
+    totalAsistentes: number;
+    totalDobleteos: number;
+    totalLocales: number;
+  };
+  logs: string[];
+  pagoId?: number;
+  retencion?: number;
+}
 
 // Ejemplo de estructura JSON para requisitosCategoria
 export const requisitosCategoriaEjemplo = {
