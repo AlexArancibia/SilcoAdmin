@@ -79,24 +79,17 @@ export default function PagosPage() {
       const response = await fetch('/api/pagos/calculo/all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          periodoId: selectedPeriodoId, 
-          manualCategorias 
+        body: JSON.stringify({
+          periodoId: selectedPeriodoId,
+          manualCategorias,
         }),
       });
-
       const result = await response.json();
-
       if (response.ok) {
-        addProcessLog('✅ Proceso completado.');
-        if (result.logs) {
-          setProcessLogs(prevLogs => [...prevLogs, ...result.logs]);
-        }
+        if (result.logs) setProcessLogs(prevLogs => [...prevLogs, ...result.logs]);
+        toast({ title: "Cálculo completado", description: "Se han procesado los instructores con clases en el periodo." });
       } else {
-        addProcessLog(`❌ Error en el proceso de cálculo: ${result.error}`);
-        if (result.logs) {
-          setProcessLogs(prevLogs => [...prevLogs, ...result.logs]);
-        }
+        addProcessLog(`❌ Error: ${result.error}`);
       }
     } catch (error) {
       addProcessLog(`❌ Error fatal en la comunicación con la API: ${error instanceof Error ? error.message : 'Error desconocido'}`);

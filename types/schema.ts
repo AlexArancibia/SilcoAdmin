@@ -98,8 +98,8 @@ export interface InstructorExtraInfo {
 export interface Disciplina {
   id: number
   nombre: string
-  descripcion?: string
-  color?: string
+  descripcion?: string | null
+  color?: string | null
   activo: boolean
   createdAt?: Date
   updatedAt?: Date

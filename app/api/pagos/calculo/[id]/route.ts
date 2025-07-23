@@ -48,104 +48,174 @@ export async function POST(
       );
     }
 
-    // Asumimos una disciplina principal por simplicidad, esto puede necesitar ajustes
-    const disciplinaPrincipal = instructor.disciplinas[0];
-    if (!disciplinaPrincipal) {
-      return NextResponse.json({ error: "El instructor no tiene una disciplina principal asignada." }, { status: 400 });
-    }
-    logs.push(`Disciplina principal: ${disciplinaPrincipal.nombre}`);
-
+    // Obtener todas las clases del instructor en el periodo, con disciplina incluida
     const clases = await prisma.clase.findMany({
       where: {
         instructorId,
-        disciplinaId: disciplinaPrincipal.id,
+        periodoId,
         fecha: {
           gte: periodo.fechaInicio,
           lte: periodo.fechaFin,
         },
       },
+      include: { disciplina: true },
     });
     logs.push(`Clases encontradas: ${clases.length}`);
 
+    // Si no hay clases, no se calcula nada ni se devuelve log
+    if (clases.length === 0) {
+      return new NextResponse(null, { status: 204 }); // No Content
+    }
+
+    // Obtener todas las penalizaciones del instructor en el periodo
     const penalizaciones = await prisma.penalizacion.findMany({
-      where: { instructorId, periodoId, disciplinaId: disciplinaPrincipal.id },
+      where: { instructorId, periodoId },
+      include: { disciplina: true },
     }) as Penalizacion[];
     logs.push(`Penalizaciones encontradas: ${penalizaciones.length}`);
 
-    const totalClases = clases.length;
-    const totalAsistentes = clases.reduce((sum, c) => sum + c.reservasPagadas, 0);
-    const totalCapacidad = clases.reduce((sum, c) => sum + c.lugares, 0);
-    const ocupacionPromedio = totalCapacidad > 0 ? (totalAsistentes / totalCapacidad) * 100 : 0;
-
-    const localesUnicos = [...new Set(clases.map((c) => c.estudio))];
-
-    const clasesPorDia = clases.reduce((acc, clase) => {
-      const fecha = clase.fecha.toISOString().split("T")[0];
-      if (!acc[fecha]) acc[fecha] = 0;
-      acc[fecha]++;
+    // Agrupar clases por disciplina
+    const clasesPorDisciplina = clases.reduce((acc, clase) => {
+      const disciplinaId = clase.disciplinaId;
+      if (!acc[disciplinaId]) acc[disciplinaId] = [];
+      acc[disciplinaId].push(clase);
       return acc;
-    }, {} as Record<string, number>);
-    const totalDobleteos = Object.values(clasesPorDia).filter((c) => c > 1).length;
+    }, {} as Record<number, typeof clases>);
 
-    const metricas = {
-      totalClases,
-      ocupacionPromedio,
-      totalAsistentes,
-      totalDobleteos,
-      totalLocales: localesUnicos.length,
-      horariosNoPrime: calcularHorariosNoPrime(clases, disciplinaPrincipal.id),
-      participacionEventos: false, // Ajusta si tienes fuente real
-      cumpleLineamientos: true, // Ajusta si tienes fuente real
-    };
-    logs.push(`Métricas calculadas: ${JSON.stringify(metricas)}`);
+    // Resumen y detalles
+    const resumen: any[] = [];
+    const clasesDetalles: any[] = [];
+    let pagoTotal = 0;
+    let categoriaPorDisciplina: Record<number, string> = {};
+    let metricasPorDisciplina: Record<number, any> = {};
+    let penalizacionesPorDisciplina: Record<number, Penalizacion[]> = {};
 
-    const formula = await prisma.formula.findFirst({
-      where: { disciplinaId: disciplinaPrincipal.id, periodoId },
-    }) as FormulaDB | null;
+    for (const disciplinaIdStr in clasesPorDisciplina) {
+      const disciplinaId = parseInt(disciplinaIdStr, 10);
+      const clasesDisciplina = clasesPorDisciplina[disciplinaId];
+      const disciplinaObj = clasesDisciplina[0]?.disciplina;
+      const penalizacionesDisciplina = penalizaciones.filter(p => p.disciplinaId === disciplinaId);
+      penalizacionesPorDisciplina[disciplinaId] = penalizacionesDisciplina;
 
-    if (!formula) {
-      const errorMsg = `No se encontró fórmula para la disciplina ${disciplinaPrincipal.nombre} en el período seleccionado.`;
-      logs.push(errorMsg);
-      return NextResponse.json({ error: errorMsg, logs }, { status: 400 });
+      // Métricas
+      const totalClases = clasesDisciplina.length;
+      const totalAsistentes = clasesDisciplina.reduce((sum, c) => sum + c.reservasPagadas, 0);
+      const totalCapacidad = clasesDisciplina.reduce((sum, c) => sum + c.lugares, 0);
+      const ocupacionPromedio = totalCapacidad > 0 ? (totalAsistentes / totalCapacidad) * 100 : 0;
+      const localesUnicos = [...new Set(clasesDisciplina.map((c) => c.estudio))];
+      const clasesPorDia = clasesDisciplina.reduce((acc, clase) => {
+        const fecha = clase.fecha.toISOString().split("T")[0];
+        if (!acc[fecha]) acc[fecha] = 0;
+        acc[fecha]++;
+        return acc;
+      }, {} as Record<string, number>);
+      const totalDobleteos = Object.values(clasesPorDia).filter((c) => c > 1).length;
+      const metricas = {
+        totalClases,
+        ocupacionPromedio,
+        totalAsistentes,
+        totalDobleteos,
+        totalLocales: localesUnicos.length,
+        horariosNoPrime: calcularHorariosNoPrime(clasesDisciplina, disciplinaId),
+        participacionEventos: false,
+        cumpleLineamientos: true,
+      };
+      metricasPorDisciplina[disciplinaId] = metricas;
+
+      // Fórmula y categoría
+      const formula = await prisma.formula.findFirst({ where: { disciplinaId, periodoId } }) as FormulaDB | null;
+      if (!formula) {
+        logs.push(`No se encontró fórmula para la disciplina ${disciplinaObj?.nombre || disciplinaId}`);
+        continue;
+      }
+      const categoria = determinarCategoria(formula, metricas);
+      categoriaPorDisciplina[disciplinaId] = categoria;
+      // Calcular pago y logs
+      const { pago, logs: calculoLogs } = calcularPago(clasesDisciplina, formula, categoria, penalizacionesDisciplina);
+      pagoTotal += pago;
+      logs.push(`[Disciplina ${disciplinaObj?.nombre || disciplinaId}]`);
+      logs.push(...calculoLogs);
+
+      // Detalles por clase
+      for (const clase of clasesDisciplina) {
+        clasesDetalles.push({
+          id: clase.id,
+          disciplina: {
+            id: disciplinaObj?.id,
+            nombre: disciplinaObj?.nombre,
+            color: disciplinaObj?.color,
+          },
+          fecha: clase.fecha,
+          estudio: clase.estudio,
+          reservasPagadas: clase.reservasPagadas,
+          reservasTotales: clase.reservasTotales,
+          lugares: clase.lugares,
+          pagoClase: null, // Se puede detallar usando calcularPagoClase si se requiere
+        });
+      }
+
+      // Resumen por disciplina
+      resumen.push({
+        disciplina: {
+          id: disciplinaObj?.id,
+          nombre: disciplinaObj?.nombre,
+          color: disciplinaObj?.color,
+        },
+        categoria,
+        metricas,
+        pago,
+        penalizaciones: penalizacionesDisciplina.map(p => ({
+          id: p.id,
+          tipo: p.tipo,
+          puntos: p.puntos,
+          descripcion: p.descripcion,
+          fecha: p.aplicadaEn,
+        })),
+      });
     }
-    logs.push(`Fórmula encontrada con ID: ${formula.id}`);
 
-    const categoria = determinarCategoria(formula, metricas);
-    logs.push(`Categoría determinada: ${categoria}`);
+    // Penalizaciones globales
+    const penalizacionesDetalle = penalizaciones.map(p => ({
+      id: p.id,
+      tipo: p.tipo,
+      puntos: p.puntos,
+      descripcion: p.descripcion,
+      fecha: p.aplicadaEn,
+      disciplina: p.disciplina ? { id: p.disciplina.id, nombre: p.disciplina.nombre } : null,
+    }));
 
-    const { pago, logs: calculoLogs } = calcularPago(clases, formula, categoria, penalizaciones);
-    logs.push(...calculoLogs);
-
-    const resultado: ResultadoCalculo = {
-      pago,
-      categoria,
-      metricas,
-      logs,
-    };
-
+    // Guardar o actualizar el pago
     const pagoExistente = await prisma.pagoInstructor.findUnique({
       where: { instructorId_periodoId: { instructorId, periodoId } },
     });
 
+    const resultado = {
+      pago: pagoTotal,
+      resumen,
+      clasesDetalles,
+      penalizaciones: penalizacionesDetalle,
+      logs,
+    };
+
     if (pagoExistente) {
       const pagoActualizado = await prisma.pagoInstructor.update({
         where: { id: pagoExistente.id },
-        data: { monto: pago, pagoFinal: pago, detalles: resultado as any, estado: "PENDIENTE" },
+        data: { monto: pagoTotal, pagoFinal: pagoTotal, detalles: resultado as any, estado: "PENDIENTE" },
       });
-      resultado.pagoId = pagoActualizado.id;
+      (resultado as any).pagoId = pagoActualizado.id;
       logs.push(`Pago existente actualizado. ID: ${pagoActualizado.id}`);
     } else {
       const nuevoPago = await prisma.pagoInstructor.create({
         data: {
           instructorId,
           periodoId,
-          monto: pago,
-          pagoFinal: pago,
+          monto: pagoTotal,
+          pagoFinal: pagoTotal,
           detalles: resultado as any,
           estado: "PENDIENTE",
         },
       });
-      resultado.pagoId = nuevoPago.id;
+      (resultado as any).pagoId = nuevoPago.id;
       logs.push(`Nuevo pago creado. ID: ${nuevoPago.id}`);
     }
 
