@@ -82,13 +82,12 @@ export async function POST(req: Request) {
         clases: { where: { periodoId } },
         penalizaciones: { where: { periodoId } },
         categorias: { where: { periodoId } },
-        covers: { where: { periodoId } },
       },
     });
 
     logs.push(`👥 Instructores encontrados: ${instructoresConClases.length}`);
     instructoresConClases.forEach(instructor => {
-      logs.push(`👤 Instructor ${instructor.id} - ${instructor.nombre}: ${instructor.clases.length} clases, ${instructor.penalizaciones.length} penalizaciones, ${instructor.categorias.length} categorías, ${instructor.covers.length} covers`);
+      logs.push(`👤 Instructor ${instructor.id} - ${instructor.nombre}: ${instructor.clases.length} clases, ${instructor.penalizaciones.length} penalizaciones, ${instructor.categorias.length} categorías,  `);
     });
 
     logs.push(`Iniciando cálculo para ${instructoresConClases.length} instructores en el periodo ${periodoId}`);
@@ -196,9 +195,10 @@ export async function POST(req: Request) {
           
           try {
             // Verificar Full House
-            const esFullHouse = instructor.covers?.some(
-              c => c.claseId === clase.id && c.periodoId === periodoId && c.pagoFullHouse === true
-            );
+            // const esFullHouse = instructor.covers?.some(
+            //   c => c.claseId === clase.id && c.periodoId === periodoId && c.pagoFullHouse === true
+            // );
+            const esFullHouse = false;
             logs.push(`🏠 Full House: ${esFullHouse ? 'SÍ' : 'NO'}`);
         
             let claseParaCalculo = { ...clase };

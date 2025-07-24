@@ -46,7 +46,8 @@ model Instructor {
   categorias     CategoriaInstructor[] // Relación para categorías
   
   // Nuevas relaciones para covers y penalizaciones
-  covers         Cover[]   @relation("InstructorReemplazo")
+  coversComoDador    Cover[]   @relation("InstructorOriginal")
+  coversComoReemplazo Cover[]   @relation("InstructorReemplazo")
   penalizaciones Penalizacion[]
 }
 
@@ -65,6 +66,7 @@ model Disciplina {
   instructores Instructor[]
   categorias  CategoriaInstructor[] // Relación para categorías
   penalizaciones Penalizacion[]
+  covers      Cover[] // Nueva relación para covers
 }
 
 model Periodo {
@@ -168,27 +170,38 @@ model Clase {
   covers      Cover[]    // Una clase puede tener múltiples covers
 }
 
-// Nueva tabla para manejar los covers
+// Modelo actualizado para manejar los covers
 model Cover {
   id                    Int      @id @default(autoincrement())
-  claseId               String?   // ID de la clase que está siendo cubierta
-  periodoId             Int?      // Periodo al que pertenece
+  
+  // Información básica del cover
+  instructorOriginalId  Int      // Instructor que debía dar la clase
   instructorReemplazoId Int      // Instructor que hace el cover
+  disciplinaId          Int      // Disciplina de la clase
+  periodoId             Int      // Periodo al que pertenece
+  fecha                 DateTime // Fecha de la clase
+  hora                  String   // Hora de la clase (formato "HH:mm")
+  
+  // Información opcional de clase existente
+  claseId               String?  // ID de la clase que está siendo cubierta (opcional)
+  
+  // Estados y configuraciones (solo modificables por managers/admin)
+  status                String   @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
   justificacion         Boolean  @default(false)
   pagoBono              Boolean  @default(false)
   pagoFullHouse         Boolean  @default(false)
   comentarios           String?
   cambioDeNombre        String?
-  claseTemp             String?
+  
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
   // Relaciones
-  clase             Clase?      @relation(fields: [claseId], references: [id])
-  periodo           Periodo?    @relation(fields: [periodoId], references: [id])
-  instructorReemplazo Instructor @relation("InstructorReemplazo", fields: [instructorReemplazoId], references: [id])
-
-
+  instructorOriginal    Instructor @relation("InstructorOriginal", fields: [instructorOriginalId], references: [id])
+  instructorReemplazo   Instructor @relation("InstructorReemplazo", fields: [instructorReemplazoId], references: [id])
+  disciplina            Disciplina @relation(fields: [disciplinaId], references: [id])
+  periodo               Periodo    @relation(fields: [periodoId], references: [id])
+  clase                 Clase?     @relation(fields: [claseId], references: [id])
 }
 
 // Nueva tabla para el sistema de penalizaciones

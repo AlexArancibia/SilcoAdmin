@@ -51,13 +51,15 @@ import { useToast } from "@/hooks/use-toast"
 interface ClassesTableProps {
   id?: string
   periodoId?: number
+  periodoInicio?: number // Nuevo: soporte para rangos
+  periodoFin?: number // Nuevo: soporte para rangos
   instructorId?: number
   disciplinaId?: number
   semana?: number
   estudio?: string
 }
 
-export function ClassesTable({ id, periodoId, instructorId, disciplinaId, semana, estudio }: ClassesTableProps) {
+export function ClassesTable({ id, periodoId, periodoInicio, periodoFin, instructorId, disciplinaId, semana, estudio }: ClassesTableProps) {
   const { toast } = useToast()
   const {
     clases,
@@ -89,18 +91,26 @@ export function ClassesTable({ id, periodoId, instructorId, disciplinaId, semana
 
   useEffect(() => {
     const page = Number(searchParams.get('page')) || 1
-    const queryParams = {
+    const queryParams: any = {
       page,
       limit: 10, // Or get from a state/constant
       id,
-      periodoId,
       instructorId,
       disciplinaId,
       semana,
       estudio,
     }
+    
+    // Handle period parameters (prioritize individual period over range)
+    if (periodoId) {
+      queryParams.periodoId = periodoId
+    } else if (periodoInicio || periodoFin) {
+      if (periodoInicio) queryParams.periodoInicio = periodoInicio
+      if (periodoFin) queryParams.periodoFin = periodoFin
+    }
+    
     fetchClases(queryParams)
-  }, [searchParams, id, periodoId, instructorId, disciplinaId, semana, estudio, fetchClases])
+  }, [searchParams, id, periodoId, periodoInicio, periodoFin, instructorId, disciplinaId, semana, estudio, fetchClases])
 
   const formatDate = (date: Date) => {
     // Añadir 5 horas para mostrar en la tabla

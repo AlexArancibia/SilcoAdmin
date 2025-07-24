@@ -16,7 +16,6 @@ export async function GET() {
           },
         },
         penalizaciones:true,
-        covers:true,
       },
     })
     return NextResponse.json(instructors)
@@ -127,7 +126,6 @@ export async function POST(request: NextRequest) {
           },
         },
         penalizaciones:true,
-        covers:true,
       },
     })
 

@@ -11,7 +11,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   include: { 
     instructor: {
       include: {
-        covers: true
+        coversComoDador: true,
+        coversComoReemplazo: true
       }
     }, 
     periodo: true 

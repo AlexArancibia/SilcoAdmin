@@ -213,7 +213,7 @@ export function useCalculation(
   }
 
 
-const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) => {
+const calcularPenalizacion = (clasesInstructor: Clase[], penalizaciones: Penalizacion[]) => {
   console.log("CALCULO PENALIZACIOM ...")
   const totalClases = clasesInstructor.length;
   const maxPuntosPermitidos = Math.floor(totalClases * 0.1); // 10% del total de clases

@@ -26,13 +26,12 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("general")
   const [timeRange, setTimeRange] = useState("30d")
-  const [selectedPeriods, setSelectedPeriods] = useState<[number, number] | null>(null)
   const isMobile = useIsMobile()
 
   // Stores
   const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
-  const { periodos, periodoActual, fetchPeriodos } = usePeriodosStore()
+  const { periodos, rangoSeleccionado, setSeleccion, fetchPeriodos, getPeriodoQueryParams } = usePeriodosStore()
   const { pagos, fetchPagos, isLoading: isLoadingPagos } = usePagosStore()
   const { clases, fetchClases, isLoading: isLoadingClases } = useClasesStore()
 
@@ -49,20 +48,12 @@ export default function DashboardPage() {
       setIsLoading(true)
 
       try {
-        // Load data in parallel
+        // Load basic data first
         await Promise.all([
           fetchInstructores(),
           fetchDisciplinas(), 
-          fetchClases(), 
-          fetchPeriodos(),
-          fetchPagos(),
-          
+          fetchPeriodos(), // La persistencia se maneja automáticamente en el store
         ])
-
-        // Set current period as default if available
-        if (periodoActual) {
-          setSelectedPeriods([periodoActual.id, periodoActual.id])
-        }
       } catch (error) {
         console.error("Error loading initial data:", error)
       } finally {
@@ -71,64 +62,49 @@ export default function DashboardPage() {
     }
 
     loadAllData()
-  }, [fetchInstructores, fetchDisciplinas, fetchClases, fetchPagos, fetchPeriodos])
+  }, [fetchInstructores, fetchDisciplinas, fetchPeriodos])
 
-  // Filter classes by selected periods
-  const getFilteredClases = () => {
-    if (!selectedPeriods) return clases
-
-    const [startPeriodId, endPeriodId] = selectedPeriods
-
-    // If single period
-    if (startPeriodId === endPeriodId) {
-      return clases.filter((c) => c.periodoId === startPeriodId)
+  // Load filtered data when period selection changes
+  useEffect(() => {
+    const loadFilteredData = async () => {
+      if (rangoSeleccionado) {
+        const periodoParams = getPeriodoQueryParams()
+        
+        try {
+          await Promise.all([
+            fetchClases(periodoParams),
+            fetchPagos(periodoParams),
+          ])
+        } catch (error) {
+          console.error("Error loading filtered data:", error)
+        }
+      }
     }
 
-    // If period range
-    const periodosEnRango = periodos
-      .filter((p) => p.id >= Math.min(startPeriodId, endPeriodId) && p.id <= Math.max(startPeriodId, endPeriodId))
-      .map((p) => p.id)
+    loadFilteredData()
+  }, [rangoSeleccionado, fetchClases, fetchPagos, getPeriodoQueryParams])
 
-    return clases.filter((c) => periodosEnRango.includes(c.periodoId))
-  }
-
-  // Filter payments by selected periods
-  const getFilteredPagos = () => {
-    if (!selectedPeriods) return pagos
-
-    const [startPeriodId, endPeriodId] = selectedPeriods
-
-    // If single period
-    if (startPeriodId === endPeriodId) {
-      return pagos.filter((p) => p.periodoId === startPeriodId)
-    }
-
-    // If period range
-    const periodosEnRango = periodos
-      .filter((p) => p.id >= Math.min(startPeriodId, endPeriodId) && p.id <= Math.max(startPeriodId, endPeriodId))
-      .map((p) => p.id)
-
-    return pagos.filter((p) => periodosEnRango.includes(p.periodoId))
-  }
-
-  const filteredClases = getFilteredClases()
-  const filteredPagos = getFilteredPagos()
+  // Filter functions are now simplified since we get pre-filtered data
+  const getFilteredClases = () => clases
+  const getFilteredPagos = () => pagos
 
   // Get period name for display
   const getPeriodoNombre = (): string => {
-    if (!selectedPeriods) {
-      return periodoActual 
-        ? `Periodo ${periodoActual.numero}/${periodoActual.año}` 
-        : "Todos los periodos"
+    if (!rangoSeleccionado) {
+      return "Todos los periodos"
     }
 
-    const [startId, endId] = selectedPeriods
+    const [startId, endId] = rangoSeleccionado
     if (startId === endId) {
       const periodo = periodos.find((p) => p.id === startId)
       return periodo ? `Periodo ${periodo.numero}/${periodo.año}` : "Periodo seleccionado"
     }
 
-    return "Rango de periodos seleccionado"
+    const startPeriodo = periodos.find((p) => p.id === startId)
+    const endPeriodo = periodos.find((p) => p.id === endId)
+    return startPeriodo && endPeriodo 
+      ? `Periodo ${startPeriodo.numero}/${startPeriodo.año} → ${endPeriodo.numero}/${endPeriodo.año}`
+      : "Rango de periodos seleccionado"
   }
 
   // Format date safely
@@ -183,11 +159,20 @@ export default function DashboardPage() {
     )
   }
 
+  // Wrapper function to match DashboardHead's expected interface
+  const handleSetSelectedPeriods = (periods: [number, number] | null) => {
+    if (periods) {
+      const [inicio, fin] = periods;
+      setSeleccion(inicio, fin);
+    }
+    // Note: Si periods es null, no hacemos nada ya que la persistencia maneja la selección automáticamente
+  }
+
   return (
     <DashboardShell>
       <DashboardHead
-        selectedPeriods={selectedPeriods}
-        setSelectedPeriods={setSelectedPeriods}
+        selectedPeriods={rangoSeleccionado}
+        setSelectedPeriods={handleSetSelectedPeriods}
         getPeriodoNombre={getPeriodoNombre}
       />
 
@@ -197,8 +182,8 @@ export default function DashboardPage() {
           <GeneralTab
             instructores={instructores}
             disciplinas={disciplinas}
-            filteredClases={filteredClases}
-            filteredPagos={filteredPagos}
+            filteredClases={getFilteredClases()}
+            filteredPagos={getFilteredPagos()}
             periodos={periodos}
             getPeriodoNombre={getPeriodoNombre}
             formatFecha={formatFecha}
@@ -209,8 +194,8 @@ export default function DashboardPage() {
 
         <TabsContent value="estudios">
           <EstudiosTab
-            filteredClases={filteredClases}
-            filteredPagos={filteredPagos}
+            filteredClases={getFilteredClases()}
+            filteredPagos={getFilteredPagos()}
             disciplinas={disciplinas}
             instructores={instructores}
             getPeriodoNombre={getPeriodoNombre}

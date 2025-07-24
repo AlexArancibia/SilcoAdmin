@@ -2,6 +2,49 @@ import { create } from "zustand"
 import { periodosApi } from "@/lib/api/periodos-api"
 import type { Periodo } from "@/types/schema"
 
+// Constante para la clave de localStorage
+const PERIODO_SELECCIONADO_KEY = 'periodo-seleccionado'
+
+// Tipos para la persistencia
+interface PeriodoSeleccionadoPersistente {
+  rangoSeleccionado: [number, number]
+  timestamp: number
+}
+
+// Funciones para manejar localStorage
+const guardarSeleccionPeriodo = (rango: [number, number]) => {
+  try {
+    const data: PeriodoSeleccionadoPersistente = {
+      rangoSeleccionado: rango,
+      timestamp: Date.now()
+    }
+    localStorage.setItem(PERIODO_SELECCIONADO_KEY, JSON.stringify(data))
+  } catch (error) {
+    console.warn('No se pudo guardar la selección de período en localStorage:', error)
+  }
+}
+
+const cargarSeleccionPeriodo = (): [number, number] | null => {
+  try {
+    const data = localStorage.getItem(PERIODO_SELECCIONADO_KEY)
+    if (!data) return null
+    
+    const parsed: PeriodoSeleccionadoPersistente = JSON.parse(data)
+    return parsed.rangoSeleccionado
+  } catch (error) {
+    console.warn('No se pudo cargar la selección de período desde localStorage:', error)
+    return null
+  }
+}
+
+const limpiarSeleccionPeriodo = () => {
+  try {
+    localStorage.removeItem(PERIODO_SELECCIONADO_KEY)
+  } catch (error) {
+    console.warn('No se pudo limpiar la selección de período de localStorage:', error)
+  }
+}
+
 interface PeriodosState {
   periodos: Periodo[]
   periodoActual: Periodo | null
@@ -18,6 +61,8 @@ interface PeriodosState {
   eliminarPeriodo: (id: number) => Promise<void>
   setSeleccion: (inicio: number, fin?: number) => void // Permite selección simple o rango
   resetearSeleccion: () => void
+  // Nueva función de utilidad
+  getPeriodoQueryParams: () => { periodoId?: number; periodoInicio?: number; periodoFin?: number }
 }
 
 export const usePeriodosStore = create<PeriodosState>((set, get) => ({
@@ -33,7 +78,7 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
     try {
       const periodos = await periodosApi.getPeriodos();
       
-      // Calcular periodoActual sin modificar el estado todavía
+      // Calcular periodoActual
       const hoy = new Date();
       const periodoActual = periodos.find(p => {
         const inicio = p.fechaInicio instanceof Date ? p.fechaInicio : new Date(p.fechaInicio);
@@ -44,13 +89,45 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
         const fechaB = b.fechaInicio instanceof Date ? b.fechaInicio : new Date(b.fechaInicio);
         return Math.abs(fechaA.getTime() - hoy.getTime()) - Math.abs(fechaB.getTime() - hoy.getTime());
       })[0];
+
+      // Intentar cargar selección guardada
+      const seleccionGuardada = cargarSeleccionPeriodo();
+      let rangoSeleccionado: [number, number] | null = null;
+      let periodosSeleccionados: Periodo[] = [];
+
+      if (seleccionGuardada) {
+        // Verificar si los períodos guardados aún existen
+        const [inicio, fin] = seleccionGuardada;
+        const inicioExiste = periodos.some(p => p.id === inicio);
+        const finExiste = periodos.some(p => p.id === fin);
+        
+        if (inicioExiste && finExiste) {
+          // La selección guardada es válida, usar esa
+          rangoSeleccionado = seleccionGuardada;
+          const periodosEnRango = periodos
+            .filter(p => p.id >= inicio && p.id <= fin)
+            .sort((a, b) => a.id - b.id);
+          periodosSeleccionados = periodosEnRango;
+        } else {
+          // La selección guardada no es válida, limpiar localStorage
+          limpiarSeleccionPeriodo();
+        }
+      }
+
+      // Si no hay selección válida guardada, usar el período actual
+      if (!rangoSeleccionado && periodoActual) {
+        rangoSeleccionado = [periodoActual.id, periodoActual.id];
+        periodosSeleccionados = [periodoActual];
+        // Guardar esta selección automática
+        guardarSeleccionPeriodo(rangoSeleccionado);
+      }
   
-      // Actualizar el estado una sola vez con todos los cambios
+      // Actualizar el estado
       set({
         periodos,
         periodoActual,
-        rangoSeleccionado: periodoActual ? [periodoActual.id, periodoActual.id] : null,
-        periodosSeleccionados: periodoActual ? [periodoActual] : [],
+        rangoSeleccionado,
+        periodosSeleccionados,
         isLoading: false,
         error: null
       });
@@ -66,11 +143,14 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const periodo = await periodosApi.getPeriodo(id)
+      const nuevoRango: [number, number] = [id, id];
       set({ 
-        rangoSeleccionado: [id, id],
+        rangoSeleccionado: nuevoRango,
         periodosSeleccionados: [periodo],
         isLoading: false 
       })
+      // Guardar la selección en localStorage
+      guardarSeleccionPeriodo(nuevoRango);
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error desconocido al obtener el periodo",
@@ -93,11 +173,14 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
       const fin = nuevoPeriodo.fechaFin instanceof Date ? nuevoPeriodo.fechaFin : new Date(nuevoPeriodo.fechaFin)
       
       if (hoy >= inicio && hoy <= fin) {
+        const nuevoRango: [number, number] = [nuevoPeriodo.id, nuevoPeriodo.id];
         set({
           periodoActual: nuevoPeriodo,
-          rangoSeleccionado: [nuevoPeriodo.id, nuevoPeriodo.id],
+          rangoSeleccionado: nuevoRango,
           periodosSeleccionados: [nuevoPeriodo]
         })
+        // Guardar la nueva selección automática en localStorage
+        guardarSeleccionPeriodo(nuevoRango);
       }
     } catch (error) {
       set({
@@ -155,12 +238,17 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
             (id >= state.rangoSeleccionado[0] && id <= state.rangoSeleccionado[1])) {
           // Si el periodo eliminado estaba dentro del rango, actualizar la selección
           if (nuevosPeriodos.length > 0) {
-            // Seleccionar automáticamente el primer periodo disponible
-            rangoSeleccionado = [nuevosPeriodos[0].id, nuevosPeriodos[0].id]
-            periodosSeleccionados = [nuevosPeriodos[0]]
+            // Seleccionar automáticamente el período actual o el primero disponible
+            const nuevoPeriodoActual = periodoActual || nuevosPeriodos[0];
+            rangoSeleccionado = [nuevoPeriodoActual.id, nuevoPeriodoActual.id]
+            periodosSeleccionados = [nuevoPeriodoActual]
+            // Actualizar localStorage con la nueva selección
+            guardarSeleccionPeriodo(rangoSeleccionado);
           } else {
             rangoSeleccionado = null
             periodosSeleccionados = []
+            // Limpiar localStorage si no hay más períodos
+            limpiarSeleccionPeriodo();
           }
         }
         
@@ -193,27 +281,65 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
       .filter(p => p.id >= idInicio && p.id <= idFin)
       .sort((a, b) => a.id - b.id)
     
+    const nuevoRango: [number, number] = [idInicio, idFin];
+    
     set({
-      rangoSeleccionado: [idInicio, idFin],
+      rangoSeleccionado: nuevoRango,
       periodosSeleccionados: periodosEnRango
     })
-    console.log(get().periodosSeleccionados)
 
+    // Guardar la selección en localStorage
+    guardarSeleccionPeriodo(nuevoRango);
+    
+    console.log(get().periodosSeleccionados)
   },
 
   resetearSeleccion: () => {
     const { periodoActual, periodos } = get()
+    let nuevoRango: [number, number] | null = null;
+    
     if (periodoActual) {
+      nuevoRango = [periodoActual.id, periodoActual.id];
       set({
-        rangoSeleccionado: [periodoActual.id, periodoActual.id],
+        rangoSeleccionado: nuevoRango,
         periodosSeleccionados: [periodoActual]
       })
     } else if (periodos.length > 0) {
       // Si no hay periodo actual, seleccionar el primero
+      nuevoRango = [periodos[0].id, periodos[0].id];
       set({
-        rangoSeleccionado: [periodos[0].id, periodos[0].id],
+        rangoSeleccionado: nuevoRango,
         periodosSeleccionados: [periodos[0]]
       })
     }
+
+    // Actualizar localStorage
+    if (nuevoRango) {
+      guardarSeleccionPeriodo(nuevoRango);
+    } else {
+      limpiarSeleccionPeriodo();
+    }
+  },
+
+  // Nueva función de utilidad para convertir rangoSeleccionado a parámetros de query
+  getPeriodoQueryParams: () => {
+    const { rangoSeleccionado } = get();
+    
+    if (!rangoSeleccionado) {
+      return {};
+    }
+
+    const [inicio, fin] = rangoSeleccionado;
+
+    // Si es un período único, usar periodoId para compatibilidad
+    if (inicio === fin) {
+      return { periodoId: inicio };
+    }
+
+    // Si es un rango, usar periodoInicio y periodoFin
+    return {
+      periodoInicio: inicio,
+      periodoFin: fin
+    };
   },
 }))

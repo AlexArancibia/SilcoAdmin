@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PagosTable } from "@/components/payments/pagos-table"
 import { PagosFilter } from "@/components/payments/pagos-filter"
 import { DashboardShell } from "@/components/dashboard/shell"
-import type { EstadoPago, Periodo } from "@/types/schema"
+import type { EstadoPago } from "@/types/schema"
 import { usePagosStore } from "@/store/usePagosStore"
 
 export default function PagosPage() {
@@ -25,21 +25,22 @@ export default function PagosPage() {
   const [showProcessLogsDialog, setShowProcessLogsDialog] = useState(false)
 
   // Data stores
-  const { periodos, fetchPeriodos } = usePeriodosStore()
+  const { periodos, rangoSeleccionado, setSeleccion, fetchPeriodos } = usePeriodosStore()
   const { instructores, fetchInstructores } = useInstructoresStore()
   const { fetchPagos } = usePagosStore()
 
   // Calculation state
   const [isCalculating, setIsCalculating] = useState(false)
   const [processLogs, setProcessLogs] = useState<string[]>([])
-  const [selectedPeriodoId, setSelectedPeriodoId] = useState<number | null>(null)
-  const [periodoActual, setPeriodoActual] = useState<Periodo | null>(null)
 
   // Manual categories state
   const [manualCategorias, setManualCategorias] = useState<any[]>([])
   const [selectedInstructorId, setSelectedInstructorId] = useState<number | null>(null)
   const [selectedDisciplinaId, setSelectedDisciplinaId] = useState<number | null>(null)
   const [manualCategoria, setManualCategoria] = useState<any>(null)
+
+  // Get the selected period ID (first element of the range for single period operations)
+  const selectedPeriodoId = rangoSeleccionado ? rangoSeleccionado[0] : null;
 
   const agregarCategoriaManual = () => {
     if (selectedInstructorId && selectedDisciplinaId && manualCategoria) {
@@ -107,26 +108,36 @@ export default function PagosPage() {
   const estado = (searchParams.get("estado") as EstadoPago) || undefined;
   const instructorId = searchParams.get("instructorId") ? parseInt(searchParams.get("instructorId")!) : undefined;
   const periodoId = searchParams.get("periodoId") ? parseInt(searchParams.get("periodoId")!) : undefined;
+  const periodoInicio = searchParams.get("periodoInicio") ? parseInt(searchParams.get("periodoInicio")!) : undefined;
+  const periodoFin = searchParams.get("periodoFin") ? parseInt(searchParams.get("periodoFin")!) : undefined;
   const busqueda = searchParams.get("busqueda") || undefined;
 
   useEffect(() => {
-    fetchPagos({ page, limit, estado, instructorId, periodoId, busqueda })
-  }, [page, limit, estado, instructorId, periodoId, busqueda, fetchPagos])
+    // Build query params with support for period ranges
+    const queryParams: any = { page, limit, estado, instructorId, busqueda }
+    
+    // Handle period parameters (prioritize individual period over range)
+    if (periodoId) {
+      queryParams.periodoId = periodoId
+    } else if (periodoInicio || periodoFin) {
+      if (periodoInicio) queryParams.periodoInicio = periodoInicio
+      if (periodoFin) queryParams.periodoFin = periodoFin
+    }
+    
+    fetchPagos(queryParams)
+  }, [page, limit, estado, instructorId, periodoId, periodoInicio, periodoFin, busqueda, fetchPagos])
 
   useEffect(() => {
     if (periodos.length === 0) fetchPeriodos()
     if (instructores.length === 0) fetchInstructores()
   }, [fetchPeriodos, fetchInstructores])
 
-  useEffect(() => {
-    if (periodos.length > 0) {
-      const sortedPeriodos = [...periodos].sort((a, b) => {
-        if (a.año !== b.año) return b.año - a.año
-        return b.numero - a.numero
-      })
-      setPeriodoActual(sortedPeriodos[0])
+  // Wrapper function for setting selected period in dialogs
+  const handleSetSelectedPeriodoId = (periodoId: number | null) => {
+    if (periodoId) {
+      setSeleccion(periodoId, periodoId);
     }
-  }, [periodos])
+  }
 
   return (
     <DashboardShell>
@@ -137,9 +148,7 @@ export default function PagosPage() {
         imprimirTodosPagosPDF={() => {}}
         isCalculatingPayments={isCalculating}
         setShowCalculateDialog={() => {
-          if (periodoActual && !selectedPeriodoId) {
-            setSelectedPeriodoId(periodoActual.id)
-          }
+          // No necesitamos lógica manual aquí, la persistencia maneja la selección automáticamente
           setShowCalculateDialog(true)
         }}
         setShowCalculateBonosDialog={() => { 
@@ -184,7 +193,7 @@ export default function PagosPage() {
         setShowCalculateDialog={setShowCalculateDialog}
         periodos={periodos}
         selectedPeriodoId={selectedPeriodoId}
-        setSelectedPeriodoId={setSelectedPeriodoId}
+        setSelectedPeriodoId={handleSetSelectedPeriodoId}
         calcularPagosPeriodo={handleCalculatePagos}
         instructores={instructores}
         selectedInstructorId={selectedInstructorId}
