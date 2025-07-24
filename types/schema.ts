@@ -1,5 +1,63 @@
 export type EstadoPago = "PENDIENTE" | "APROBADO" | "PAGADO" | "CANCELADO"
 export type TipoReajuste = "FIJO" | "PORCENTAJE"
+export type StatusCover = "PENDIENTE" | "APROBADO" | "RECHAZADO"
+
+// Pagination types
+export interface PaginationParams {
+  page?: number
+  limit?: number
+  offset?: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
+}
+
+// Query parameter types for filtering
+export interface ClasesQueryParams extends PaginationParams {
+  periodoId?: number
+  periodoInicio?: number // Nuevo: para rangos de períodos
+  periodoFin?: number // Nuevo: para rangos de períodos
+  instructorId?: number
+  disciplinaId?: number
+  semana?: number
+  fecha?: string
+  estudio?: string
+}
+
+export interface PagosQueryParams extends PaginationParams {
+  periodoId?: number
+  periodoInicio?: number // Nuevo: para rangos de períodos
+  periodoFin?: number // Nuevo: para rangos de períodos
+  instructorId?: number
+  disciplinaId?: number
+  semana?: number
+  estudio?: string
+  claseId?: string
+  estado?: EstadoPago
+  busqueda?: string
+}
+
+// Query parameter types for covers
+export interface CoversQueryParams extends PaginationParams {
+  [key: string]: string | number | boolean | undefined
+  periodoId?: number
+  instructorOriginalId?: number
+  instructorReemplazoId?: number
+  disciplinaId?: number
+  justificacion?: StatusCover // Cambiado de status a justificacion
+  fecha?: string
+  busqueda?: string
+}
+
 export type CategoriaInstructor = "INSTRUCTOR" | "EMBAJADOR_JUNIOR" | "EMBAJADOR" | "EMBAJADOR_SENIOR"
 export type TipoPenalizacion = "CANCELACION_FIJA" | "LLEGO_TARDE" | "CANCELACION_FUERA_TIEMPO"  | "CANCELAR_MENOS_24HRS" | "COVER_DEL_COVER" | "SALIR_TARDE" | "PERSONALIZADA"
 export enum Rol {
@@ -45,7 +103,8 @@ export interface Instructor {
   disciplinas?: Disciplina[]
   categorias?: CategoriaInstructorModel[]
   penalizaciones? : Penalizacion  []
-  covers?: Cover[]
+  coversComoDador?: Cover[] // Covers donde este instructor fue el original
+  coversComoReemplazo?: Cover[] // Covers donde este instructor fue el reemplazo
 }
 
 export interface InstructorExtraInfo {
@@ -58,8 +117,8 @@ export interface InstructorExtraInfo {
 export interface Disciplina {
   id: number
   nombre: string
-  descripcion?: string
-  color?: string
+  descripcion?: string | null
+  color?: string | null
   activo: boolean
   createdAt?: Date
   updatedAt?: Date
@@ -69,6 +128,7 @@ export interface Disciplina {
   formulas?: FormulaDB[]
   instructores?: Instructor[]
   categorias?: CategoriaInstructorModel[]
+  covers?: Cover[] // Nueva relación para covers
 }
 
 export interface Periodo {
@@ -88,6 +148,7 @@ export interface Periodo {
   pagos?: PagoInstructor[]
   formulas?: FormulaDB[]
   categorias?: CategoriaInstructorModel[]
+  covers?: Cover[] // Nueva relación para covers
 }
 
 export interface RequisitosCategoria {
@@ -111,6 +172,7 @@ export interface CategoriaInstructorModel {
   disciplinaId: number
   periodoId: number
   categoria: CategoriaInstructor
+  esManual: boolean
   metricas?: {
   ocupacion: number
   clases: number
@@ -144,12 +206,12 @@ export interface Clase {
   cortesias: number
   lugares: number
   reservasPagadas: number
-  textoEspecial?: string
+  textoEspecial?: string | null
   fecha: Date
   
   // Nuevos campos
   esVersus: boolean
-  vsNum?: number
+  vsNum?: number | null
 
   
   createdAt?: Date
@@ -159,6 +221,7 @@ export interface Clase {
   instructor?: Instructor
   disciplina?: Disciplina
   periodo?: Periodo
+  covers?: Cover[] // Una clase puede tener múltiples covers
 }
 
 export interface PagoInstructor {
@@ -230,32 +293,44 @@ export interface ParametrosPago {
   ajustePorDobleteo?: number
 }
 
-
+// Interface actualizada para Cover
 export interface Cover {
   id: number
-  claseId: string
-  periodoId: number
-  instructorReemplazoId: number
-  justificacion: boolean
+  
+  // Información básica del cover
+  instructorOriginalId: number // Instructor que debía dar la clase
+  instructorReemplazoId: number // Instructor que hace el cover
+  disciplinaId: number // Disciplina de la clase
+  periodoId: number // Periodo al que pertenece
+  fecha: Date // Fecha de la clase
+  hora: string // Hora de la clase (formato "HH:mm")
+  
+  // Información opcional de clase existente
+  claseId?: string // ID de la clase que está siendo cubierta (opcional)
+  
+  // Estados y configuraciones (solo modificables por managers/admin)
+  justificacion: StatusCover // PENDIENTE, APROBADO, RECHAZADO
   pagoBono: boolean
   pagoFullHouse: boolean
   comentarios?: string
   cambioDeNombre?: string
+  
   createdAt?: Date
   updatedAt?: Date
-  claseTemp?: string
 
   // Relaciones
-  clase?: Clase
-  periodo?: Periodo
+  instructorOriginal?: Instructor
   instructorReemplazo?: Instructor
+  disciplina?: Disciplina
+  periodo?: Periodo
+  clase?: Clase
 }
 
 // Interface para Penalizacion
 export interface Penalizacion {
   id: number
   instructorId: number
-  disciplinaId?: number
+  disciplinaId?: number | null
   periodoId: number
   tipo: TipoPenalizacion
   puntos: number
@@ -305,6 +380,20 @@ export interface FormulaDB {
   periodo?: Periodo
 }
 
+export interface ResultadoCalculo {
+  pago: number;
+  categoria: CategoriaInstructor;
+  metricas: {
+    totalClases: number;
+    ocupacionPromedio: number;
+    totalAsistentes: number;
+    totalDobleteos: number;
+    totalLocales: number;
+  };
+  logs: string[];
+  pagoId?: number;
+  retencion?: number;
+}
 
 // Ejemplo de estructura JSON para requisitosCategoria
 export const requisitosCategoriaEjemplo = {

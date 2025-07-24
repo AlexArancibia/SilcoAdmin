@@ -213,7 +213,7 @@ export function useCalculation(
   }
 
 
-const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) => {
+const calcularPenalizacion = (clasesInstructor: Clase[], penalizaciones: Penalizacion[]) => {
   console.log("CALCULO PENALIZACIOM ...")
   const totalClases = clasesInstructor.length;
   const maxPuntosPermitidos = Math.floor(totalClases * 0.1); // 10% del total de clases
@@ -474,6 +474,7 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
         instructorId,
         disciplinaId,
         periodoId,
+        esManual,
         categoria,
         metricas: {
           ocupacion: metricas.ocupacion,
@@ -638,6 +639,11 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
         ...new Set(clases.filter((c) => c.periodoId === periodoId).map((c) => c.instructorId)),
       ]
       const todosInstructores = instructores.filter((i) => instructoresConClases.includes(i.id))
+
+      console.log(
+        "[Cálculo de Pagos] Instructores a procesar:",
+        todosInstructores.map((i) => ({ id: i.id, nombre: i.nombre }))
+      );
 
       addProcessLog(`👥 Total instructores con clases: ${todosInstructores.length}`)
 
@@ -864,9 +870,7 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
           for (const clase of clasesDisciplina) {
             try {
               // Verificar si esta clase debe considerarse Full House
-              const esFullHouse = instructor.covers?.some(
-                c => c.claseId === clase.id && c.periodoId === periodoId && c.pagoFullHouse === true
-              );
+              const esFullHouse =false
 
               let claseParaCalculo = { ...clase };
 
@@ -1007,52 +1011,18 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
 
 
 
-
-        // Calcular covers para el instructor - versión mejorada
-          const coversInstructor = instructor.covers?.filter(c => {
-            // Asegurarse que el cover pertenece al periodo correcto
-            return c.periodoId === periodoId && 
-                  // Verificar que no esté marcado como justificado (si aplica)
-                  (c.pagoBono == true); 
-          }) || [];
-
-          const detallesCovers = coversInstructor.map(cover => {
-            const claseCover = clases.find(c => c.id === cover.claseId);
-            const disciplina = claseCover ? disciplinas.find(d => d.id === claseCover.disciplinaId) : null;
-            
-            return {
-              claseId: cover.claseId,
-              fechaClase: claseCover?.fecha || null,
-              disciplinaId: claseCover?.disciplinaId || null,
-              disciplinaNombre: disciplina?.nombre || 'Desconocida',
-              montoCalculado: 80, // Monto fijo por cover
-              detalleCalculo: `Cover realizado para clase de ${disciplina?.nombre || 'desconocida'} el ${claseCover?.fecha ? new Date(claseCover.fecha).toLocaleDateString() : 'fecha desconocida'}`,
-              esCover: true
-            };
-          });
-
-          const coverTotal = coversInstructor.length * 80;
-          console.log("✅ Covers calculados:", {
-            totalCovers: coversInstructor.length,
-            coverTotal,
-            covers: coversInstructor.map(c => ({
-              id: c.id,
-              claseId: c.claseId,
-              justificacion: c.justificacion
-            }))
-          });
+ 
 
           // Calcular subtotal
           const subtotal = montoTotal + 
                           (pagoExistente?.reajuste || 0) + 
-                          (pagoExistente?.bono || 0) + 
-                          coverTotal;
+                          (pagoExistente?.bono || 0) 
+
 
           console.log("🧮 Subtotal:", {
             montoBase: montoTotal,
             reajuste: pagoExistente?.reajuste || 0,
             bono: pagoExistente?.bono || 0,
-            cover: coverTotal,
             subtotal
           });
 
@@ -1100,7 +1070,7 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
               tipoReajuste: pagoExistente.tipoReajuste,
               pagoFinal: pagoFinal,
               dobleteos: dobleteos,
-              cover: coverTotal,
+              cover: 0,
               horariosNoPrime: horariosNoPrime / 4,
               participacionEventos: pagoExistente.participacionEventos ?? true, // CAMBIO: true por defecto si es null/undefined
               cumpleLineamientos: pagoExistente.cumpleLineamientos ?? true, // CAMBIO: true por defecto si es null/undefined
@@ -1114,7 +1084,6 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
                   montoDescuento: penalizacionMonto,
                   detalle: detallePenalizaciones
                 },
-                detallesCovers,
               resumen: {
                   totalClases: detallesClases.length,
                   totalMonto: montoTotal,
@@ -1167,7 +1136,7 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
               tipoReajuste: "FIJO" as const,
               pagoFinal: pagoFinal,
               dobleteos: dobleteos,
-              cover: coverTotal,
+              cover: 0,
               penalizacion: penalizacionMonto,
               horariosNoPrime: horariosNoPrime / 4,
               participacionEventos: true, // CAMBIO: true por defecto
@@ -1181,7 +1150,7 @@ const calcularPenalizacion = (clasesInstructor: any[], penalizaciones: any[]) =>
                   montoDescuento: penalizacionMonto,
                   detalle: detallePenalizaciones
                 },
-                detallesCovers,
+                
                 clases: detallesClases,
                 resumen: {
                   totalClases: detallesClases.length,

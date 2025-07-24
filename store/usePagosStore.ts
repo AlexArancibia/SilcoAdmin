@@ -1,15 +1,26 @@
 import { create } from "zustand"
 import { pagosApi } from "@/lib/api/pagos-api"
-import type { PagoInstructor } from "@/types/schema"
+
+import type { PagoInstructor, PaginatedResponse, PagosQueryParams } from "@/types/schema"
+
+interface PaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
 
 interface PagosState {
   pagos: PagoInstructor[]
   pagoSeleccionado: PagoInstructor | null
+  pagination: PaginationState
   isLoading: boolean
   error: string | null
 
   // Acciones
-  fetchPagos: (params?: { periodoId?: number; instructorId?: number }) => Promise<void>
+  fetchPagos: (params?: PagosQueryParams) => Promise<void>
   fetchPago: (id: number) => Promise<void>
   crearPago: (pago: Omit<PagoInstructor, "id" | "createdAt" | "updatedAt">) => Promise<PagoInstructor>
   actualizarPago: (id: number, pago: Partial<PagoInstructor>) => Promise<PagoInstructor>
@@ -17,17 +28,32 @@ interface PagosState {
   setPagoSeleccionado: (pago: PagoInstructor | null) => void
 }
 
+const initialPaginationState: PaginationState = {
+  page: 1,
+  limit: 10,
+  total: 0,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
+
+
 export const usePagosStore = create<PagosState>((set, get) => ({
   pagos: [],
   pagoSeleccionado: null,
+  pagination: initialPaginationState,
   isLoading: false,
   error: null,
 
   fetchPagos: async (params) => {
     set({ isLoading: true, error: null })
     try {
-      const pagos = await pagosApi.getPagos(params)
-      set({ pagos, isLoading: false })
+      const response: PaginatedResponse<PagoInstructor> = await pagosApi.getPagos(params);
+      set({ 
+        pagos: response.data, 
+        pagination: response.pagination, 
+        isLoading: false 
+      });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error desconocido al obtener pagos",
@@ -51,9 +77,9 @@ export const usePagosStore = create<PagosState>((set, get) => ({
     }
   },
 
-  crearPago: async (pago: Omit<PagoInstructor, "id" | "createdAt" | "updatedAt">) => {
+  crearPago: async (pago) => {
+    set({ isLoading: true, error: null })
     try {
-      set({ isLoading: true })
       const nuevoPago = await pagosApi.crearPago(pago)
       set((state) => ({
         pagos: [...state.pagos, nuevoPago],

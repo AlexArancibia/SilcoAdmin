@@ -16,15 +16,48 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const cover = await prisma.cover.findUnique({
       where: { id },
       include: {
-        clase: {
-          include: {
-            instructor: true,
-            disciplina: true,
-            periodo: true,
+        instructorOriginal: {
+          select: {
+            id: true,
+            nombre: true,
+            nombreCompleto: true,
           }
         },
-        periodo: true,
-        instructorReemplazo: true,
+        instructorReemplazo: {
+          select: {
+            id: true,
+            nombre: true,
+            nombreCompleto: true,
+          }
+        },
+        disciplina: {
+          select: {
+            id: true,
+            nombre: true,
+            color: true,
+          }
+        },
+        periodo: {
+          select: {
+            id: true,
+            numero: true,
+            año: true,
+          }
+        },
+        clase: {
+          select: {
+            id: true,
+            estudio: true,
+            salon: true,
+            fecha: true,
+            instructor: {
+              select: {
+                id: true,
+                nombre: true,
+              }
+            }
+          }
+        },
       },
     })
 
@@ -68,7 +101,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Parse numeric fields with validation
-    const numericFields = ["periodoId", "instructorReemplazoId"]
+    const numericFields = ["instructorOriginalId", "instructorReemplazoId", "disciplinaId", "periodoId"]
     const parsedBody: Record<string, any> = { ...body }
 
     for (const field of numericFields) {
@@ -82,10 +115,69 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Handle boolean fields
-    const booleanFields = ["justificacion", "pagoBono", "pagoFullHouse"]
+    const booleanFields = ["pagoBono", "pagoFullHouse"]
     for (const field of booleanFields) {
       if (parsedBody[field] !== undefined) {
         parsedBody[field] = Boolean(parsedBody[field])
+      }
+    }
+
+    // Validate justificacion if provided
+    if (parsedBody.justificacion && !["PENDIENTE", "APROBADO", "RECHAZADO"].includes(parsedBody.justificacion)) {
+      return NextResponse.json({ error: "La justificacion debe ser PENDIENTE, APROBADO o RECHAZADO" }, { status: 400 })
+    }
+
+    // Validate fecha if provided
+    if (parsedBody.fecha) {
+      const fecha = new Date(parsedBody.fecha)
+      if (isNaN(fecha.getTime())) {
+        return NextResponse.json({ error: "La fecha debe ser válida" }, { status: 400 })
+      }
+      parsedBody.fecha = fecha
+    }
+
+    // Validate hora format if provided
+    if (parsedBody.hora) {
+      const horaPattern = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/
+      if (!horaPattern.test(parsedBody.hora)) {
+        return NextResponse.json({ error: "La hora debe tener el formato HH:mm" }, { status: 400 })
+      }
+    }
+
+    // Validate foreign keys if they are being updated
+    if (parsedBody.instructorOriginalId && parsedBody.instructorOriginalId !== existingCover.instructorOriginalId) {
+      const instructorOriginal = await prisma.instructor.findUnique({
+        where: { id: parsedBody.instructorOriginalId }
+      })
+      if (!instructorOriginal) {
+        return NextResponse.json({ error: "El instructor original especificado no existe" }, { status: 404 })
+      }
+    }
+
+    if (parsedBody.instructorReemplazoId && parsedBody.instructorReemplazoId !== existingCover.instructorReemplazoId) {
+      const instructorReemplazo = await prisma.instructor.findUnique({
+        where: { id: parsedBody.instructorReemplazoId }
+      })
+      if (!instructorReemplazo) {
+        return NextResponse.json({ error: "El instructor de reemplazo especificado no existe" }, { status: 404 })
+      }
+    }
+
+    if (parsedBody.disciplinaId && parsedBody.disciplinaId !== existingCover.disciplinaId) {
+      const disciplina = await prisma.disciplina.findUnique({
+        where: { id: parsedBody.disciplinaId }
+      })
+      if (!disciplina) {
+        return NextResponse.json({ error: "La disciplina especificada no existe" }, { status: 404 })
+      }
+    }
+
+    if (parsedBody.periodoId && parsedBody.periodoId !== existingCover.periodoId) {
+      const periodo = await prisma.periodo.findUnique({
+        where: { id: parsedBody.periodoId }
+      })
+      if (!periodo) {
+        return NextResponse.json({ error: "El periodo especificado no existe" }, { status: 404 })
       }
     }
 
@@ -94,35 +186,73 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       const claseExists = await prisma.clase.findUnique({
         where: { id: parsedBody.claseId }
       })
-
       if (!claseExists) {
         return NextResponse.json({ error: "La clase especificada no existe" }, { status: 404 })
       }
     }
 
-    // Update the cover
+    // Update the cover - only include fields that are provided
+    const updateData: any = {}
+
+    if (parsedBody.instructorOriginalId !== undefined) updateData.instructorOriginalId = parsedBody.instructorOriginalId
+    if (parsedBody.instructorReemplazoId !== undefined) updateData.instructorReemplazoId = parsedBody.instructorReemplazoId
+    if (parsedBody.disciplinaId !== undefined) updateData.disciplinaId = parsedBody.disciplinaId
+    if (parsedBody.periodoId !== undefined) updateData.periodoId = parsedBody.periodoId
+    if (parsedBody.fecha !== undefined) updateData.fecha = parsedBody.fecha
+    if (parsedBody.hora !== undefined) updateData.hora = parsedBody.hora
+    if (parsedBody.claseId !== undefined) updateData.claseId = parsedBody.claseId
+    if (parsedBody.justificacion !== undefined) updateData.justificacion = parsedBody.justificacion
+    if (parsedBody.pagoBono !== undefined) updateData.pagoBono = parsedBody.pagoBono
+    if (parsedBody.pagoFullHouse !== undefined) updateData.pagoFullHouse = parsedBody.pagoFullHouse
+    if (parsedBody.comentarios !== undefined) updateData.comentarios = parsedBody.comentarios
+    if (parsedBody.cambioDeNombre !== undefined) updateData.cambioDeNombre = parsedBody.cambioDeNombre
+
     const updatedCover = await prisma.cover.update({
       where: { id },
-      data: {
-        ...(parsedBody.claseId && { claseId: parsedBody.claseId }),
-        ...(parsedBody.periodoId && { periodoId: parsedBody.periodoId }),
-        ...(parsedBody.instructorReemplazoId && { instructorReemplazoId: parsedBody.instructorReemplazoId }),
-        ...(parsedBody.justificacion !== undefined && { justificacion: parsedBody.justificacion }),
-        ...(parsedBody.pagoBono !== undefined && { pagoBono: parsedBody.pagoBono }),
-        ...(parsedBody.pagoFullHouse !== undefined && { pagoFullHouse: parsedBody.pagoFullHouse }),
-        ...(parsedBody.comentarios !== undefined && { comentarios: parsedBody.comentarios }),
-        ...(parsedBody.cambioDeNombre !== undefined && { cambioDeNombre: parsedBody.cambioDeNombre }),
-      },
+      data: updateData,
       include: {
-        clase: {
-          include: {
-            instructor: true,
-            disciplina: true,
-            periodo: true,
+        instructorOriginal: {
+          select: {
+            id: true,
+            nombre: true,
+            nombreCompleto: true,
           }
         },
-        periodo: true,
-        instructorReemplazo: true,
+        instructorReemplazo: {
+          select: {
+            id: true,
+            nombre: true,
+            nombreCompleto: true,
+          }
+        },
+        disciplina: {
+          select: {
+            id: true,
+            nombre: true,
+            color: true,
+          }
+        },
+        periodo: {
+          select: {
+            id: true,
+            numero: true,
+            año: true,
+          }
+        },
+        clase: {
+          select: {
+            id: true,
+            estudio: true,
+            salon: true,
+            fecha: true,
+            instructor: {
+              select: {
+                id: true,
+                nombre: true,
+              }
+            }
+          }
+        },
       },
     })
 

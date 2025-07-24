@@ -62,31 +62,18 @@ export function DashboardShell({ children, className, ...props }: DashboardShell
       return
     }
 
-    // Esperar a que los pagos permitidos estén cargados
-    if (pagosPermitidos === null) {
-      console.log('[DashboardShell] Esperando carga de pagos permitidos...')
-      setIsAuthorized(null)
-      return
-    }
-
     const instructorId = user.id
     const instructorRoute = `/instructores/${instructorId}`
     const isInstructorRoute = pathname === instructorRoute || pathname.startsWith(`${instructorRoute}/`)
-    console.log(`[DashboardShell] ¿Es ruta de instructor? ${isInstructorRoute}`)
+    const isCoversRoute = pathname.startsWith('/covers')
+    const isPagosRoute = pathname.startsWith('/pagos/')
     
-    // Verificar si es una ruta de pago permitido
-    let isPagoPermitido = false
-    if (pathname.startsWith('/pagos/')) {
-      const pagoIdStr = pathname.split('/')[2]
-      const pagoId = parseInt(pagoIdStr, 10)
-      console.log(`[DashboardShell] ID de pago en ruta: ${pagoId}`)
-      
-      isPagoPermitido = !isNaN(pagoId) && pagosPermitidos.includes(pagoId)
-      console.log(`[DashboardShell] ¿Pago permitido? ${isPagoPermitido}`)
-    }
+    console.log(`[DashboardShell] ¿Es ruta de instructor? ${isInstructorRoute}`)
+    console.log(`[DashboardShell] ¿Es ruta de covers? ${isCoversRoute}`)
+    console.log(`[DashboardShell] ¿Es ruta de pagos? ${isPagosRoute}`)
 
-    // Rutas permitidas para instructores
-    const isAllowedRoute = isInstructorRoute || isPagoPermitido
+    // Rutas permitidas para instructores: su perfil, covers, y cualquier pago
+    const isAllowedRoute = isInstructorRoute || isCoversRoute || isPagosRoute
     console.log(`[DashboardShell] ¿Ruta permitida? ${isAllowedRoute}`)
 
     if (!isAllowedRoute) {
@@ -98,15 +85,15 @@ export function DashboardShell({ children, className, ...props }: DashboardShell
       setIsAuthorized(true)
       setShouldReload(false)
     }
-  }, [pathname, user, userType, isAuthenticated, pagosPermitidos])
+  }, [pathname, user, userType, isAuthenticated])
   
   // Estados de carga
-  if (isAuthorized === null || pagosPermitidos === null) {
+  if (isAuthorized === null) {
     console.log('[DashboardShell] Mostrando pantalla de carga')
     return (
       <div className={cn("grid items-start gap-4 w-full max-w-full p-10", className)} {...props}>
         <div className="flex items-center justify-center w-full h-32">
-          <p className="text-lg text-gray-500">Cargando pagos permitidos...</p>
+          <p className="text-lg text-gray-500">Verificando permisos...</p>
         </div>
       </div>
     )

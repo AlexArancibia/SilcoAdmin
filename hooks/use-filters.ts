@@ -14,22 +14,30 @@ export function useFilters(pagos: PagoInstructor[], instructores: Instructor[], 
 
   // Filtrar pagos por periodos seleccionados y otros filtros
   const filteredPagos = useMemo(() => {
-    return pagos.filter((pago) => {
+    // LOG para ver todos los pagos antes del filtrado
+    console.log('[FiltroPagos] Todos los pagos:', pagos.map(p => ({id: p.id, periodoId: p.periodoId, estado: p.estado, instructorId: p.instructorId})))
+    // LOG para ver todos los periodos cargados
+    console.log('[FiltroPagos] Periodos cargados:', periodos.map(p => ({id: p.id, numero: p.numero, año: p.año})))
+    // LOG para ver los IDs de periodos seleccionados para el filtrado
+    const periodosSeleccionadosIds = periodos.map(p => p.id)
+    console.log('[FiltroPagos] IDs de periodos considerados para filtrado:', periodosSeleccionadosIds)
+    const pagosFiltrados = pagos.filter((pago) => {
       // Filtrar por periodos seleccionados
       const periodoPago = periodos.find((p) => p.id === pago.periodoId)
       const enPeriodosSeleccionados = periodos.length === 0 || periodos.some((p) => p.id === pago.periodoId)
-
-      if (!enPeriodosSeleccionados) return false
-
+      // LOG para cada pago respecto al periodo
+      if (!enPeriodosSeleccionados) {
+        console.log('[FiltroPagos] Pago omitido por periodo:', {pagoId: pago.id, periodoId: pago.periodoId, periodosSeleccionadosIds})
+      } else {
+        console.log('[FiltroPagos] Pago incluido por periodo:', {pagoId: pago.id, periodoId: pago.periodoId, periodosSeleccionadosIds})
+      }
       // Resto de filtros
       if (filtroEstado !== "todos" && pago.estado !== filtroEstado) return false
       if (filtroInstructor !== "todos" && pago.instructorId !== Number.parseInt(filtroInstructor)) return false
-
       if (busqueda) {
         const instructor = instructores.find((i) => i.id === pago.instructorId)
         const instructorNombre = instructor ? instructor.nombre.toLowerCase() : ""
         const periodoNombre = periodoPago ? `Periodo ${periodoPago.numero} - ${periodoPago.año}`.toLowerCase() : ""
-
         if (
           !(
             instructorNombre.includes(busqueda.toLowerCase()) ||
@@ -40,9 +48,11 @@ export function useFilters(pagos: PagoInstructor[], instructores: Instructor[], 
           return false
         }
       }
-
-      return true
+      return enPeriodosSeleccionados
     })
+    // LOG para ver pagos filtrados finales
+    console.log('[FiltroPagos] Pagos filtrados:', pagosFiltrados.map(p => ({id: p.id, periodoId: p.periodoId, estado: p.estado, instructorId: p.instructorId})))
+    return pagosFiltrados
   }, [pagos, periodos, filtroEstado, filtroInstructor, busqueda, instructores])
 
   // Ordenar pagos

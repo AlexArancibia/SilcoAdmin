@@ -1,16 +1,27 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { PeriodSelector } from "@/components/period-selector"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
-import { useClasesStore } from "@/store/useClasesStore"
-import { Loader2, X } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { 
+  Hash, 
+  User, 
+  GraduationCap, 
+  Calendar, 
+  MapPin, 
+  Filter,
+  RotateCcw
+} from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface ClassesFilterProps {
   initialPeriodoId?: number
@@ -18,6 +29,24 @@ interface ClassesFilterProps {
   initialDisciplinaId?: number
   initialSemana?: number
   initialEstudio?: string
+  initialId?: string
+}
+
+// Custom hook for debounced value
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
 }
 
 export function ClassesFilter({
@@ -26,344 +55,226 @@ export function ClassesFilter({
   initialDisciplinaId,
   initialSemana,
   initialEstudio,
+  initialId,
 }: ClassesFilterProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [periodoId, setPeriodoId] = useState<number | undefined>(initialPeriodoId)
-  const [instructorId, setInstructorId] = useState<number | undefined>(initialInstructorId)
-  const [disciplinaId, setDisciplinaId] = useState<number | undefined>(initialDisciplinaId)
-  const [semana, setSemana] = useState<number | undefined>(initialSemana)
-  const [estudio, setEstudio] = useState<string | undefined>(initialEstudio)
+  const [instructorId, setInstructorId] = useState(initialInstructorId)
+  const [disciplinaId, setDisciplinaId] = useState(initialDisciplinaId)
+  const [semana, setSemana] = useState(initialSemana)
+  const [estudio, setEstudio] = useState(initialEstudio)
+  const [id, setId] = useState(initialId)
 
-  const { periodos, fetchPeriodos, isLoading: isLoadingPeriodos } = usePeriodosStore()
+  // Debounced values for text inputs
+  const debouncedEstudio = useDebounce(estudio, 300)
+  const debouncedId = useDebounce(id, 300)
+
+  const { rangoSeleccionado, getPeriodoQueryParams } = usePeriodosStore()
   const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
-  const { clases, fetchClases, isLoading: isLoadingClases } = useClasesStore()
 
-  // Lista de estudios únicos extraída de las clases
-  const [estudios, setEstudios] = useState<string[]>([])
+  // Calculate active filters count
+  const activeFiltersCount = [debouncedId, instructorId, disciplinaId, semana, debouncedEstudio, rangoSeleccionado].filter(Boolean).length
 
   useEffect(() => {
-    if (periodos.length === 0) fetchPeriodos()
     if (instructores.length === 0) fetchInstructores()
     if (disciplinas.length === 0) fetchDisciplinas()
+  }, [instructores.length, disciplinas.length, fetchInstructores, fetchDisciplinas])
 
-    // Obtener clases para extraer estudios únicos
-    if (clases.length === 0) fetchClases()
-  }, [
-    periodos.length,
-    instructores.length,
-    disciplinas.length,
-    clases.length,
-    fetchPeriodos,
-    fetchInstructores,
-    fetchDisciplinas,
-    fetchClases,
-  ])
-
-  // Extraer estudios únicos de las clases
-  useEffect(() => {
-    if (clases.length > 0) {
-      const uniqueEstudios = Array.from(new Set(clases.map((clase) => clase.estudio)))
-        .filter(Boolean)
-        .sort()
-      setEstudios(uniqueEstudios)
-    }
-  }, [clases])
-
-  // Aplicar filtros automáticamente cuando cambian los valores
-  const applyFilters = (
-    newPeriodoId?: number,
-    newInstructorId?: number,
-    newDisciplinaId?: number,
-    newSemana?: number,
-    newEstudio?: string,
-  ) => {
+  // Auto-apply filters function
+  const applyFilters = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString())
+    params.set("page", "1")
 
-    if (newPeriodoId) {
-      params.set("periodoId", newPeriodoId.toString())
-    } else {
-      params.delete("periodoId")
+    // Handle text filters
+    if (debouncedId) params.set("id", debouncedId); else params.delete("id")
+    if (debouncedEstudio) params.set("estudio", debouncedEstudio); else params.delete("estudio")
+
+    // Handle period filters
+    const periodoParams = getPeriodoQueryParams()
+    params.delete("periodoId")
+    params.delete("periodoInicio") 
+    params.delete("periodoFin")
+    
+    if (periodoParams.periodoId) {
+      params.set("periodoId", String(periodoParams.periodoId))
+    } else if (periodoParams.periodoInicio || periodoParams.periodoFin) {
+      if (periodoParams.periodoInicio) params.set("periodoInicio", String(periodoParams.periodoInicio))
+      if (periodoParams.periodoFin) params.set("periodoFin", String(periodoParams.periodoFin))
     }
 
-    if (newInstructorId) {
-      params.set("instructorId", newInstructorId.toString())
-    } else {
-      params.delete("instructorId")
-    }
-
-    if (newDisciplinaId) {
-      params.set("disciplinaId", newDisciplinaId.toString())
-    } else {
-      params.delete("disciplinaId")
-    }
-
-    if (newSemana) {
-      params.set("semana", newSemana.toString())
-    } else {
-      params.delete("semana")
-    }
-
-    if (newEstudio) {
-      params.set("estudio", newEstudio)
-    } else {
-      params.delete("estudio")
-    }
+    // Handle select filters
+    if (instructorId) params.set("instructorId", String(instructorId)); else params.delete("instructorId")
+    if (disciplinaId) params.set("disciplinaId", String(disciplinaId)); else params.delete("disciplinaId")
+    if (semana) params.set("semana", String(semana)); else params.delete("semana")
 
     router.push(`${pathname}?${params.toString()}`)
-  }
+  }, [debouncedId, debouncedEstudio, instructorId, disciplinaId, semana, rangoSeleccionado, getPeriodoQueryParams, router, pathname, searchParams])
+
+  // Auto-apply filters when values change
+  useEffect(() => {
+    applyFilters()
+  }, [applyFilters])
+
+  // Update period parameters when period selection changes
+  useEffect(() => {
+    if (rangoSeleccionado) {
+      applyFilters()
+    }
+  }, [rangoSeleccionado, applyFilters])
 
   const handleReset = () => {
-    setPeriodoId(undefined)
     setInstructorId(undefined)
     setDisciplinaId(undefined)
     setSemana(undefined)
     setEstudio(undefined)
+    setId(undefined)
     router.push(pathname)
   }
 
-  const isLoading = isLoadingPeriodos || isLoadingInstructores || isLoadingDisciplinas || isLoadingClases
-
-  // Obtener nombres de los filtros seleccionados
-  const selectedPeriodo = periodos.find((p) => p.id === periodoId)
-  const selectedInstructor = instructores.find((i) => i.id === instructorId)
-  const selectedDisciplina = disciplinas.find((d) => d.id === disciplinaId)
-
-  // Contar filtros activos
-  const activeFiltersCount = [
-    periodoId !== undefined,
-    instructorId !== undefined,
-    disciplinaId !== undefined,
-    semana !== undefined,
-    estudio !== undefined,
-  ].filter(Boolean).length
-
   return (
-    <div className="mb-4">
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-5 mb-3">
-        <div className="space-y-1">
-          <Label htmlFor="periodo" className="text-xs">
-            Periodo
-          </Label>
-          <Select
-            value={periodoId?.toString() || ""}
-            onValueChange={(value) => {
-              const newPeriodoId = value && value !== "all" ? Number.parseInt(value) : undefined
-              setPeriodoId(newPeriodoId)
-              applyFilters(newPeriodoId, instructorId, disciplinaId, semana, estudio)
-            }}
-            disabled={isLoadingPeriodos}
-          >
-            <SelectTrigger id="periodo" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar periodo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los periodos</SelectItem>
-              {periodos.map((periodo) => (
-                <SelectItem key={periodo.id} value={periodo.id.toString()}>
-                  Periodo {periodo.numero} - {periodo.año}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="instructor" className="text-xs">
-            Instructor
-          </Label>
-          <Select
-            value={instructorId?.toString() || ""}
-            onValueChange={(value) => {
-              const newInstructorId = value && value !== "all" ? Number.parseInt(value) : undefined
-              setInstructorId(newInstructorId)
-              applyFilters(periodoId, newInstructorId, disciplinaId, semana, estudio)
-            }}
-            disabled={isLoadingInstructores}
-          >
-            <SelectTrigger id="instructor" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar instructor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los instructores</SelectItem>
-              {instructores.map((instructor) => (
-                <SelectItem key={instructor.id} value={instructor.id.toString()}>
-                  {instructor.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="disciplina" className="text-xs">
-            Disciplina
-          </Label>
-          <Select
-            value={disciplinaId?.toString() || ""}
-            onValueChange={(value) => {
-              const newDisciplinaId = value && value !== "all" ? Number.parseInt(value) : undefined
-              setDisciplinaId(newDisciplinaId)
-              applyFilters(periodoId, instructorId, newDisciplinaId, semana, estudio)
-            }}
-            disabled={isLoadingDisciplinas}
-          >
-            <SelectTrigger id="disciplina" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar disciplina" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las disciplinas</SelectItem>
-              {disciplinas.map((disciplina) => (
-                <SelectItem key={disciplina.id} value={disciplina.id.toString()}>
-                  {disciplina.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="semana" className="text-xs">
-            Semana
-          </Label>
-          <Select
-            value={semana?.toString() || ""}
-            onValueChange={(value) => {
-              const newSemana = value && value !== "all" ? Number.parseInt(value) : undefined
-              setSemana(newSemana)
-              applyFilters(periodoId, instructorId, disciplinaId, newSemana, estudio)
-            }}
-          >
-            <SelectTrigger id="semana" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar semana" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las semanas</SelectItem>
-              <SelectItem value="1">Semana 1</SelectItem>
-              <SelectItem value="2">Semana 2</SelectItem>
-              <SelectItem value="3">Semana 3</SelectItem>
-              <SelectItem value="4">Semana 4</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="estudio" className="text-xs">
-            Estudio
-          </Label>
-          <Select
-            value={estudio || ""}
-            onValueChange={(value) => {
-              const newEstudio = value && value !== "all" ? value : undefined
-              setEstudio(newEstudio)
-              applyFilters(periodoId, instructorId, disciplinaId, semana, newEstudio)
-            }}
-            disabled={isLoadingClases || estudios.length === 0}
-          >
-            <SelectTrigger id="estudio" className="h-8 text-sm">
-              <SelectValue placeholder="Seleccionar estudio" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los estudios</SelectItem>
-              {estudios.map((studio) => (
-                <SelectItem key={studio} value={studio}>
-                  {studio}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Indicadores de filtros activos */}
-      {activeFiltersCount > 0 && (
-        <div className="flex flex-wrap gap-1 items-center mb-3">
-          {periodoId !== undefined && selectedPeriodo && (
-            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
-              Periodo {selectedPeriodo.numero}/{selectedPeriodo.año}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setPeriodoId(undefined)
-                  applyFilters(undefined, instructorId, disciplinaId, semana, estudio)
-                }}
-              />
-            </Badge>
-          )}
-
-          {instructorId !== undefined && selectedInstructor && (
-            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
-              {selectedInstructor.nombre}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setInstructorId(undefined)
-                  applyFilters(periodoId, undefined, disciplinaId, semana, estudio)
-                }}
-              />
-            </Badge>
-          )}
-
-          {disciplinaId !== undefined && selectedDisciplina && (
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-1 h-6 text-xs"
-              style={{
-                backgroundColor: selectedDisciplina.color ? `${selectedDisciplina.color}20` : undefined,
-              }}
+    <Card className="mb-6 border border-primary/10 bg-card/50 backdrop-blur-sm">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Filter className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-primary">
+                Filtros de Clases
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Filtros aplicados automáticamente
+              </CardDescription>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {activeFiltersCount > 0 && (
+              <Badge variant="secondary" className="bg-secondary/20 text-secondary-foreground border-secondary/30">
+                {activeFiltersCount}
+              </Badge>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleReset}
+              className="h-8 px-2"
             >
-              {selectedDisciplina.nombre}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setDisciplinaId(undefined)
-                  applyFilters(periodoId, instructorId, undefined, semana, estudio)
-                }}
-              />
-            </Badge>
-          )}
-
-          {semana !== undefined && (
-            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
-              Semana {semana}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setSemana(undefined)
-                  applyFilters(periodoId, instructorId, disciplinaId, undefined, estudio)
-                }}
-              />
-            </Badge>
-          )}
-
-          {estudio !== undefined && (
-            <Badge variant="secondary" className="flex items-center gap-1 h-6 text-xs">
-              {estudio}
-              <X
-                className="h-3 w-3 ml-1 cursor-pointer"
-                onClick={() => {
-                  setEstudio(undefined)
-                  applyFilters(periodoId, instructorId, disciplinaId, semana, undefined)
-                }}
-              />
-            </Badge>
-          )}
-
-          <Button variant="ghost" size="sm" onClick={handleReset} className="h-6 px-2 text-xs">
-            Limpiar todos
-          </Button>
+              <RotateCcw className="h-3 w-3" />
+            </Button>
+            
+            {/* Period selector in top right */}
+            <div className="relative z-50 min-w-[200px]">
+              <PeriodSelector />
+            </div>
+          </div>
         </div>
-      )}
+      </CardHeader>
 
-      {isLoading && (
-        <div className="flex items-center text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin mr-1" />
-          Cargando...
+      <CardContent>
+        {/* Single Row - All Filters */}
+        <div className="grid grid-cols-12 gap-3">
+          {/* ID - Short field */}
+          <div className="relative col-span-2">
+            <Hash className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+            <Input
+              placeholder="ID"
+              value={id || ""}
+              onChange={(e) => setId(e.target.value)}
+              className="pl-7 h-9 text-sm border-border/50 focus:border-primary"
+            />
+          </div>
+
+          {/* Studio */}
+          <div className="relative col-span-3">
+            <MapPin className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+            <Input
+              placeholder="Estudio"
+              value={estudio || ""}
+              onChange={(e) => setEstudio(e.target.value)}
+              className="pl-7 h-9 text-sm border-border/50 focus:border-primary"
+            />
+          </div>
+
+          {/* Instructor */}
+          <div className="relative col-span-3">
+            <User className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />
+            <Select
+              value={instructorId?.toString() || ""}
+              onValueChange={(value) => setInstructorId(value ? Number(value) : undefined)}
+              disabled={isLoadingInstructores}
+            >
+              <SelectTrigger className={cn(
+                "pl-7 h-9 text-sm border-border/50 focus:border-primary",
+                instructorId && "border-primary/30 bg-primary/5"
+              )}>
+                <SelectValue placeholder="Instructor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {instructores.map((i) => (
+                  <SelectItem key={i.id} value={String(i.id)}>
+                    {i.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Discipline */}
+          <div className="relative col-span-2">
+            <GraduationCap className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />
+            <Select
+              value={disciplinaId?.toString() || ""}
+              onValueChange={(value) => setDisciplinaId(value ? Number(value) : undefined)}
+              disabled={isLoadingDisciplinas}
+            >
+              <SelectTrigger className={cn(
+                "pl-7 h-9 text-sm border-border/50 focus:border-primary",
+                disciplinaId && "border-primary/30 bg-primary/5"
+              )}>
+                <SelectValue placeholder="Disciplina" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {disciplinas.map((d) => (
+                  <SelectItem key={d.id} value={String(d.id)}>
+                    {d.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Week */}
+          <div className="relative col-span-2">
+            <Calendar className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />
+            <Select
+              value={semana?.toString() || ""}
+              onValueChange={(value) => setSemana(value ? Number(value) : undefined)}
+            >
+              <SelectTrigger className={cn(
+                "pl-7 h-9 text-sm border-border/50 focus:border-primary",
+                semana && "border-primary/30 bg-primary/5"
+              )}>
+                <SelectValue placeholder="Semana" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {[...Array(4).keys()].map((i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>
+                    Semana {i + 1}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      )}
-    </div>
+      </CardContent>
+    </Card>
   )
 }

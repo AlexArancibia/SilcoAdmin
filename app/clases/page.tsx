@@ -15,7 +15,10 @@ export default function ClassesPage({
   searchParams,
 }: {
   searchParams: { 
+    id?: string;
     periodoId?: string; 
+    periodoInicio?: string; // Nuevo: para rangos de períodos
+    periodoFin?: string; // Nuevo: para rangos de períodos
     instructorId?: string; 
     disciplinaId?: string; 
     semana?: string;
@@ -23,36 +26,32 @@ export default function ClassesPage({
   }
 }) {
   // Parse search params
+  const id = searchParams.id || undefined
   const periodoId = searchParams.periodoId ? Number.parseInt(searchParams.periodoId) : undefined
+  const periodoInicio = searchParams.periodoInicio ? Number.parseInt(searchParams.periodoInicio) : undefined
+  const periodoFin = searchParams.periodoFin ? Number.parseInt(searchParams.periodoFin) : undefined
   const instructorId = searchParams.instructorId ? Number.parseInt(searchParams.instructorId) : undefined
   const disciplinaId = searchParams.disciplinaId ? Number.parseInt(searchParams.disciplinaId) : undefined
   const semana = searchParams.semana ? Number.parseInt(searchParams.semana) : undefined
   const estudio = searchParams.estudio || undefined
 
   return (
-    <div className="  p-10">
+    <div className="p-10">
       <div className="mb-8">
         <h1 className="text-3xl text-accent font-bold tracking-tight">Clases</h1>
         <p className="text-muted-foreground">
-          Gestiona las clases de los instructores, filtra por periodo, semana, instructor, disciplina o estudio.
+          Gestiona las clases de los instructores, filtra por período (individual o rango), semana, instructor, disciplina o estudio.
         </p>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-          <CardDescription>Filtra las clases por diferentes criterios</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ClassesFilter
-            initialPeriodoId={periodoId}
-            initialInstructorId={instructorId}
-            initialDisciplinaId={disciplinaId}
-            initialSemana={semana}
-            initialEstudio={estudio}
-          />
-        </CardContent>
-      </Card>
+      <ClassesFilter
+        initialId={id}
+        initialPeriodoId={periodoId}
+        initialInstructorId={instructorId}
+        initialDisciplinaId={disciplinaId}
+        initialSemana={semana}
+        initialEstudio={estudio}
+      />
 
       <Suspense
         fallback={
@@ -72,7 +71,10 @@ export default function ClassesPage({
         }
       >
         <ClassesTable
+          id={id}
           periodoId={periodoId}
+          periodoInicio={periodoInicio}
+          periodoFin={periodoFin}
           instructorId={instructorId}
           disciplinaId={disciplinaId}
           semana={semana}

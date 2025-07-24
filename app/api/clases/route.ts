@@ -1,27 +1,77 @@
 import { type NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import type { ClasesQueryParams, PaginatedResponse, Clase } from "@/types/schema"
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
+    
+    // Parse pagination parameters
+    const page = Number(searchParams.get("page")) || 1
+    const limit = Math.min(Number(searchParams.get("limit")) || 10, 100) // Max 100 items per page
+    const offset = (page - 1) * limit
+
+    // Parse filter parameters
     const periodoId = searchParams.get("periodoId")
+    const periodoInicio = searchParams.get("periodoInicio") // Nuevo: rango inicio
+    const periodoFin = searchParams.get("periodoFin") // Nuevo: rango fin
     const instructorId = searchParams.get("instructorId")
     const disciplinaId = searchParams.get("disciplinaId")
     const semana = searchParams.get("semana")
     const fecha = searchParams.get("fecha")
+    const estudio = searchParams.get("estudio")
+    const id = searchParams.get("id") // Nuevo parámetro para filtrar por ID
 
     // Build the where clause based on the provided parameters
     const where: any = {}
 
-    // Validate and parse numeric parameters
+    // Handle period filtering with range support
+    let periodoFilter: any = null
+
     if (periodoId) {
+      // Comportamiento existente: período individual
       const parsedPeriodoId = Number.parseInt(periodoId, 10)
       if (isNaN(parsedPeriodoId)) {
         return NextResponse.json({ error: "El periodoId debe ser un número válido" }, { status: 400 })
       }
-      where.periodoId = parsedPeriodoId
+      periodoFilter = parsedPeriodoId
+    } else if (periodoInicio || periodoFin) {
+      // Nuevo comportamiento: rango de períodos
+      const startId = periodoInicio ? Number.parseInt(periodoInicio, 10) : null
+      const endId = periodoFin ? Number.parseInt(periodoFin, 10) : null
+
+      if (periodoInicio && isNaN(startId!)) {
+        return NextResponse.json({ error: "El periodoInicio debe ser un número válido" }, { status: 400 })
+      }
+      if (periodoFin && isNaN(endId!)) {
+        return NextResponse.json({ error: "El periodoFin debe ser un número válido" }, { status: 400 })
+      }
+
+      if (startId && endId) {
+        // Rango de períodos
+        const minId = Math.min(startId, endId)
+        const maxId = Math.max(startId, endId)
+        periodoFilter = {
+          gte: minId,
+          lte: maxId
+        }
+      } else if (startId) {
+        // Solo inicio especificado, tratar como período único
+        periodoFilter = startId
+      } else if (endId) {
+        // Solo fin especificado, usar como límite superior
+        periodoFilter = {
+          lte: endId
+        }
+      }
     }
 
+    // Apply period filter if any
+    if (periodoFilter !== null) {
+      where.periodoId = periodoFilter
+    }
+
+    // Validate and parse other numeric parameters
     if (instructorId) {
       const parsedInstructorId = Number.parseInt(instructorId, 10)
       if (isNaN(parsedInstructorId)) {
@@ -55,6 +105,22 @@ export async function GET(request: NextRequest) {
       where.fecha = parsedDate
     }
 
+    if (estudio) {
+      where.estudio = {
+        contains: estudio,
+        mode: 'insensitive'
+      }
+    }
+
+    if (id) {
+      where.id = id
+    }
+
+    // Get total count for pagination
+    const total = await prisma.clase.count({ where })
+    const totalPages = Math.ceil(total / limit)
+
+    // Get paginated results
     const clases = await prisma.clase.findMany({
       where,
       include: {
@@ -62,12 +128,28 @@ export async function GET(request: NextRequest) {
         disciplina: true,
         periodo: true,
       },
-      orderBy: {
-        fecha: "asc",
-      },
+      orderBy: [
+        { fecha: "desc" },
+        { semana: "desc" },
+        { id: "asc" }
+      ],
+      skip: offset,
+      take: limit,
     })
 
-    return NextResponse.json(clases)
+    const response: PaginatedResponse<any> = {
+      data: clases,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    }
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Error en GET /api/clases:", error)
 

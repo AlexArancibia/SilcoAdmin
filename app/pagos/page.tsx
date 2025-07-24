@@ -1,226 +1,200 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { toast } from "@/hooks/use-toast"
-import { Skeleton } from "@/components/ui/skeleton"
-import { usePagosData } from "@/hooks/use-pagos-data"
-import { useFilters } from "@/hooks/use-filters"
-import { usePagination } from "@/hooks/use-pagination"
-import { useCalculation } from "@/hooks/use-calculation"
-import { PageHeader } from "@/components/payments/page-header"
-import { FilterBar } from "@/components/payments/filter-bar"
-import { PagosTable } from "@/components/payments/pagos-table"
-import { Pagination } from "@/components/payments/pagination"
+import { Suspense, useState, useEffect } from "react"
+import { useSearchParams } from 'next/navigation'
+import { usePeriodosStore } from "@/store/usePeriodosStore"
+import { useInstructoresStore } from "@/store/useInstructoresStore"
+
 import { CalculateDialog } from "@/components/payments/dialogs/calculate-dialog"
 import { ProcessLogsDialog } from "@/components/payments/dialogs/process-logs-dialog"
 import { FormulaDuplicationDialog } from "@/components/payments/dialogs/formula-duplication-dialog"
-import { CalculateBonosDialog } from "@/components/payments/dialogs/calculate-bonos-dialog"
+import { toast } from "@/hooks/use-toast"
+import { PageHeader } from "@/components/payments/page-header"
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { PagosTable } from "@/components/payments/pagos-table"
+import { PagosFilter } from "@/components/payments/pagos-filter"
 import { DashboardShell } from "@/components/dashboard/shell"
-import { exportToExcel } from "@/utils/excel-utils"
+import type { EstadoPago } from "@/types/schema"
+import { usePagosStore } from "@/store/usePagosStore"
 
 export default function PagosPage() {
-  // State for dialogs
-  const [showCalculateDialog, setShowCalculateDialog] = useState<boolean>(false)
-  const [showProcessLogsDialog, setShowProcessLogsDialog] = useState<boolean>(false)
-  const [showCalculateBonosDialog, setShowCalculateBonosDialog] = useState<boolean>(false)
+  // Dialog states
+  const [showCalculateDialog, setShowCalculateDialog] = useState(false)
+  const [showProcessLogsDialog, setShowProcessLogsDialog] = useState(false)
 
-  // Custom hooks
-  const {
-    pagos,
-    instructores,
-    periodos,
-    periodosSeleccionados,
-    isLoadingPagos,
-    exportarPagoPDF,
-    imprimirPagoPDF,
-    exportarTodosPagosPDF,
-    imprimirTodosPagosPDF,
-    periodoActual,
-  } = usePagosData()
+  // Data stores
+  const { periodos, rangoSeleccionado, setSeleccion, fetchPeriodos } = usePeriodosStore()
+  const { instructores, fetchInstructores } = useInstructoresStore()
+  const { fetchPagos } = usePagosStore()
 
-  const {
-    filtroEstado,
-    setFiltroEstado,
-    filtroInstructor,
-    setFiltroInstructor,
-    busqueda,
-    setBusqueda,
-    sortConfig,
-    setSortConfig,
-    filteredPagos,
-    sortedPagos,
-    requestSort,
-  } = useFilters(pagos, instructores, periodos)
+  // Calculation state
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [processLogs, setProcessLogs] = useState<string[]>([])
 
-  const { paginaActual, setPaginaActual, elementosPorPagina, setElementosPorPagina, totalPaginas, paginatedPagos } =
-    usePagination(sortedPagos)
+  // Manual categories state
+  const [manualCategorias, setManualCategorias] = useState<any[]>([])
+  const [selectedInstructorId, setSelectedInstructorId] = useState<number | null>(null)
+  const [selectedDisciplinaId, setSelectedDisciplinaId] = useState<number | null>(null)
+  const [manualCategoria, setManualCategoria] = useState<any>(null)
 
-  const {
-    isCalculatingPayments,
-    processLogs,
-    setProcessLogs,
-    calcularPagosPeriodo,
-    selectedPeriodoId,
-    setSelectedPeriodoId,
-    calcularBonoEnPeriodo,
-    setCalcularBonoEnPeriodo,
-    showFormulaDuplicationDialog,
-    setShowFormulaDuplicationDialog,
-    periodoOrigenFormulas,
-    isDuplicatingFormulas,
-    handleDuplicateFormulas,
-    // Nuevas propiedades para el cálculo de bonos
-    isCalculatingBonuses,
-    periodosSeleccionadosParaBono,
-    setPeriodosSeleccionadosParaBono,
-    verificarBonoCalculado,
-    obtenerPeriodosDisponiblesParaBono,
-    togglePeriodoParaBono,
-    calcularBonosPeriodo,
-    // Propiedades para categorías manuales
-    selectedInstructorId,
-    setSelectedInstructorId,
-    selectedDisciplinaId,
-    setSelectedDisciplinaId,
-    manualCategoria,
-    setManualCategoria,
-    manualCategorias,
-    setManualCategorias,
-    agregarCategoriaManual,
-    eliminarCategoriaManual,
-    aplicarCategoriasManual,
-  } = useCalculation(setShowProcessLogsDialog, setShowCalculateDialog)
+  // Get the selected period ID (first element of the range for single period operations)
+  const selectedPeriodoId = rangoSeleccionado ? rangoSeleccionado[0] : null;
 
-  // Establecer disciplina fija como Síclo (ID 1) al iniciar
-  useEffect(() => {
-    setSelectedDisciplinaId(1)
-  }, [setSelectedDisciplinaId])
-
-  // Create wrapper functions for PDF exports
-  const handleExportTodosPagosPDF = () => {
-    exportarTodosPagosPDF(sortedPagos, filtroEstado, filtroInstructor)
+  const agregarCategoriaManual = () => {
+    if (selectedInstructorId && selectedDisciplinaId && manualCategoria) {
+      const nuevaCategoria = {
+        instructorId: selectedInstructorId,
+        disciplinaId: selectedDisciplinaId,
+        categoria: manualCategoria,
+      }
+      setManualCategorias((prev) => [...prev.filter((c) => c.instructorId !== selectedInstructorId || c.disciplinaId !== selectedDisciplinaId), nuevaCategoria])
+      toast({ title: "Categoría manual agregada" })
+    }
   }
 
-  const handleImprimirTodosPagosPDF = () => {
-    imprimirTodosPagosPDF(sortedPagos, filtroEstado, filtroInstructor)
+  const eliminarCategoriaManual = (instructorId: number, disciplinaId: number) => {
+    setManualCategorias((prev) => prev.filter((c) => c.instructorId !== instructorId || c.disciplinaId !== disciplinaId))
+    toast({ title: "Categoría manual eliminada" })
   }
 
-  // Función para exportar a Excel
-  const handleExportTodosExcel = async () => {
+  // Main calculation function
+  const handleCalculatePagos = async () => {
+    if (!selectedPeriodoId) {
+      toast({ title: "Error", description: "No se ha seleccionado un período.", variant: "destructive" })
+      return
+    }
+
+    setIsCalculating(true)
+    setProcessLogs([])
+    setShowProcessLogsDialog(true)
+
+    const addProcessLog = (log: string) => setProcessLogs((prev) => [...prev, log])
+
+    addProcessLog(`🚀 Iniciando proceso de cálculo para el período ID: ${selectedPeriodoId}`)
+    addProcessLog(`Total de instructores a procesar: ${instructores.length}`)
+    addProcessLog("-".repeat(50))
+
     try {
-      // Preparar los datos para Excel
-      const datosParaExcel = sortedPagos.map((pago) => {
-        const instructor = instructores.find((i) => i.id === pago.instructorId)
-        const periodo = periodos.find((p) => p.id === pago.periodoId)
-
-        return {
-          ID: pago.id,
-          Instructor: instructor?.nombre || `Instructor ID ${pago.instructorId}`,
-          Periodo: periodo ? `${periodo.numero}-${periodo.año}` : `Periodo ID ${pago.periodoId}`,
-          Monto: pago.monto,
-          Bono: pago.bono || 0,
-          Retencion: pago.retencion,
-          Reajuste: pago.reajuste,
-          "Pago Final": pago.pagoFinal,
-          Estado: pago.estado,
-          "Fecha Creación": pago.createdAt ? new Date(pago.createdAt).toLocaleDateString() : "",
-          "Fecha Actualización": pago.updatedAt ? new Date(pago.updatedAt).toLocaleDateString() : "",
-        }
-      })
-
-      // Exportar a Excel
-      await exportToExcel(datosParaExcel, `Pagos_Instructores_${new Date().toISOString().split("T")[0]}`)
-
-      toast({
-        title: "Exportación exitosa",
-        description: "Los datos han sido exportados a Excel correctamente.",
-      })
+      const response = await fetch('/api/pagos/calculo/all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          periodoId: selectedPeriodoId,
+          manualCategorias,
+        }),
+      });
+      const result = await response.json();
+      if (response.ok) {
+        if (result.logs) setProcessLogs(prevLogs => [...prevLogs, ...result.logs]);
+        toast({ title: "Cálculo completado", description: "Se han procesado los instructores con clases en el periodo." });
+      } else {
+        addProcessLog(`❌ Error: ${result.error}`);
+      }
     } catch (error) {
-      toast({
-        title: "Error al exportar",
-        description: error instanceof Error ? error.message : "Error desconocido al exportar a Excel",
-        variant: "destructive",
-      })
+      addProcessLog(`❌ Error fatal en la comunicación con la API: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
+
+    addProcessLog("🏁 Proceso de cálculo finalizado.")
+    setIsCalculating(false)
+    fetchPagos({ page, limit, estado, instructorId, periodoId, busqueda })
+    toast({ title: "Cálculo completado", description: "Se han procesado todos los instructores." })
   }
 
-  // Añadir esta función para manejar la apertura del diálogo
-  const handleOpenCalculateDialog = () => {
-    // Si hay un periodo actual y no hay un periodo seleccionado, establecer el periodo actual
-    if (periodoActual && selectedPeriodoId === null) {
-      setSelectedPeriodoId(periodoActual.id)
-    }
-    setShowCalculateDialog(true)
-  }
+  const searchParams = useSearchParams();
+  const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
+  const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : 20;
+  const estado = (searchParams.get("estado") as EstadoPago) || undefined;
+  const instructorId = searchParams.get("instructorId") ? parseInt(searchParams.get("instructorId")!) : undefined;
+  const periodoId = searchParams.get("periodoId") ? parseInt(searchParams.get("periodoId")!) : undefined;
+  const periodoInicio = searchParams.get("periodoInicio") ? parseInt(searchParams.get("periodoInicio")!) : undefined;
+  const periodoFin = searchParams.get("periodoFin") ? parseInt(searchParams.get("periodoFin")!) : undefined;
+  const busqueda = searchParams.get("busqueda") || undefined;
 
-  // Añadir esta función para manejar la apertura del diálogo de cálculo de bonos
-  const handleOpenCalculateBonosDialog = () => {
-    // Si hay un periodo actual y no hay un periodo seleccionado, establecer el periodo actual
-    if (periodoActual && selectedPeriodoId === null) {
-      setSelectedPeriodoId(periodoActual.id)
+  useEffect(() => {
+    // Build query params with support for period ranges
+    const queryParams: any = { page, limit, estado, instructorId, busqueda }
+    
+    // Handle period parameters (prioritize individual period over range)
+    if (periodoId) {
+      queryParams.periodoId = periodoId
+    } else if (periodoInicio || periodoFin) {
+      if (periodoInicio) queryParams.periodoInicio = periodoInicio
+      if (periodoFin) queryParams.periodoFin = periodoFin
     }
-    setShowCalculateBonosDialog(true)
+    
+    fetchPagos(queryParams)
+  }, [page, limit, estado, instructorId, periodoId, periodoInicio, periodoFin, busqueda, fetchPagos])
+
+  useEffect(() => {
+    if (periodos.length === 0) fetchPeriodos()
+    if (instructores.length === 0) fetchInstructores()
+  }, [fetchPeriodos, fetchInstructores])
+
+  // Wrapper function for setting selected period in dialogs
+  const handleSetSelectedPeriodoId = (periodoId: number | null) => {
+    if (periodoId) {
+      setSeleccion(periodoId, periodoId);
+    }
   }
 
   return (
     <DashboardShell>
       <PageHeader
-        periodosSeleccionados={periodosSeleccionados}
-        exportarTodosPagosPDF={handleExportTodosPagosPDF}
-        exportarTodosExcel={handleExportTodosExcel}
-        imprimirTodosPagosPDF={handleImprimirTodosPagosPDF}
-        isCalculatingPayments={isCalculatingPayments || isCalculatingBonuses}
-        setShowCalculateDialog={handleOpenCalculateDialog}
-        setShowCalculateBonosDialog={handleOpenCalculateBonosDialog}
+        periodosSeleccionados={[]}
+        exportarTodosPagosPDF={() => {}}
+        exportarTodosExcel={() => {}}
+        imprimirTodosPagosPDF={() => {}}
+        isCalculatingPayments={isCalculating}
+        setShowCalculateDialog={() => {
+          // No necesitamos lógica manual aquí, la persistencia maneja la selección automáticamente
+          setShowCalculateDialog(true)
+        }}
+        setShowCalculateBonosDialog={() => { 
+          toast({ title: "Función no implementada", description: "El cálculo de bonos se encuentra en desarrollo."})
+        }}
       />
+      <div className="grid gap-4">
 
-      <FilterBar
-        busqueda={busqueda}
-        setBusqueda={setBusqueda}
-        filtroEstado={filtroEstado}
-        setFiltroEstado={setFiltroEstado}
-        filtroInstructor={filtroInstructor}
-        setFiltroInstructor={setFiltroInstructor}
-        instructores={instructores}
-      />
 
-      {isLoadingPagos ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : (
-        <>
-          <PagosTable
-            paginatedPagos={paginatedPagos}
-            requestSort={requestSort}
-            sortConfig={sortConfig}
-            instructores={instructores}
-            periodosSeleccionados={periodosSeleccionados}
-            exportarPagoPDF={exportarPagoPDF}
-            imprimirPagoPDF={imprimirPagoPDF}
-          />
+        <PagosFilter
+          initialPage={page}
+          initialLimit={limit}
+          initialEstado={estado}
+          initialInstructorId={instructorId}
+          initialPeriodoId={periodoId}
+          initialBusqueda={busqueda}
+        />
 
-          {totalPaginas > 1 && (
-            <Pagination
-              paginaActual={paginaActual}
-              setPaginaActual={setPaginaActual}
-              totalPaginas={totalPaginas}
-              totalItems={sortedPagos.length}
-            />
-          )}
-        </>
-      )}
-
+        <Suspense
+          key={`${page}-${limit}-${estado}-${instructorId}-${periodoId}-${busqueda}`}
+          fallback={
+            <Card>
+              <CardHeader>
+                <CardTitle>Pagos</CardTitle>
+                <CardDescription>Cargando pagos...</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {Array.from({ length: limit }).map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          }
+        >
+          <PagosTable />
+        </Suspense>
+      </div>
       <CalculateDialog
         showCalculateDialog={showCalculateDialog}
         setShowCalculateDialog={setShowCalculateDialog}
         periodos={periodos}
         selectedPeriodoId={selectedPeriodoId}
-        setSelectedPeriodoId={setSelectedPeriodoId}
-        calcularPagosPeriodo={calcularPagosPeriodo}
-        // Props para categorías manuales
+        setSelectedPeriodoId={handleSetSelectedPeriodoId}
+        calcularPagosPeriodo={handleCalculatePagos}
         instructores={instructores}
         selectedInstructorId={selectedInstructorId}
         setSelectedInstructorId={setSelectedInstructorId}
@@ -231,38 +205,15 @@ export default function PagosPage() {
         manualCategorias={manualCategorias}
         agregarCategoriaManual={agregarCategoriaManual}
         eliminarCategoriaManual={eliminarCategoriaManual}
-        aplicarCategoriasManual={aplicarCategoriasManual}
-        isCalculatingPayments={isCalculatingPayments}
+        aplicarCategoriasManual={() => {}}
+        isCalculatingPayments={isCalculating}
       />
-
-      <CalculateBonosDialog
-        showCalculateBonosDialog={showCalculateBonosDialog}
-        setShowCalculateBonosDialog={setShowCalculateBonosDialog}
-        periodos={periodos}
-        selectedPeriodoId={selectedPeriodoId}
-        setSelectedPeriodoId={setSelectedPeriodoId}
-        calcularBonosPeriodo={calcularBonosPeriodo}
-        periodosSeleccionadosParaBono={periodosSeleccionadosParaBono}
-        setPeriodosSeleccionadosParaBono={setPeriodosSeleccionadosParaBono}
-        verificarBonoCalculado={verificarBonoCalculado}
-        obtenerPeriodosDisponiblesParaBono={obtenerPeriodosDisponiblesParaBono}
-        togglePeriodoParaBono={togglePeriodoParaBono}
-      />
-
       <ProcessLogsDialog
         showProcessLogsDialog={showProcessLogsDialog}
         setShowProcessLogsDialog={setShowProcessLogsDialog}
         processLogs={processLogs}
       />
 
-      <FormulaDuplicationDialog
-        showDialog={showFormulaDuplicationDialog}
-        setShowDialog={setShowFormulaDuplicationDialog}
-        selectedPeriodoId={selectedPeriodoId}
-        periodoOrigen={periodoOrigenFormulas}
-        isDuplicating={isDuplicatingFormulas}
-        handleDuplicateFormulas={handleDuplicateFormulas}
-      />
     </DashboardShell>
-  )
+  );
 }

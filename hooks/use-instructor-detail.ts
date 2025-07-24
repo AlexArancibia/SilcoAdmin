@@ -17,7 +17,7 @@ export function useInstructorDetail(instructorId: number) {
   const { fetchInstructor, instructorSeleccionado, isLoading, actualizarInstructor } = useInstructoresStore()
   const { fetchClases, clases, isLoading: isLoadingClases } = useClasesStore()
   const { periodos, periodosSeleccionados, fetchPeriodos } = usePeriodosStore()
-  const { pagos, fetchPagos, actualizarPago, isLoading: isLoadingPagos } = usePagosStore()
+  const { actualizarPago, isLoading: isLoadingPagos } = usePagosStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
   const { formulas, fetchFormulas } = useFormulasStore()
 
@@ -27,6 +27,8 @@ export function useInstructorDetail(instructorId: number) {
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null)
   const [clasesPeriodo, setClasesPeriodo] = useState<Clase[]>([])
   const [pagosPeriodo, setPagosPeriodo] = useState<PagoInstructor[]>([])
+  const [allPagosInstructor, setAllPagosInstructor] = useState<PagoInstructor[]>([])
+  const [isLoadingAllPagos, setIsLoadingAllPagos] = useState(false)
   const [currentPage, setCurrentPage] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -34,10 +36,39 @@ export function useInstructorDetail(instructorId: number) {
   const dataLoaded = useRef(false)
 
   const itemsPerPage = 10
-  const totalPages = Math.ceil(paymentDetails.length / itemsPerPage)
+  const totalPages = Math.ceil(allPagosInstructor.length / itemsPerPage)
   const startIndex = currentPage * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const currentPayments = paymentDetails.slice(startIndex, endIndex)
+  const currentPayments = allPagosInstructor.slice(startIndex, endIndex)
+
+  // Fetch all payments for this instructor
+  const fetchAllInstructorPagos = useCallback(async () => {
+    if (!instructorId) return
+    
+    setIsLoadingAllPagos(true)
+    try {
+      const response = await fetch(`/api/pagos?instructorId=${instructorId}&limit=100`)
+      const data = await response.json()
+      
+      if (response.ok) {
+        // Sort payments by most recent first
+        const sortedPagos = data.data.sort((a: PagoInstructor, b: PagoInstructor) => {
+          const dateA = new Date(b.updatedAt || b.createdAt || 0)
+          const dateB = new Date(a.updatedAt || a.createdAt || 0)
+          return dateA.getTime() - dateB.getTime()
+        })
+        setAllPagosInstructor(sortedPagos)
+      } else {
+        console.error('Error fetching instructor payments:', data.error)
+        setAllPagosInstructor([])
+      }
+    } catch (error) {
+      console.error('Error fetching instructor payments:', error)
+      setAllPagosInstructor([])
+    } finally {
+      setIsLoadingAllPagos(false)
+    }
+  }, [instructorId])
 
   // Load initial data
   useEffect(() => {
@@ -51,7 +82,7 @@ export function useInstructorDetail(instructorId: number) {
           fetchDisciplinas(),
           fetchFormulas(),
           fetchClases(),
-          fetchPagos(),
+          fetchAllInstructorPagos(),
         ])
       } catch (error) {
         console.error("Error al cargar datos:", error)
@@ -59,7 +90,7 @@ export function useInstructorDetail(instructorId: number) {
     }
 
     loadData()
-  }, [instructorId, fetchInstructor, fetchDisciplinas, fetchFormulas, fetchClases, fetchPagos])
+  }, [instructorId, fetchInstructor, fetchDisciplinas, fetchFormulas, fetchClases, fetchAllInstructorPagos])
 
   // Update instructor state when instructorSeleccionado changes
   useEffect(() => {
@@ -78,14 +109,10 @@ export function useInstructorDetail(instructorId: number) {
         (clase) => clase.instructorId === instructorId && periodosSeleccionados.some((p) => p.id === clase.periodoId),
       )
 
-      // const filteredPagos = pagos.filter(
-      //   (pago) => pago.instructorId === instructorId && periodosSeleccionados.some((p) => p.id === pago.periodoId),
-      // )
-      
-      const filteredPagos = pagos.filter(
-        (pago) => pago.instructorId === instructorId 
+      // Filter payments by selected periods from all payments
+      const filteredPagos = allPagosInstructor.filter(
+        (pago: PagoInstructor) => periodosSeleccionados.some((p) => p.id === pago.periodoId)
       )
-
 
       setClasesPeriodo(filteredClases)
       setPagosPeriodo(filteredPagos)
@@ -93,7 +120,7 @@ export function useInstructorDetail(instructorId: number) {
       setClasesPeriodo([])
       setPagosPeriodo([])
     }
-  }, [clases, pagos, periodosSeleccionados, instructorId])
+  }, [clases, allPagosInstructor, periodosSeleccionados, instructorId])
 
   // Calculate payments when relevant data changes
   const calculatePayments = useCallback(() => {
@@ -218,7 +245,7 @@ export function useInstructorDetail(instructorId: number) {
         })
 
         // Refresh payments data
-        await fetchPagos()
+        await fetchAllInstructorPagos() // Use fetchAllInstructorPagos to update the state
       }
 
       setIsEditing(false)
@@ -326,12 +353,13 @@ export function useInstructorDetail(instructorId: number) {
     totalPages,
     currentPayments,
     pagosPeriodo,
+    allPagosInstructor,
+    isLoadingAllPagos,
     totalClases,
     clasesCompletadas,
     totalReservas,
     totalLugares,
     totalMonto,
-    pagos,
     ocupacionPromedio,
     totalPotentialBonus,
     getCategoriesByDiscipline,
@@ -339,5 +367,6 @@ export function useInstructorDetail(instructorId: number) {
     isLoadingDisciplinas,
     editedPaymentMetrics,
     handlePaymentMetricChange,
+    fetchAllInstructorPagos,
   }
 }

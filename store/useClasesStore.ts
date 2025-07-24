@@ -1,47 +1,65 @@
-import { create } from "zustand"
-import { clasesApi } from "@/lib/api/clases-api"
-import type { Clase } from "@/types/schema"
+import { create } from "zustand";
+import { clasesApi } from "@/lib/api/clases-api";
+import type { Clase, PaginatedResponse, ClasesQueryParams } from "@/types/schema";
+
+// Define la estructura de la información de paginación
+interface PaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
 
 interface ClasesState {
-  clases: Clase[]
-  claseSeleccionada: Clase | null
-  isLoading: boolean
-  error: string | null
+  clases: Clase[];
+  claseSeleccionada: Clase | null;
+  pagination: PaginationState;
+  isLoading: boolean;
+  error: string | null;
 
   // Acciones
-  fetchClases: (params?: {
-    periodoId?: number
-    instructorId?: number
-    disciplinaId?: number
-    semana?: number
-    estudio?:string
-    fecha?: string
-  }) => Promise<void>
-  fetchClase: (id: string) => Promise<void>
-  crearClase: (clase: Omit<Clase, "createdAt" | "updatedAt">) => Promise<Clase>
-  actualizarClase: (id: string, clase: Partial<Clase>) => Promise<Clase>
-  eliminarClase: (id: string) => Promise<void>
-  setClaseSeleccionada: (clase: Clase | null) => void
-  resetClases: () => void
+  fetchClases: (params?: ClasesQueryParams) => Promise<void>;
+  fetchClase: (id: string) => Promise<void>;
+  crearClase: (clase: Omit<Clase, "createdAt" | "updatedAt">) => Promise<Clase>;
+  actualizarClase: (id: string, clase: Partial<Clase>) => Promise<Clase>;
+  eliminarClase: (id: string) => Promise<void>;
+  setClaseSeleccionada: (clase: Clase | null) => void;
+  resetClases: () => void;
 }
+
+const initialPaginationState: PaginationState = {
+  page: 1,
+  limit: 10,
+  total: 0,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false,
+};
 
 export const useClasesStore = create<ClasesState>((set, get) => ({
   clases: [],
   claseSeleccionada: null,
+  pagination: initialPaginationState,
   isLoading: false,
   error: null,
 
   fetchClases: async (params) => {
-    set({ isLoading: true, error: null })
+    set({ isLoading: true, error: null });
     try {
-      const clases = await clasesApi.getClases(params)
-      set({ clases, isLoading: false })
+      const response: PaginatedResponse<Clase> = await clasesApi.getClases(params);
+      set({ 
+        clases: response.data, 
+        pagination: response.pagination, 
+        isLoading: false 
+      });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error desconocido al obtener clases",
         isLoading: false,
-      })
-      console.error("Error al obtener clases:", error)
+      });
+      console.error("Error al obtener clases:", error);
     }
   },
 
@@ -60,7 +78,7 @@ export const useClasesStore = create<ClasesState>((set, get) => ({
   },
 
   crearClase: async (clase) => {
-    set({ isLoading: true, error: null })
+    
     try {
       const nuevaClase = await clasesApi.createClase(clase)
       set((state) => ({
