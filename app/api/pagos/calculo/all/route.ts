@@ -351,9 +351,20 @@ export async function POST(req: Request) {
       const bonoExistente = pagoExistente?.bono || 0;
       logs.push(`💰 Valores existentes - Reajuste: ${reajusteExistente}, Bono: ${bonoExistente}`);
       
-      const subtotal = montoTotal + reajusteExistente + bonoExistente + coverTotal;
-      logs.push(`💰 Subtotal: ${montoTotal} + ${reajusteExistente} + ${bonoExistente} + ${coverTotal} = ${subtotal.toFixed(2)}`);
-
+      // El monto base es solo la suma de los pagos por clase
+      const montoBase = montoTotal;
+      // Calcular el reajuste según tipo
+      let reajusteCalculado = 0;
+      if (pagoExistente?.tipoReajuste === "PORCENTAJE") {
+        reajusteCalculado = montoBase * (pagoExistente.reajuste / 100);
+      } else {
+        reajusteCalculado = pagoExistente?.reajuste || 0;
+      }
+      // El bono y cover también se suman después
+      const bono = pagoExistente?.bono || 0;
+      const cover = coverTotal;
+      // El subtotal es la suma de monto base + reajuste + bono + cover
+      const subtotal = montoBase + reajusteCalculado + bono + cover;
       // Usar el subtotal como base para los cálculos finales
       const pagoTotalInstructor = subtotal;
       const descuentoPenalizacion = penalizacionResumen.descuento || 0;
@@ -394,15 +405,15 @@ export async function POST(req: Request) {
         await prisma.pagoInstructor.update({
           where: { id: pagoExistente.id },
           data: {
-            monto: pagoTotalInstructor,
-            bono: 0,
+            monto: montoBase, // Solo el monto base
+            bono,
             reajuste: pagoExistente.reajuste,
             penalizacion: descuentoPenalizacion,
             tipoReajuste: pagoExistente.tipoReajuste,
             retencion,
             pagoFinal,
             dobleteos,
-            cover: coverTotal,
+            cover,
             horariosNoPrime,
             detalles: detallesInstructor,
           },
@@ -414,14 +425,14 @@ export async function POST(req: Request) {
           data: {
             instructorId: instructor.id,
             periodoId,
-            monto: pagoTotalInstructor,
+            monto: montoBase, // Solo el monto base
             bono: 0,
             retencion,
             reajuste: 0,
             tipoReajuste: "FIJO",
             pagoFinal,
             dobleteos,
-            cover: coverTotal,
+            cover,
             horariosNoPrime,
             participacionEventos: true,
             cumpleLineamientos: true,

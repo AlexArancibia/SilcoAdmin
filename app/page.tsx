@@ -175,10 +175,10 @@ export default function DashboardPage() {
 
       <DashboardTabs activeTab={activeTab} setActiveTab={setActiveTab}>
          <TabsContent value="general">
-          <GeneralTab
+          {/* <GeneralTab
             periodoFilter={getPeriodoFilter()}
             getPeriodoNombre={getPeriodoNombre}
-          />
+          /> */}
         </TabsContent>
 
         <TabsContent value="estudios">

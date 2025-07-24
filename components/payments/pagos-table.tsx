@@ -124,19 +124,18 @@ export function PagosTable() {
       // Setear los valores globales antes de actualizar
       setNuevoReajuste(nuevoReajusteValor)
       setTipoReajuste(tipoReajusteValor)
-      // Ahora solo pasar el pagoId
+      // Solo actualizar el reajuste, no recalcular aquí
       await actualizarReajuste(pagoId)
-      // Encontrar el pago para obtener los datos necesarios para el recálculo
-      const pago = pagos.find(p => p.id === pagoId)
-      if (pago) {
-        // Recalcular automáticamente después del reajuste
-        await recalcularPago(pago)
-      }
+      // Refrescar la lista de pagos después de actualizar el reajuste
+      fetchPagos({
+        page: pagination?.page,
+        limit: pagination?.limit,
+      })
     } catch (error) {
-      console.error('Error al actualizar reajuste y recalcular:', error)
+      console.error('Error al actualizar reajuste:', error)
       toast({
         title: "Error",
-        description: "Error al actualizar el reajuste y recalcular",
+        description: "Error al actualizar el reajuste",
         variant: "destructive",
       })
     }
@@ -323,6 +322,8 @@ export function PagosTable() {
                 const isRecalculating = recalculandoPagoId === pago.id
                 const bono = pago.bono ?? 0
                 const penalizacion = pago.penalizacion ?? 0
+                // Mostrar penalización como monto descontado
+                const montoPenalizacion = pago.monto * (penalizacion / 100)
                 const cover = pago.cover ?? 0
                 const reajusteCalculado = pago.tipoReajuste === "PORCENTAJE"
                   ? (pago.monto * pago.reajuste) / 100
@@ -356,8 +357,8 @@ export function PagosTable() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {penalizacion > 0 ? (
-                        <span className="text-red-600 text-sm">-{formatCurrency(penalizacion)}</span>
+                      {montoPenalizacion > 0 ? (
+                        <span className="text-red-600 text-sm">-{formatCurrency(montoPenalizacion)}</span>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
