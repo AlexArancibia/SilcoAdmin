@@ -18,8 +18,7 @@ import { DashboardShell } from "@/components/dashboard/shell"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
-import { usePagosStore } from "@/store/usePagosStore"
-import { useClasesStore } from "@/store/useClasesStore"
+import { useStatsStore } from "@/store/useStatsStore"
 
 export default function DashboardPage() {
   // States
@@ -32,8 +31,7 @@ export default function DashboardPage() {
   const { instructores, fetchInstructores, isLoading: isLoadingInstructores } = useInstructoresStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
   const { periodos, rangoSeleccionado, setSeleccion, fetchPeriodos, getPeriodoQueryParams } = usePeriodosStore()
-  const { pagos, fetchPagos, isLoading: isLoadingPagos } = usePagosStore()
-  const { clases, fetchClases, isLoading: isLoadingClases } = useClasesStore()
+  const { isLoading: isLoadingStats, resetStats } = useStatsStore()
 
   // Adjust timeRange based on device
   useEffect(() => {
@@ -42,9 +40,9 @@ export default function DashboardPage() {
     }
   }, [isMobile])
 
-  // Load all data when component mounts
+  // Load all basic data when component mounts
   useEffect(() => {
-    const loadAllData = async () => {
+    const loadBasicData = async () => {
       setIsLoading(true)
 
       try {
@@ -52,7 +50,6 @@ export default function DashboardPage() {
         await Promise.all([
           fetchInstructores(),
           fetchDisciplinas(), 
-          fetchPeriodos(), // La persistencia se maneja automáticamente en el store
         ])
       } catch (error) {
         console.error("Error loading initial data:", error)
@@ -61,32 +58,32 @@ export default function DashboardPage() {
       }
     }
 
-    loadAllData()
-  }, [fetchInstructores, fetchDisciplinas, fetchPeriodos])
+    loadBasicData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Load filtered data when period selection changes
+  // Reset stats when period selection changes (they'll be loaded by the components)
   useEffect(() => {
-    const loadFilteredData = async () => {
-      if (rangoSeleccionado) {
-        const periodoParams = getPeriodoQueryParams()
-        
-        try {
-          await Promise.all([
-            fetchClases(periodoParams),
-            fetchPagos(periodoParams),
-          ])
-        } catch (error) {
-          console.error("Error loading filtered data:", error)
-        }
-      }
+    resetStats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangoSeleccionado])
+
+  // Get period filter for statistics
+  const getPeriodoFilter = () => {
+    if (!rangoSeleccionado) {
+      return undefined
     }
 
-    loadFilteredData()
-  }, [rangoSeleccionado, fetchClases, fetchPagos, getPeriodoQueryParams])
-
-  // Filter functions are now simplified since we get pre-filtered data
-  const getFilteredClases = () => clases
-  const getFilteredPagos = () => pagos
+    const [startId, endId] = rangoSeleccionado
+    if (startId === endId) {
+      return { periodoId: startId }
+    } else {
+      return { 
+        periodoInicio: startId,
+        periodoFin: endId 
+      }
+    }
+  }
 
   // Get period name for display
   const getPeriodoNombre = (): string => {
@@ -176,35 +173,22 @@ export default function DashboardPage() {
         getPeriodoNombre={getPeriodoNombre}
       />
 
-
       <DashboardTabs activeTab={activeTab} setActiveTab={setActiveTab}>
          <TabsContent value="general">
           <GeneralTab
-            instructores={instructores}
-            disciplinas={disciplinas}
-            filteredClases={getFilteredClases()}
-            filteredPagos={getFilteredPagos()}
-            periodos={periodos}
+            periodoFilter={getPeriodoFilter()}
             getPeriodoNombre={getPeriodoNombre}
-            formatFecha={formatFecha}
-            isLoadingClases={isLoadingClases}
-            isLoadingPagos={isLoadingPagos}
           />
         </TabsContent>
 
         <TabsContent value="estudios">
-          <EstudiosTab
-            filteredClases={getFilteredClases()}
-            filteredPagos={getFilteredPagos()}
-            disciplinas={disciplinas}
-            instructores={instructores}
+          {/* <EstudiosTab
+            periodoFilter={getPeriodoFilter()}
             getPeriodoNombre={getPeriodoNombre}
             formatFecha={formatFecha}
-            isLoadingClases={isLoadingClases}
-            isLoadingPagos={isLoadingPagos}
-          />
+          /> */}
         </TabsContent>
-      </DashboardTabs>
+      </DashboardTabs>  
 </DashboardShell>
   )
 }

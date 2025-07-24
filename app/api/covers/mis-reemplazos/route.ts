@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const instructorReemplazoId = searchParams.get("instructorReemplazoId")
     const periodoId = searchParams.get("periodoId")
     const disciplinaId = searchParams.get("disciplinaId")
-    const status = searchParams.get("status")
+    const justificacion = searchParams.get("justificacion")
     const fecha = searchParams.get("fecha")
     const busqueda = searchParams.get("busqueda")
     const page = parseInt(searchParams.get("page") || "1")
@@ -54,11 +54,11 @@ export async function GET(request: NextRequest) {
       where.disciplinaId = parsedDisciplinaId
     }
 
-    if (status) {
-      if (!["PENDIENTE", "APROBADO", "RECHAZADO"].includes(status)) {
-        return NextResponse.json({ error: "El status debe ser PENDIENTE, APROBADO o RECHAZADO" }, { status: 400 })
+    if (justificacion) {
+      if (!["PENDIENTE", "APROBADO", "RECHAZADO"].includes(justificacion)) {
+        return NextResponse.json({ error: "La justificacion debe ser PENDIENTE, APROBADO o RECHAZADO" }, { status: 400 })
       }
-      where.status = status
+      where.justificacion = justificacion
     }
 
     if (fecha) {

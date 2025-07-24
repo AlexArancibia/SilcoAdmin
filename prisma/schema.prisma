@@ -186,8 +186,7 @@ model Cover {
   claseId               String?  // ID de la clase que está siendo cubierta (opcional)
   
   // Estados y configuraciones (solo modificables por managers/admin)
-  status                String   @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
-  justificacion         Boolean  @default(false)
+  justificacion                String   @default("PENDIENTE") // PENDIENTE, APROBADO, RECHAZADO
   pagoBono              Boolean  @default(false)
   pagoFullHouse         Boolean  @default(false)
   comentarios           String?

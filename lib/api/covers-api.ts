@@ -58,8 +58,8 @@ export class CoversApi extends ApiClient {
     return this.getCovers({ disciplinaId, ...params })
   }
 
-  async getCoversByStatus(status: "PENDIENTE" | "APROBADO" | "RECHAZADO", params?: Omit<CoversQueryParams, 'status'>): Promise<PaginatedResponse<Cover>> {
-    return this.getCovers({ status, ...params })
+  async getCoversByJustificacion(justificacion: "PENDIENTE" | "APROBADO" | "RECHAZADO", params?: Omit<CoversQueryParams, 'justificacion'>): Promise<PaginatedResponse<Cover>> {
+    return this.getCovers({ justificacion, ...params })
   }
 
   async getCoversByFecha(fecha: string, params?: Omit<CoversQueryParams, 'fecha'>): Promise<PaginatedResponse<Cover>> {
@@ -67,13 +67,12 @@ export class CoversApi extends ApiClient {
   }
 
   // Método para managers/admin para aprobar/rechazar covers
-  async updateCoverStatus(id: number, status: "PENDIENTE" | "APROBADO" | "RECHAZADO", comentarios?: string): Promise<Cover> {
-    return this.updateCover(id, { status, comentarios })
+  async updateCoverJustificacion(id: number, justificacion: "PENDIENTE" | "APROBADO" | "RECHAZADO", comentarios?: string): Promise<Cover> {
+    return this.updateCover(id, { justificacion, comentarios })
   }
 
   // Método para managers/admin para configurar pagos de covers
   async updateCoverPayments(id: number, payments: {
-    justificacion?: boolean
     pagoBono?: boolean
     pagoFullHouse?: boolean
   }): Promise<Cover> {

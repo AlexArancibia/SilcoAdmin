@@ -85,14 +85,14 @@ export default function CoversPage() {
     fetchCovers,
     fetchMisReemplazos,
     crearCover,
-    updateCoverStatus,
+    updateCoverJustificacion,
     updateCoverPayments,
     enlazarCoverConClase,
     actualizarCover,
     eliminarCover,
     setCoverSeleccionado,
     searchCovers,
-    fetchCoversByStatus,
+    fetchCoversByJustificacion,
     fetchCoversByPeriodo,
     isLoading,
     error,
@@ -106,13 +106,13 @@ export default function CoversPage() {
   // Estados
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPeriodo, setSelectedPeriodo] = useState<number | 'all'>('all')
-  const [selectedStatus, setSelectedStatus] = useState<StatusCover | 'all'>('all')
+  const [selectedJustificacion, setSelectedJustificacion] = useState<StatusCover | 'all'>('all')
   
   // Diálogos
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false)
+  const [isJustificacionDialogOpen, setIsJustificacionDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   
         // Formularios
@@ -135,24 +135,23 @@ export default function CoversPage() {
      fecha: '',
      hora: '',
      claseId: '',
-     status: 'PENDIENTE' as StatusCover,
-     justificacion: false,
+     justificacion: 'PENDIENTE' as StatusCover,
      pagoBono: false,
      pagoFullHouse: false,
      comentarios: '',
      cambioDeNombre: '',
    })
   
-  const [statusForm, setStatusForm] = useState({
-    status: 'PENDIENTE' as StatusCover,
+  const [justificacionForm, setJustificacionForm] = useState({
+    justificacion: 'PENDIENTE' as StatusCover,
     comentarios: '',
   })
 
   // Determinar si es instructor
   const { userType } = useAuthStore()
   const isInstructor = userType === 'instructor'
-  // const isAdmin = ['ADMIN', 'SUPERADMIN', 'MANAGER'].includes(user?.rol || '')
-  const isAdmin = true
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(user?.rol || '')
+ 
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -187,20 +186,20 @@ export default function CoversPage() {
       await fetchMisReemplazos(user.id, {
         busqueda: searchTerm || undefined,
         periodoId: selectedPeriodo !== 'all' ? selectedPeriodo : undefined,
-        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        justificacion: selectedJustificacion !== 'all' ? selectedJustificacion : undefined,
       })
     } else {
       await fetchCovers({
         busqueda: searchTerm || undefined,
         periodoId: selectedPeriodo !== 'all' ? selectedPeriodo : undefined,
-        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        justificacion: selectedJustificacion !== 'all' ? selectedJustificacion : undefined,
       })
     }
-  }, [searchTerm, selectedPeriodo, selectedStatus, isInstructor, user?.id, fetchMisReemplazos, fetchCovers])
+  }, [searchTerm, selectedPeriodo, selectedJustificacion, isInstructor, user?.id, fetchMisReemplazos, fetchCovers])
 
   useEffect(() => {
     handleSearch()
-  }, [selectedPeriodo, selectedStatus, handleSearch])
+  }, [selectedPeriodo, selectedJustificacion, handleSearch])
 
   // Handlers para formularios
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -237,27 +236,27 @@ export default function CoversPage() {
     }
   }
 
-  const handleStatusSubmit = async () => {
+  const handleJustificacionSubmit = async () => {
     if (!coverSeleccionado) return
 
     try {
-      await updateCoverStatus(
+      await updateCoverJustificacion(
         coverSeleccionado.id,
-        statusForm.status,
-        statusForm.comentarios || undefined
+        justificacionForm.justificacion,
+        justificacionForm.comentarios || undefined
       )
       
       toast({
-        title: 'Status actualizado',
-        description: `Cover ${statusForm.status.toLowerCase()} correctamente.`,
+        title: 'Justificación actualizada',
+        description: `Cover ${justificacionForm.justificacion.toLowerCase()} correctamente.`,
       })
       
-      setIsStatusDialogOpen(false)
+      setIsJustificacionDialogOpen(false)
       handleSearch()
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Error al actualizar el status',
+        description: error instanceof Error ? error.message : 'Error al actualizar la justificación',
         variant: 'destructive',
       })
     }
@@ -335,8 +334,7 @@ export default function CoversPage() {
        fecha: format(new Date(cover.fecha), 'yyyy-MM-dd'),
        hora: cover.hora,
        claseId: cover.claseId || '',
-       status: cover.status || 'PENDIENTE',
-       justificacion: cover.justificacion || false,
+       justificacion: cover.justificacion || 'PENDIENTE',
        pagoBono: cover.pagoBono || false,
        pagoFullHouse: cover.pagoFullHouse || false,
        comentarios: cover.comentarios || '',
@@ -345,13 +343,13 @@ export default function CoversPage() {
      setIsEditDialogOpen(true)
    }
 
-  const openStatusDialog = (cover: Cover) => {
+  const openJustificacionDialog = (cover: Cover) => {
     setCoverSeleccionado(cover)
-    setStatusForm({
-      status: cover.status || 'PENDIENTE',
+    setJustificacionForm({
+      justificacion: cover.justificacion || 'PENDIENTE',
       comentarios: cover.comentarios || '',
     })
-    setIsStatusDialogOpen(true)
+    setIsJustificacionDialogOpen(true)
   }
 
   const getInstructorName = (id: number) => {
@@ -369,20 +367,20 @@ export default function CoversPage() {
     return periodo ? `P${periodo.numero}-${periodo.año}` : `ID: ${id}`
   }
 
-  const getStatusBadge = (status: StatusCover) => {
+  const getJustificacionBadge = (justificacion: StatusCover) => {
     const configs = {
       PENDIENTE: { variant: 'outline' as const, icon: AlertCircle, color: 'text-yellow-600' },
       APROBADO: { variant: 'default' as const, icon: CheckCircle, color: 'text-green-600' },
       RECHAZADO: { variant: 'destructive' as const, icon: XCircle, color: 'text-red-600' },
     }
     
-    const config = configs[status] || configs.PENDIENTE
+    const config = configs[justificacion] || configs.PENDIENTE
     const Icon = config.icon
     
     return (
       <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon className="h-3 w-3" />
-        {status}
+        {justificacion}
       </Badge>
     )
   }
@@ -450,8 +448,8 @@ export default function CoversPage() {
             </Select>
 
             <Select 
-              value={selectedStatus} 
-              onValueChange={(value) => setSelectedStatus(value as StatusCover | 'all')}
+              value={selectedJustificacion} 
+              onValueChange={(value) => setSelectedJustificacion(value as StatusCover | 'all')}
             >
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Estado" />
@@ -485,7 +483,6 @@ export default function CoversPage() {
                   <TableHead>Hora</TableHead>
                   <TableHead>Período</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Justificación</TableHead>
                   <TableHead>Pago Bono S/80</TableHead>
                   <TableHead>Pago Full House</TableHead>
                   <TableHead>Acciones</TableHead>
@@ -525,23 +522,12 @@ export default function CoversPage() {
                     </Badge>
                   </TableCell>
                                      <TableCell>
-                     {getStatusBadge(cover.status)}
-                   </TableCell>
-                   
-                   {/* Justificación */}
-                   <TableCell className="text-center">
-                     {cover.status === 'PENDIENTE' ? (
-                       <Badge variant="outline" className="text-xs">Pendiente</Badge>
-                     ) : cover.justificacion ? (
-                       <Check className="h-4 w-4 text-green-600 mx-auto" />
-                     ) : (
-                       <X className="h-4 w-4 text-red-600 mx-auto" />
-                     )}
+                     {getJustificacionBadge(cover.justificacion)}
                    </TableCell>
                    
                    {/* Pago Bono S/80 */}
                    <TableCell className="text-center">
-                     {cover.status === 'PENDIENTE' ? (
+                     {cover.justificacion === 'PENDIENTE' ? (
                        <Badge variant="outline" className="text-xs">Pendiente</Badge>
                      ) : cover.pagoBono ? (
                        <Badge variant="default" className="text-xs bg-green-600">S/80</Badge>
@@ -552,7 +538,7 @@ export default function CoversPage() {
                    
                    {/* Pago Full House */}
                    <TableCell className="text-center">
-                     {cover.status === 'PENDIENTE' ? (
+                     {cover.justificacion === 'PENDIENTE' ? (
                        <Badge variant="outline" className="text-xs">Pendiente</Badge>
                      ) : cover.pagoFullHouse ? (
                        <Badge variant="default" className="text-xs bg-blue-600">Full House</Badge>
@@ -586,11 +572,11 @@ export default function CoversPage() {
                                Editar
                              </DropdownMenuItem>
                              
-                             {/* Solo admins pueden cambiar estado */}
+                             {/* Solo admins pueden cambiar justificación */}
                              {isAdmin && (
-                               <DropdownMenuItem onClick={() => openStatusDialog(cover)}>
+                               <DropdownMenuItem onClick={() => openJustificacionDialog(cover)}>
                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                 Cambiar estado
+                                 Cambiar justificación
                                </DropdownMenuItem>
                              )}
                              
@@ -827,7 +813,7 @@ export default function CoversPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Estado</Label>
-                  <div className="mt-1">{getStatusBadge(coverSeleccionado.status)}</div>
+                  <div className="mt-1">{getJustificacionBadge(coverSeleccionado.justificacion)}</div>
                 </div>
                 {coverSeleccionado.claseId && (
                   <div>
@@ -837,17 +823,7 @@ export default function CoversPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <Label className="text-sm font-medium text-muted-foreground">Justificación</Label>
-                  <p className="mt-1">
-                    {coverSeleccionado.justificacion ? (
-                      <Check className="h-5 w-5 text-green-600 mx-auto" />
-                    ) : (
-                      <X className="h-5 w-5 text-red-600 mx-auto" />
-                    )}
-                  </p>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
                   <Label className="text-sm font-medium text-muted-foreground">Pago S/80</Label>
                   <p className="mt-1">
@@ -1051,10 +1027,10 @@ export default function CoversPage() {
               {isAdmin && (
                 <>
                   <div>
-                    <Label htmlFor="status">Estado</Label>
+                    <Label htmlFor="justificacion">Estado</Label>
                     <Select
-                      value={editForm.status}
-                      onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value as StatusCover }))}
+                      value={editForm.justificacion}
+                      onValueChange={(value) => setEditForm(prev => ({ ...prev, justificacion: value as StatusCover }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -1067,17 +1043,7 @@ export default function CoversPage() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="justificacion"
-                        checked={editForm.justificacion}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, justificacion: e.target.checked }))}
-                        className="rounded"
-                      />
-                      <Label htmlFor="justificacion">Justificación</Label>
-                    </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -1133,12 +1099,12 @@ export default function CoversPage() {
           </DialogContent>
         </Dialog>
 
-      {/* Dialog: Cambiar Estado (Solo Admin) */}
+      {/* Dialog: Cambiar Justificación (Solo Admin) */}
       {isAdmin && (
-        <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+        <Dialog open={isJustificacionDialogOpen} onOpenChange={setIsJustificacionDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Cambiar Estado del Cover</DialogTitle>
+              <DialogTitle>Cambiar Justificación del Cover</DialogTitle>
               <DialogDescription>
                 Modifica el estado de aprobación del cover
               </DialogDescription>
@@ -1146,10 +1112,10 @@ export default function CoversPage() {
             
             <div className="space-y-4">
               <div>
-                <Label htmlFor="status">Estado</Label>
+                <Label htmlFor="justificacion">Estado</Label>
                 <Select
-                  value={statusForm.status}
-                  onValueChange={(value) => setStatusForm(prev => ({ ...prev, status: value as StatusCover }))}
+                  value={justificacionForm.justificacion}
+                  onValueChange={(value) => setJustificacionForm(prev => ({ ...prev, justificacion: value as StatusCover }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -1162,13 +1128,13 @@ export default function CoversPage() {
                 </Select>
               </div>
 
-              {statusForm.status === 'RECHAZADO' && (
+              {justificacionForm.justificacion === 'RECHAZADO' && (
                 <div>
                   <Label htmlFor="comentarios">Motivo del rechazo</Label>
                   <Textarea
                     placeholder="Explica el motivo del rechazo..."
-                    value={statusForm.comentarios}
-                    onChange={(e) => setStatusForm(prev => ({ ...prev, comentarios: e.target.value }))}
+                    value={justificacionForm.comentarios}
+                    onChange={(e) => setJustificacionForm(prev => ({ ...prev, comentarios: e.target.value }))}
                     rows={3}
                     required
                   />
@@ -1177,14 +1143,14 @@ export default function CoversPage() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsStatusDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setIsJustificacionDialogOpen(false)}>
                 Cancelar
               </Button>
               <Button 
-                onClick={handleStatusSubmit}
-                disabled={statusForm.status === 'RECHAZADO' && !statusForm.comentarios.trim()}
+                onClick={handleJustificacionSubmit}
+                disabled={justificacionForm.justificacion === 'RECHAZADO' && !justificacionForm.comentarios.trim()}
               >
-                Actualizar Estado
+                Actualizar Justificación
               </Button>
             </DialogFooter>
           </DialogContent>

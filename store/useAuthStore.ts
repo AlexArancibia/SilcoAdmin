@@ -37,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
       userType: null, // Add userType to initial state
 
       setUser: (user, token) => {
+        console.log('[useAuthStore] setUser called', { user, token })
         set({
           user,
           token,
@@ -48,7 +49,7 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (identifier, password) => {
         set({ isLoading: true, error: null })
-
+        console.log('[useAuthStore] login called', { identifier })
         try {
           const response = await fetch("/api/auth/login", {
             method: "POST",
@@ -57,13 +58,11 @@ export const useAuthStore = create<AuthState>()(
             },
             body: JSON.stringify({ identifier, password }),
           })
-
           const data = await response.json()
-
+          console.log('[useAuthStore] login response', { data })
           if (!response.ok) {
             throw new Error(data.message || "Failed to login")
           }
-
           set({
             user: data.user,
             token: data.token,
@@ -71,10 +70,10 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           })
-
           // Set the auth cookie for the middleware
           document.cookie = `auth-token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
         } catch (error) {
+          console.error('[useAuthStore] login error', error)
           set({
             error: error instanceof Error ? error.message : "An error occurred",
             isLoading: false,
@@ -85,7 +84,7 @@ export const useAuthStore = create<AuthState>()(
 
       register: async (userType, userData) => {
         set({ isLoading: true, error: null })
-
+        console.log('[useAuthStore] register called', { userType, userData })
         try {
           const response = await fetch("/api/auth/register", {
             method: "POST",
@@ -94,13 +93,11 @@ export const useAuthStore = create<AuthState>()(
             },
             body: JSON.stringify({ userType, ...userData }),
           })
-
           const data = await response.json()
-
+          console.log('[useAuthStore] register response', { data })
           if (!response.ok) {
             throw new Error(data.message || "Failed to register")
           }
-
           set({
             user: data.user,
             token: data.token,
@@ -108,10 +105,10 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
           })
-
           // Set the auth cookie for the middleware
           document.cookie = `auth-token=${data.token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
         } catch (error) {
+          console.error('[useAuthStore] register error', error)
           set({
             error: error instanceof Error ? error.message : "An error occurred",
             isLoading: false,
@@ -120,6 +117,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        console.log('[useAuthStore] logout called')
         set({
           user: null,
           token: null,
@@ -127,7 +125,6 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           error: null,
         })
-
         // Remove the auth cookie
         document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT"
       },

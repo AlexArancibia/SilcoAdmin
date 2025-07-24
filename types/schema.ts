@@ -48,11 +48,12 @@ export interface PagosQueryParams extends PaginationParams {
 
 // Query parameter types for covers
 export interface CoversQueryParams extends PaginationParams {
+  [key: string]: string | number | boolean | undefined
   periodoId?: number
   instructorOriginalId?: number
   instructorReemplazoId?: number
   disciplinaId?: number
-  status?: StatusCover
+  justificacion?: StatusCover // Cambiado de status a justificacion
   fecha?: string
   busqueda?: string
 }
@@ -308,8 +309,7 @@ export interface Cover {
   claseId?: string // ID de la clase que está siendo cubierta (opcional)
   
   // Estados y configuraciones (solo modificables por managers/admin)
-  status: StatusCover // PENDIENTE, APROBADO, RECHAZADO
-  justificacion: boolean
+  justificacion: StatusCover // PENDIENTE, APROBADO, RECHAZADO
   pagoBono: boolean
   pagoFullHouse: boolean
   comentarios?: string

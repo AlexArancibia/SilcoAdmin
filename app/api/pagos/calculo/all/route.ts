@@ -334,8 +334,6 @@ export async function POST(req: Request) {
       const ocupacionPromedio = metricasGenerales.ocupacionPromedio;
       const dobleteos = metricasGenerales.dobleteos;
       const clasesPorSemana = metricasGenerales.clasesPorSemana;
-      let pagoTotalInstructor = 0;
-      let retencionTotalInstructor = 0;
       
       logs.push(`💰 Monto total por clases: ${montoTotal.toFixed(2)}`);
 
@@ -356,6 +354,8 @@ export async function POST(req: Request) {
       const subtotal = montoTotal + reajusteExistente + bonoExistente + coverTotal;
       logs.push(`💰 Subtotal: ${montoTotal} + ${reajusteExistente} + ${bonoExistente} + ${coverTotal} = ${subtotal.toFixed(2)}`);
 
+      // Usar el subtotal como base para los cálculos finales
+      const pagoTotalInstructor = subtotal;
       const descuentoPenalizacion = penalizacionResumen.descuento || 0;
       const montoDescuento = pagoTotalInstructor * (descuentoPenalizacion / 100);
       const montoFinal = pagoTotalInstructor - montoDescuento;

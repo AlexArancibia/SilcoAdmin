@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ArrowUpDown, Calendar, Download, Eye, FileText, Printer } from "lucide-react"
+import { ArrowUpDown, Calendar, Download, Eye, FileText, Printer, Calculator, RefreshCw } from "lucide-react"
 import {
   Pagination,
   PaginationContent,
@@ -24,6 +24,7 @@ import { ReajusteEditor } from "./reajuste-editor"
 import type { PagoInstructor, Instructor, Periodo, EstadoPago, TipoReajuste } from "@/types/schema"
 import { InstructorWithCategory } from "./instructor-with-category"
 import { useReajuste } from "@/hooks/use-reajuste"
+import { useToast } from "@/components/ui/use-toast"
 
 
 
@@ -31,6 +32,7 @@ export function PagosTable() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { toast } = useToast()
 
   const {
     pagos,
@@ -54,6 +56,9 @@ export function PagosTable() {
     actualizarReajuste,
   } = useReajuste()
 
+  // Estado para recálculo
+  const [recalculandoPagoId, setRecalculandoPagoId] = useState<number | null>(null)
+
   useEffect(() => {
     if (instructores.length === 0) {
       fetchInstructores()
@@ -67,6 +72,74 @@ export function PagosTable() {
     const params = new URLSearchParams(searchParams)
     params.set('page', newPage.toString())
     router.push(`${pathname}?${params.toString()}`)
+  }
+
+  // Función para recalcular un pago específico
+  const recalcularPago = async (pagoInstructor: PagoInstructor) => {
+    setRecalculandoPagoId(pagoInstructor.id)
+    
+    try {
+      const response = await fetch(`/api/pagos/calculo/${pagoInstructor.instructorId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          periodoId: pagoInstructor.periodoId,
+          categoriasManuales: {},
+        }),
+      })
+
+      if (response.ok) {
+        const resultado = await response.json()
+        toast({
+          title: "Recálculo completado",
+          description: `Pago recalculado correctamente para ${getNombreInstructor(pagoInstructor.instructorId)}`,
+        })
+        
+        // Refrescar la lista de pagos
+        fetchPagos({
+          page: pagination?.page,
+          limit: pagination?.limit,
+        })
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error al recalcular')
+      }
+    } catch (error) {
+      console.error('Error al recalcular pago:', error)
+      toast({
+        title: "Error en recálculo",
+        description: error instanceof Error ? error.message : "Error desconocido al recalcular el pago",
+        variant: "destructive",
+      })
+    } finally {
+      setRecalculandoPagoId(null)
+    }
+  }
+
+  // Función modificada para actualizar reajuste y recalcular automáticamente
+  const actualizarReajusteYRecalcular = async (pagoId: number, nuevoReajusteValor: number, tipoReajusteValor: TipoReajuste) => {
+    try {
+      // Setear los valores globales antes de actualizar
+      setNuevoReajuste(nuevoReajusteValor)
+      setTipoReajuste(tipoReajusteValor)
+      // Ahora solo pasar el pagoId
+      await actualizarReajuste(pagoId)
+      // Encontrar el pago para obtener los datos necesarios para el recálculo
+      const pago = pagos.find(p => p.id === pagoId)
+      if (pago) {
+        // Recalcular automáticamente después del reajuste
+        await recalcularPago(pago)
+      }
+    } catch (error) {
+      console.error('Error al actualizar reajuste y recalcular:', error)
+      toast({
+        title: "Error",
+        description: "Error al actualizar el reajuste y recalcular",
+        variant: "destructive",
+      })
+    }
   }
 
   // Función para generar páginas visibles con ellipsis cuando sea necesario
@@ -247,6 +320,7 @@ export function PagosTable() {
             ) : (
               pagos.map((pago) => {
                 const isEditing = editandoPagoId === pago.id
+                const isRecalculating = recalculandoPagoId === pago.id
                 const bono = pago.bono ?? 0
                 const penalizacion = pago.penalizacion ?? 0
                 const cover = pago.cover ?? 0
@@ -297,7 +371,9 @@ export function PagosTable() {
                           setTipoReajuste={setTipoReajuste}
                           isActualizandoReajuste={isActualizandoReajuste}
                           pagoId={pago.id}
-                          actualizarReajuste={actualizarReajuste}
+                          actualizarReajuste={(pagoId: number): void => {
+                            void actualizarReajusteYRecalcular(pagoId, nuevoReajuste, tipoReajuste)
+                          }}
                           cancelarEdicionReajuste={cancelarEdicionReajuste}
                         />
                       ) : (
@@ -348,6 +424,22 @@ export function PagosTable() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {/* Botón de recálculo */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 hover:bg-muted/50"
+                          onClick={() => recalcularPago(pago)}
+                          disabled={isRecalculating}
+                          title="Recalcular pago"
+                        >
+                          {isRecalculating ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Calculator className="h-3 w-3" />
+                          )}
+                        </Button>
+
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0">

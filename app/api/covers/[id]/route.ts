@@ -115,16 +115,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Handle boolean fields
-    const booleanFields = ["justificacion", "pagoBono", "pagoFullHouse"]
+    const booleanFields = ["pagoBono", "pagoFullHouse"]
     for (const field of booleanFields) {
       if (parsedBody[field] !== undefined) {
         parsedBody[field] = Boolean(parsedBody[field])
       }
     }
 
-    // Validate status if provided
-    if (parsedBody.status && !["PENDIENTE", "APROBADO", "RECHAZADO"].includes(parsedBody.status)) {
-      return NextResponse.json({ error: "El status debe ser PENDIENTE, APROBADO o RECHAZADO" }, { status: 400 })
+    // Validate justificacion if provided
+    if (parsedBody.justificacion && !["PENDIENTE", "APROBADO", "RECHAZADO"].includes(parsedBody.justificacion)) {
+      return NextResponse.json({ error: "La justificacion debe ser PENDIENTE, APROBADO o RECHAZADO" }, { status: 400 })
     }
 
     // Validate fecha if provided
@@ -201,7 +201,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (parsedBody.fecha !== undefined) updateData.fecha = parsedBody.fecha
     if (parsedBody.hora !== undefined) updateData.hora = parsedBody.hora
     if (parsedBody.claseId !== undefined) updateData.claseId = parsedBody.claseId
-    if (parsedBody.status !== undefined) updateData.status = parsedBody.status
     if (parsedBody.justificacion !== undefined) updateData.justificacion = parsedBody.justificacion
     if (parsedBody.pagoBono !== undefined) updateData.pagoBono = parsedBody.pagoBono
     if (parsedBody.pagoFullHouse !== undefined) updateData.pagoFullHouse = parsedBody.pagoFullHouse

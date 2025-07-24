@@ -14,9 +14,9 @@ export function CurrentPeriodDisplay({ className }: { className?: string }) {
     periodoActual
   } = usePeriodosStore()
   
-  useEffect(() => {
-    fetchPeriodos()
-  }, [fetchPeriodos])
+  // useEffect(() => {
+  //   fetchPeriodos()
+  // }, [fetchPeriodos])
 
   const formatFecha = (fecha: Date | string) => {
     const fechaObj = new Date(fecha)

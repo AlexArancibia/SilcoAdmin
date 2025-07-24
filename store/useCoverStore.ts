@@ -54,10 +54,9 @@ interface CoversState {
   
   // Actions - Manager/Admin specific
   fetchCoversByInstructorOriginal: (instructorOriginalId: number, params?: Omit<CoversQueryParams, 'instructorOriginalId'>) => Promise<void>
-  fetchCoversByStatus: (status: StatusCover, params?: Omit<CoversQueryParams, 'status'>) => Promise<void>
-  updateCoverStatus: (id: number, status: StatusCover, comentarios?: string) => Promise<Cover>
+  fetchCoversByJustificacion: (justificacion: StatusCover, params?: Omit<CoversQueryParams, 'justificacion'>) => Promise<void>
+  updateCoverJustificacion: (id: number, justificacion: StatusCover, comentarios?: string) => Promise<Cover>
   updateCoverPayments: (id: number, payments: {
-    justificacion?: boolean
     pagoBono?: boolean
     pagoFullHouse?: boolean
   }) => Promise<Cover>
@@ -213,12 +212,12 @@ export const useCoversStore = create<CoversState>((set, get) => ({
     await get().fetchCovers({ instructorOriginalId, ...params })
   },
 
-  fetchCoversByStatus: async (status: StatusCover, params) => {
-    await get().fetchCovers({ status, ...params })
+  fetchCoversByJustificacion: async (justificacion: StatusCover, params) => {
+    await get().fetchCovers({ justificacion, ...params })
   },
 
-  updateCoverStatus: async (id: number, status: StatusCover, comentarios?: string) => {
-    return await get().actualizarCover(id, { status, comentarios })
+  updateCoverJustificacion: async (id: number, justificacion: StatusCover, comentarios?: string) => {
+    return await get().actualizarCover(id, { justificacion, comentarios })
   },
 
   updateCoverPayments: async (id: number, payments) => {
