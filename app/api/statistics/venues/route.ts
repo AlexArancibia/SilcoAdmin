@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+    
+    // If no filter is provided, get all data
+    console.log('API Debug - Final period filter:', periodoFilter)
 
     // Get classes with disciplinas and payments data
     const [clases, disciplinas, pagos] = await Promise.all([
@@ -50,6 +53,33 @@ export async function GET(request: NextRequest) {
       })
     ])
 
+    console.log('API Debug - Period filter:', periodoFilter)
+    console.log('API Debug - Classes found:', clases.length)
+    console.log('API Debug - Unique venues:', [...new Set(clases.map((c) => c.estudio))])
+    console.log('API Debug - Payments found:', pagos.length)
+
+    // If no classes found with filter, try without filter to see if there's any data
+    if (clases.length === 0 && Object.keys(periodoFilter).length > 0) {
+      console.log('API Debug - No classes found with filter, checking total classes in DB...')
+      const totalClasses = await prisma.clase.count()
+      const totalPeriods = await prisma.periodo.count()
+      console.log('API Debug - Total classes in DB:', totalClasses)
+      console.log('API Debug - Total periods in DB:', totalPeriods)
+      
+      if (totalClasses > 0) {
+        // Get a sample of classes to see what periods exist
+        const sampleClasses = await prisma.clase.findMany({
+          take: 5,
+          select: {
+            periodoId: true,
+            estudio: true,
+            fecha: true
+          }
+        })
+        console.log('API Debug - Sample classes:', sampleClasses)
+      }
+    }
+
     // Get unique venues
     const uniqueVenues = [...new Set(clases.map((c) => c.estudio))]
     const totalLocales = uniqueVenues.length
@@ -74,7 +104,6 @@ export async function GET(request: NextRequest) {
         }
       })
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
 
     // Occupation by venue
     const ocupacionPorSalon = uniqueVenues
@@ -91,7 +120,6 @@ export async function GET(request: NextRequest) {
         }
       })
       .sort((a, b) => b.ocupacion - a.ocupacion)
-      .slice(0, 5)
 
     // Revenue by venue (based on instructor payments proportional to classes in that venue)
     const ingresosPorSalon = uniqueVenues
@@ -121,10 +149,9 @@ export async function GET(request: NextRequest) {
         }
       })
       .sort((a, b) => b.ingresos - a.ingresos)
-      .slice(0, 5)
 
     // Disciplines by venue
-    const disciplinasPorSalon = uniqueVenues.slice(0, 5).map((estudio) => {
+    const disciplinasPorSalon = uniqueVenues.map((estudio) => {
       const disciplinasEnSalon = [...new Set(clases.filter((c) => c.estudio === estudio).map((c) => c.disciplinaId))]
         .map((disciplinaId) => {
           const disciplina = disciplinas.find((d) => d.id === disciplinaId)

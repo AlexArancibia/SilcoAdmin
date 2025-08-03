@@ -25,6 +25,10 @@ export class PagosApi extends ApiClient {
   async eliminarPago(id: number): Promise<{ success: boolean }> {
     return this.delete(`/pagos/${id}`)
   }
+
+  async exportarExcel(params?: PagosQueryParams): Promise<{ success: boolean; data: any[]; total: number }> {
+    return this.post<PagosQueryParams, { success: boolean; data: any[]; total: number }>("/pagos/export/excel", params || {})
+  }
 }
 
 // Instancia singleton para usar en toda la aplicación

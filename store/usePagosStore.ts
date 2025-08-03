@@ -26,6 +26,7 @@ interface PagosState {
   actualizarPago: (id: number, pago: Partial<PagoInstructor>) => Promise<PagoInstructor>
   eliminarPago: (id: number) => Promise<void>
   setPagoSeleccionado: (pago: PagoInstructor | null) => void
+  exportarExcel: (params?: PagosQueryParams) => Promise<{ success: boolean; data: any[]; total: number }>
 }
 
 const initialPaginationState: PaginationState = {
@@ -133,6 +134,22 @@ export const usePagosStore = create<PagosState>((set, get) => ({
 
   setPagoSeleccionado: (pago) => {
     set({ pagoSeleccionado: pago })
+  },
+
+  exportarExcel: async (params) => {
+    set({ isLoading: true, error: null })
+    try {
+      const result = await pagosApi.exportarExcel(params)
+      set({ isLoading: false })
+      return result
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "Error al exportar a Excel",
+        isLoading: false,
+      })
+      console.error("Error al exportar pagos a Excel:", error)
+      throw error
+    }
   },
 }))
 

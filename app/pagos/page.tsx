@@ -10,6 +10,7 @@ import { ProcessLogsDialog } from "@/components/payments/dialogs/process-logs-di
 import { FormulaDuplicationDialog } from "@/components/payments/dialogs/formula-duplication-dialog"
 import { toast } from "@/hooks/use-toast"
 import { PageHeader } from "@/components/payments/page-header"
+import { exportToExcel } from "@/utils/excel-utils"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -27,7 +28,7 @@ export default function PagosPage() {
   // Data stores
   const { periodos, rangoSeleccionado, setSeleccion, fetchPeriodos } = usePeriodosStore()
   const { instructores, fetchInstructores } = useInstructoresStore()
-  const { fetchPagos } = usePagosStore()
+  const { fetchPagos, exportarExcel } = usePagosStore()
 
   // Calculation state
   const [isCalculating, setIsCalculating] = useState(false)
@@ -112,6 +113,60 @@ export default function PagosPage() {
   const periodoFin = searchParams.get("periodoFin") ? parseInt(searchParams.get("periodoFin")!) : undefined;
   const busqueda = searchParams.get("busqueda") || undefined;
 
+  // Excel export function
+  const handleExportarExcel = async () => {
+    try {
+      // Build query params for export (without pagination)
+      const exportParams: any = { estado, instructorId, busqueda }
+      
+      // Handle period parameters (prioritize individual period over range)
+      if (periodoId) {
+        exportParams.periodoId = periodoId
+      } else if (periodoInicio || periodoFin) {
+        if (periodoInicio) exportParams.periodoInicio = periodoInicio
+        if (periodoFin) exportParams.periodoFin = periodoFin
+      }
+
+      toast({ title: "Exportando a Excel...", description: "Preparando los datos para la exportación." })
+      
+      const result = await exportarExcel(exportParams)
+      
+      if (result.success && result.data.length > 0) {
+        // Generate filename based on current filters
+        let filename = "pagos_instructores"
+        if (periodoId) {
+          const periodo = periodos.find(p => p.id === periodoId)
+          if (periodo) {
+            filename += `_periodo_${periodo.numero}_${periodo.año}`
+          }
+        } else if (periodoInicio || periodoFin) {
+          filename += "_rango_periodos"
+        }
+        if (instructorId) {
+          const instructor = instructores.find(i => i.id === instructorId)
+          if (instructor) {
+            filename += `_${instructor.nombre.replace(/\s+/g, '_')}`
+          }
+        }
+        if (estado) {
+          filename += `_${estado.toLowerCase()}`
+        }
+        
+        await exportToExcel(result.data, filename)
+        toast({ title: "Exportación completada", description: `Se exportaron ${result.total} registros a Excel.` })
+      } else {
+        toast({ title: "No hay datos", description: "No se encontraron pagos para exportar con los filtros actuales.", variant: "destructive" })
+      }
+    } catch (error) {
+      console.error("Error al exportar a Excel:", error)
+      toast({ 
+        title: "Error en la exportación", 
+        description: "No se pudo exportar a Excel. Por favor, inténtelo de nuevo.", 
+        variant: "destructive" 
+      })
+    }
+  }
+
   useEffect(() => {
     // Build query params with support for period ranges
     const queryParams: any = { page, limit, estado, instructorId, busqueda }
@@ -144,7 +199,7 @@ export default function PagosPage() {
       <PageHeader
         periodosSeleccionados={[]}
         exportarTodosPagosPDF={() => {}}
-        exportarTodosExcel={() => {}}
+        exportarTodosExcel={handleExportarExcel}
         imprimirTodosPagosPDF={() => {}}
         isCalculatingPayments={isCalculating}
         setShowCalculateDialog={() => {
