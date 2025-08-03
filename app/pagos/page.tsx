@@ -20,15 +20,26 @@ import { DashboardShell } from "@/components/dashboard/shell"
 import type { EstadoPago } from "@/types/schema"
 import { usePagosStore } from "@/store/usePagosStore"
 
-export default function PagosPage() {
-  // Dialog states
-  const [showCalculateDialog, setShowCalculateDialog] = useState(false)
-  const [showProcessLogsDialog, setShowProcessLogsDialog] = useState(false)
+// Component that uses useSearchParams - will be wrapped in Suspense
+function PagosContent() {
+  const searchParams = useSearchParams();
+  const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
+  const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : 20;
+  const estado = (searchParams.get("estado") as EstadoPago) || undefined;
+  const instructorId = searchParams.get("instructorId") ? parseInt(searchParams.get("instructorId")!) : undefined;
+  const periodoId = searchParams.get("periodoId") ? parseInt(searchParams.get("periodoId")!) : undefined;
+  const periodoInicio = searchParams.get("periodoInicio") ? parseInt(searchParams.get("periodoInicio")!) : undefined;
+  const periodoFin = searchParams.get("periodoFin") ? parseInt(searchParams.get("periodoFin")!) : undefined;
+  const busqueda = searchParams.get("busqueda") || undefined;
 
   // Data stores
   const { periodos, rangoSeleccionado, setSeleccion, fetchPeriodos } = usePeriodosStore()
   const { instructores, fetchInstructores } = useInstructoresStore()
   const { fetchPagos, exportarExcel } = usePagosStore()
+
+  // Dialog states
+  const [showCalculateDialog, setShowCalculateDialog] = useState(false)
+  const [showProcessLogsDialog, setShowProcessLogsDialog] = useState(false)
 
   // Calculation state
   const [isCalculating, setIsCalculating] = useState(false)
@@ -102,16 +113,6 @@ export default function PagosPage() {
     fetchPagos({ page, limit, estado, instructorId, periodoId, busqueda })
     toast({ title: "Cálculo completado", description: "Se han procesado todos los instructores." })
   }
-
-  const searchParams = useSearchParams();
-  const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
-  const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : 20;
-  const estado = (searchParams.get("estado") as EstadoPago) || undefined;
-  const instructorId = searchParams.get("instructorId") ? parseInt(searchParams.get("instructorId")!) : undefined;
-  const periodoId = searchParams.get("periodoId") ? parseInt(searchParams.get("periodoId")!) : undefined;
-  const periodoInicio = searchParams.get("periodoInicio") ? parseInt(searchParams.get("periodoInicio")!) : undefined;
-  const periodoFin = searchParams.get("periodoFin") ? parseInt(searchParams.get("periodoFin")!) : undefined;
-  const busqueda = searchParams.get("busqueda") || undefined;
 
   // Excel export function
   const handleExportarExcel = async () => {
@@ -195,7 +196,7 @@ export default function PagosPage() {
   }
 
   return (
-    <DashboardShell>
+    <>
       <PageHeader
         periodosSeleccionados={[]}
         exportarTodosPagosPDF={() => {}}
@@ -211,8 +212,6 @@ export default function PagosPage() {
         }}
       />
       <div className="grid gap-4">
-
-
         <PagosFilter
           initialPage={page}
           initialLimit={limit}
@@ -268,7 +267,35 @@ export default function PagosPage() {
         setShowProcessLogsDialog={setShowProcessLogsDialog}
         processLogs={processLogs}
       />
+    </>
+  );
+}
 
+// Main page component with Suspense boundary
+export default function PagosPage() {
+  return (
+    <DashboardShell>
+      <Suspense fallback={
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-12 w-full" />
+          <Card>
+            <CardHeader>
+              <CardTitle>Pagos</CardTitle>
+              <CardDescription>Cargando...</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      }>
+        <PagosContent />
+      </Suspense>
     </DashboardShell>
   );
 }
