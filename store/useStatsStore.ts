@@ -88,6 +88,7 @@ export interface VenueStats {
     count: number
     ocupacionPromedio: number
     reservasTotales: number
+    instructores: number
   }>
   ocupacionPorSalon: Array<{
     nombre: string
@@ -99,6 +100,7 @@ export interface VenueStats {
     ingresos: number
     clases: number
     reservas: number
+    instructores: number
   }>
   disciplinasPorSalon: Array<{
     nombre: string

@@ -63,12 +63,14 @@ export async function GET(request: NextRequest) {
         const ocupacionPromedio = totalCapacidad > 0 
           ? Math.round((totalReservas / totalCapacidad) * 100) 
           : 0
+        const instructoresUnicos = [...new Set(clasesEstudio.map((c) => c.instructorId))].length
 
         return {
           nombre: estudio,
           count: clasesEstudio.length,
           ocupacionPromedio,
           reservasTotales: totalReservas,
+          instructores: instructoresUnicos,
         }
       })
       .sort((a, b) => b.count - a.count)
@@ -115,6 +117,7 @@ export async function GET(request: NextRequest) {
           ingresos: Math.round(ingresos),
           clases: clasesEnSalon.length,
           reservas: clasesEnSalon.reduce((acc, clase) => acc + clase.reservasTotales, 0),
+          instructores: instructoresIds.length,
         }
       })
       .sort((a, b) => b.ingresos - a.ingresos)

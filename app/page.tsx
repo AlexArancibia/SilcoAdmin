@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -68,8 +68,8 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangoSeleccionado])
 
-  // Get period filter for statistics
-  const getPeriodoFilter = () => {
+  // Get period filter for statistics - memoized to prevent infinite loops
+  const periodoFilter = useMemo(() => {
     if (!rangoSeleccionado) {
       return undefined
     }
@@ -83,7 +83,7 @@ export default function DashboardPage() {
         periodoFin: endId 
       }
     }
-  }
+  }, [rangoSeleccionado])
 
   // Get period name for display
   const getPeriodoNombre = (): string => {
@@ -175,18 +175,18 @@ export default function DashboardPage() {
 
       <DashboardTabs activeTab={activeTab} setActiveTab={setActiveTab}>
          <TabsContent value="general">
-          {/* <GeneralTab
-            periodoFilter={getPeriodoFilter()}
+          <GeneralTab
+            periodoFilter={periodoFilter}
             getPeriodoNombre={getPeriodoNombre}
-          /> */}
+          />
         </TabsContent>
 
         <TabsContent value="estudios">
-          {/* <EstudiosTab
-            periodoFilter={getPeriodoFilter()}
+          <EstudiosTab
+            periodoFilter={periodoFilter}
             getPeriodoNombre={getPeriodoNombre}
             formatFecha={formatFecha}
-          /> */}
+          />
         </TabsContent>
       </DashboardTabs>  
 </DashboardShell>

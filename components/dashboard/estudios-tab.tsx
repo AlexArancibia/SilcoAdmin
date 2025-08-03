@@ -1,16 +1,19 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
-import { Search, Download, FileSpreadsheet, ArrowUpDown } from "lucide-react"
+import { Search, Download, FileSpreadsheet, ArrowUpDown, PieChart } from "lucide-react"
 import { formatCurrency } from "../../utils/format-utils"
 import { exportToExcel } from "../../utils/excel-utils"
+import { COLORS } from "../../utils/format-utils"
 
 // UI Components
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useStatsStore } from "@/store/useStatsStore"
+
 
 interface EstudiosTabProps {
   periodoFilter?: {
@@ -29,6 +32,7 @@ export function EstudiosTab({
 }: EstudiosTabProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "ascending" | "descending" } | null>(null)
+  const [activeTab, setActiveTab] = useState("tabla")
   
   const {
     venueStats,
@@ -58,7 +62,7 @@ export function EstudiosTab({
         reservas: venue.reservasTotales,
         ocupacion: venue.ocupacionPromedio,
         pagoTotal: 0, // Will be filled from ingresosPorSalon
-        instructores: 0,
+        instructores: venue.instructores || 0,
         disciplinas: 0,
         porcentajeTotal: 0,
         promedioPorClase: 0,
@@ -72,7 +76,7 @@ export function EstudiosTab({
         clases: venue.clases,
         reservas: venue.reservas,
         ocupacion: 0,
-        instructores: 0,
+        instructores: venue.instructores || 0,
         disciplinas: 0,
         porcentajeTotal: 0,
         promedioPorClase: 0,
@@ -80,6 +84,10 @@ export function EstudiosTab({
       
       existing.pagoTotal = venue.ingresos
       existing.promedioPorClase = venue.clases > 0 ? venue.ingresos / venue.clases : 0
+      // Update instructor count if not already set
+      if (!existing.instructores && venue.instructores) {
+        existing.instructores = venue.instructores
+      }
       estudiosMap.set(venue.nombre, existing)
     })
 
@@ -89,6 +97,14 @@ export function EstudiosTab({
       if (existing) {
         existing.disciplinas = venue.disciplinas.length
       }
+    })
+
+    // Calculate total classes for percentage calculation
+    const totalClases = Array.from(estudiosMap.values()).reduce((sum, estudio) => sum + estudio.clases, 0)
+
+    // Calculate percentage for each venue
+    Array.from(estudiosMap.values()).forEach(estudio => {
+      estudio.porcentajeTotal = totalClases > 0 ? (estudio.clases / totalClases) * 100 : 0
     })
 
     return Array.from(estudiosMap.values())
@@ -167,6 +183,8 @@ export function EstudiosTab({
     exportToExcel(exportData, `estudios-${getPeriodoNombre()}-${new Date().toISOString().split("T")[0]}`)
   }
 
+
+
   // Loading state
   if (isLoading) {
     return (
@@ -197,203 +215,227 @@ export function EstudiosTab({
 
   return (
     <div className="space-y-6">
-      {/* Header con búsqueda y exportación */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Buscar estudio..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Exportar Excel
-        </Button>
-      </div>
-
-      {/* Tabla de estadísticas generales por estudio */}
+      {/* Card principal con tabs */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5" />
-            Estadísticas por Estudio - {getPeriodoNombre()}
-          </CardTitle>
-        </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">
-                    <Button variant="ghost" onClick={() => handleSort("nombre")} className="h-auto p-0 font-semibold">
-                      Estudio
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort("clases")} className="h-auto p-0 font-semibold">
-                      Clases
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort("reservas")} className="h-auto p-0 font-semibold">
-                      Reservas
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort("ocupacion")} className="h-auto p-0 font-semibold">
-                      Ocupación
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button variant="ghost" onClick={() => handleSort("pagoTotal")} className="h-auto p-0 font-semibold">
-                      Ingresos
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort("instructores")}
-                      className="h-auto p-0 font-semibold"
-                    >
-                      Instructores
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort("disciplinas")}
-                      className="h-auto p-0 font-semibold"
-                    >
-                      Disciplinas
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort("porcentajeTotal")}
-                      className="h-auto p-0 font-semibold"
-                    >
-                      % Total
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort("promedioPorClase")}
-                      className="h-auto p-0 font-semibold"
-                    >
-                      Promedio/Clase
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedEstadisticas.map((estudio) => (
-                  <TableRow key={estudio.nombre} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">{estudio.nombre}</TableCell>
-                    <TableCell className="text-center">{estudio.clases}</TableCell>
-                    <TableCell className="text-center">{estudio.reservas}</TableCell>
-                    <TableCell className="text-center">
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          estudio.ocupacion >= 80
-                            ? "bg-green-100 text-green-800"
-                            : estudio.ocupacion >= 60
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {estudio.ocupacion}%
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center font-medium">{formatCurrency(estudio.pagoTotal)}</TableCell>
-                    <TableCell className="text-center">{estudio.instructores}</TableCell>
-                    <TableCell className="text-center">{estudio.disciplinas}</TableCell>
-                    <TableCell className="text-center">{estudio.porcentajeTotal.toFixed(1)}%</TableCell>
-                    <TableCell className="text-center">{formatCurrency(estudio.promedioPorClase)}</TableCell>
-                  </TableRow>
-                ))}
-                {sortedEstadisticas.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? "No se encontraron estudios que coincidan con la búsqueda" : "No hay datos disponibles"}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-6 w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+              <div className="flex border-b w-full">
+                <TabsTrigger
+                  value="tabla"
+                  className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4 font-medium"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span>Tabla General</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="disciplinas"
+                  className="flex items-center gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4 font-medium"
+                >
+                  <PieChart className="h-4 w-4" />
+                  <span>Disciplinas</span>
+                </TabsTrigger>
+              </div>
+            </TabsList>
 
-      {/* Detalles por disciplina */}
-      <div className="grid gap-6">
-        {disciplinasPorEstudio.map((estudio) => (
-          <Card key={estudio.nombre}>
-            <CardHeader>
-              <CardTitle className="text-lg">
-                {estudio.nombre} - Disciplinas
-                <span className="text-sm font-normal text-muted-foreground ml-2">
-                  ({estudio.disciplinas.length} disciplinas)
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+            {/* Tab: Tabla General */}
+            <TabsContent value="tabla" className="mt-8 space-y-4">
+              {/* Header con búsqueda y exportación */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Buscar estudio..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button onClick={handleExport} variant="outline" className="flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  Exportar Excel
+                </Button>
+              </div>
+              
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Disciplina</TableHead>
-                      <TableHead className="text-center">Clases</TableHead>
-                      <TableHead className="text-center">% del Estudio</TableHead>
+                      <TableHead className="w-[200px]">
+                        <Button variant="ghost" onClick={() => handleSort("nombre")} className="h-auto p-0 font-semibold">
+                          Estudio
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Button variant="ghost" onClick={() => handleSort("clases")} className="h-auto p-0 font-semibold">
+                          Clases
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Button variant="ghost" onClick={() => handleSort("reservas")} className="h-auto p-0 font-semibold">
+                          Reservas
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Button variant="ghost" onClick={() => handleSort("ocupacion")} className="h-auto p-0 font-semibold">
+                          Ocupación
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Button variant="ghost" onClick={() => handleSort("pagoTotal")} className="h-auto p-0 font-semibold">
+                          Ingresos
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("instructores")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          Instructores
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("disciplinas")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          Disciplinas
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("porcentajeTotal")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          % Total
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("promedioPorClase")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          Promedio/Clase
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {estudio.disciplinas.map((disciplina) => (
-                      <TableRow key={`${estudio.nombre}-${disciplina.disciplinaId}`}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: disciplina.color }}
-                            />
-                            <span className="font-medium">{disciplina.nombre}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">{disciplina.clases}</TableCell>
+                    {sortedEstadisticas.map((estudio) => (
+                      <TableRow key={estudio.nombre} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">{estudio.nombre}</TableCell>
+                        <TableCell className="text-center">{estudio.clases}</TableCell>
+                        <TableCell className="text-center">{estudio.reservas}</TableCell>
                         <TableCell className="text-center">
-                          <span className="text-sm font-medium">
-                            {disciplina.porcentaje.toFixed(1)}%
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              estudio.ocupacion >= 80
+                                ? "bg-green-100 text-green-800"
+                                : estudio.ocupacion >= 60
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {estudio.ocupacion}%
                           </span>
                         </TableCell>
+                        <TableCell className="text-center font-medium">{formatCurrency(estudio.pagoTotal)}</TableCell>
+                        <TableCell className="text-center">{estudio.instructores}</TableCell>
+                        <TableCell className="text-center">{estudio.disciplinas}</TableCell>
+                        <TableCell className="text-center">{estudio.porcentajeTotal.toFixed(1)}%</TableCell>
+                        <TableCell className="text-center">{formatCurrency(estudio.promedioPorClase)}</TableCell>
                       </TableRow>
                     ))}
-                    {estudio.disciplinas.length === 0 && (
+                    {sortedEstadisticas.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
-                          No hay disciplinas registradas
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          {searchTerm ? "No se encontraron estudios que coincidan con la búsqueda" : "No hay datos disponibles"}
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </TabsContent>
+
+
+
+            {/* Tab: Disciplinas */}
+            <TabsContent value="disciplinas" className="mt-8 space-y-6">
+              <div className="grid gap-6">
+                {disciplinasPorEstudio.map((estudio) => (
+                  <Card key={estudio.nombre}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">
+                        {estudio.nombre} - Disciplinas
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                          ({estudio.disciplinas.length} disciplinas)
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Disciplina</TableHead>
+                              <TableHead className="text-center">Clases</TableHead>
+                              <TableHead className="text-center">% del Estudio</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {estudio.disciplinas.map((disciplina) => (
+                              <TableRow key={`${estudio.nombre}-${disciplina.disciplinaId}`}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: disciplina.color }}
+                                    />
+                                    <span className="font-medium">{disciplina.nombre}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">{disciplina.clases}</TableCell>
+                                <TableCell className="text-center">
+                                  <span className="text-sm font-medium">
+                                    {disciplina.porcentaje.toFixed(1)}%
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {estudio.disciplinas.length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
+                                  No hay disciplinas registradas
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+
+
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   )
 }
