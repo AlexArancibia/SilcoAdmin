@@ -17,6 +17,7 @@ import {
   ResultadoCalculo,
   RequisitosCategoria,
   Clase,
+  Cover,
 } from "@/types/schema";
 import { HORARIOS_NO_PRIME, mostrarCategoriaVisual } from "@/utils/config";
 import { calcularPago } from "@/lib/formula-evaluator";
@@ -82,12 +83,13 @@ export async function POST(req: Request) {
         clases: { where: { periodoId } },
         penalizaciones: { where: { periodoId } },
         categorias: { where: { periodoId } },
+        coversComoReemplazo: { where: { periodoId } }, // Cargar covers donde es instructor de reemplazo
       },
     });
 
     logs.push(`👥 Instructores encontrados: ${instructoresConClases.length}`);
     instructoresConClases.forEach(instructor => {
-      logs.push(`👤 Instructor ${instructor.id} - ${instructor.nombre}: ${instructor.clases.length} clases, ${instructor.penalizaciones.length} penalizaciones, ${instructor.categorias.length} categorías,  `);
+      logs.push(`👤 Instructor ${instructor.id} - ${instructor.nombre}: ${instructor.clases.length} clases, ${instructor.penalizaciones.length} penalizaciones, ${instructor.categorias.length} categorías, ${instructor.coversComoReemplazo?.length || 0} covers como reemplazo`);
     });
 
     logs.push(`Iniciando cálculo para ${instructoresConClases.length} instructores en el periodo ${periodoId}`);
@@ -101,8 +103,39 @@ export async function POST(req: Request) {
  
       const clasesDelInstructor = instructor.clases as Clase[];
       const penalizacionesDelInstructor = instructor.penalizaciones as Penalizacion[];
+      const coversComoReemplazo = instructor.coversComoReemplazo || [];
+      
       logs.push(`📝 Clases del instructor: ${clasesDelInstructor.length}`);
       logs.push(`⚠️ Penalizaciones del instructor: ${penalizacionesDelInstructor.length}`);
+      logs.push(`🔄 Covers como reemplazo: ${coversComoReemplazo.length}`);
+      
+      // CALCULAR COVERS Y FULL HOUSE
+      logs.push(`\n💰 CALCULANDO COVERS Y FULL HOUSE...`);
+      
+      // 1. Calcular bono de covers (solo covers justificados con pagoBono = true)
+      const coversConBono = coversComoReemplazo.filter(cover => 
+        cover.justificacion === "APROBADO" && cover.pagoBono === true
+      );
+      const bonoCovers = coversConBono.length * 80;
+      logs.push(`💰 Covers con bono: ${coversConBono.length} x S/.80 = S/.${bonoCovers}`);
+      
+      // 2. Identificar clases que deben tratarse como full house por covers
+      const coversConFullHouse = coversComoReemplazo.filter(cover => 
+        cover.justificacion === "APROBADO" && 
+        cover.pagoFullHouse === true && 
+        cover.claseId // Solo covers con clase asociada
+      );
+      
+      const clasesFullHouseIds = new Set(coversConFullHouse.map(cover => cover.claseId!));
+      logs.push(`🏠 Covers con full house: ${coversConFullHouse.length} (clases IDs: ${Array.from(clasesFullHouseIds).join(', ')})`);
+      
+      // Crear un mapa para verificar rápidamente si una clase debe ser full house
+      const clasesFullHouseMap = new Map<string, boolean>();
+      clasesDelInstructor.forEach(clase => {
+        clasesFullHouseMap.set(clase.id, clasesFullHouseIds.has(clase.id));
+      });
+      
+      logs.push(`🗺️ Mapa de clases full house creado: ${clasesFullHouseMap.size} clases procesadas`);
       
       const clasesPorDisciplina = clasesDelInstructor.reduce((acc, clase) => {
         const disciplinaId = clase.disciplinaId;
@@ -194,17 +227,14 @@ export async function POST(req: Request) {
           logs.push(`   📊 Reservas: ${clase.reservasTotales}/${clase.lugares} (${Math.round((clase.reservasTotales / clase.lugares) * 100)}%)`);
           
           try {
-            // Verificar Full House
-            // const esFullHouse = instructor.covers?.some(
-            //   c => c.claseId === clase.id && c.periodoId === periodoId && c.pagoFullHouse === true
-            // );
-            const esFullHouse = false;
-            logs.push(`🏠 Full House: ${esFullHouse ? 'SÍ' : 'NO'}`);
+            // Verificar Full House por covers
+            const esFullHousePorCover = clasesFullHouseMap.get(clase.id) || false;
+            logs.push(`🏠 Full House por cover: ${esFullHousePorCover ? 'SÍ' : 'NO'}`);
         
             let claseParaCalculo = { ...clase };
         
-            if (esFullHouse) {
-              logs.push(`🏠 Aplicando FULL HOUSE: Reservas ${clase.reservasTotales} -> ${clase.lugares} (100% ocupación)`);
+            if (esFullHousePorCover) {
+              logs.push(`🏠 Aplicando FULL HOUSE por cover: Reservas ${clase.reservasTotales} -> ${clase.lugares} (100% ocupación)`);
               claseParaCalculo = {
                 ...claseParaCalculo,
                 reservasTotales: claseParaCalculo.lugares, // Forzar 100% ocupación
@@ -243,8 +273,8 @@ export async function POST(req: Request) {
             logs.push(`📝 Detalle: ${resultado.detalleCalculo}`);
             
             let detalleCalculo = resultado.detalleCalculo;
-              if (esFullHouse) {
-                detalleCalculo = `FULL HOUSE (ocupación forzada al 100%) - ${detalleCalculo}`;
+              if (esFullHousePorCover) {
+                detalleCalculo = `FULL HOUSE por cover (ocupación forzada al 100%) - ${detalleCalculo}`;
               }
               
                let montoPagoFinal = resultado.montoPago;
@@ -264,7 +294,7 @@ export async function POST(req: Request) {
                           `\n   Monto: ${Number(montoPagoFinal).toFixed(2)} | Categoría: ${categoriaInstructor}` +
                           `\n   Reservas: ${claseParaCalculo.reservasTotales}/${claseParaCalculo.lugares} (${Math.round((claseParaCalculo.reservasTotales / claseParaCalculo.lugares) * 100)}% ocupación)` +
                           (clase.esVersus ? `\n   Versus: Sí (${clase.vsNum} instructores)` : "") +
-                          (esFullHouse ? `\n   FULL HOUSE: Sí` : "") +
+                          (esFullHousePorCover ? `\n   FULL HOUSE por cover: Sí` : "") +
                           `\n   Detalle: ${resultado.detalleCalculo}`,
                         String(instructor.id) ,
                       );
@@ -302,11 +332,11 @@ export async function POST(req: Request) {
                         disciplinaId: clase.disciplinaId,
                         disciplinaNombre: disciplina.nombre,
                         fechaClase: clase.fecha,
-                        detalleCalculo: resultado.detalleCalculo + (esFullHouse ? " (FULL HOUSE)" : ""),
+                        detalleCalculo: resultado.detalleCalculo + (esFullHousePorCover ? " (FULL HOUSE por cover)" : ""),
                         categoria: categoriaInstructor,
                         esVersus: clase.esVersus,
                         vsNum: clase.vsNum,
-                        esFullHouse: esFullHouse || false,
+                        esFullHouse: esFullHousePorCover || false,
                       });
                       
                       logs.push(`📋 Detalle de clase agregado al resumen`);
@@ -344,8 +374,7 @@ export async function POST(req: Request) {
       logs.push(`   - Descuento: ${penalizacionResumen.descuento || 0}%`);
       logs.push(`   - Detalle: ${JSON.stringify(penalizacionResumen)}`);
 
-      const coverTotal = 0 * 80;
-      logs.push(`🔄 Cover total: ${coverTotal}`);
+      logs.push(`🔄 Cover total: ${bonoCovers}`);
       
       const reajusteExistente = pagoExistente?.reajuste || 0;
       const bonoExistente = pagoExistente?.bono || 0;
@@ -362,7 +391,7 @@ export async function POST(req: Request) {
       }
       // El bono y cover también se suman después
       const bono = pagoExistente?.bono || 0;
-      const cover = coverTotal;
+      const cover = bonoCovers; // Usar el bono de covers calculado
       // El subtotal es la suma de monto base + reajuste + bono + cover
       const subtotal = montoBase + reajusteCalculado + bono + cover;
       // Usar el subtotal como base para los cálculos finales
@@ -386,6 +415,13 @@ export async function POST(req: Request) {
       const detallesInstructor = {
         clases: detallesClases,
         penalizaciones: penalizacionResumen,
+        covers: {
+          totalCovers: coversComoReemplazo.length,
+          coversConBono: coversConBono.length,
+          bonoTotal: bonoCovers,
+          coversConFullHouse: coversConFullHouse.length,
+          clasesFullHouse: Array.from(clasesFullHouseIds)
+        },
         resumen: {
           totalClases: clasesDelInstructor.length,
           totalMonto: pagoTotalInstructor,
