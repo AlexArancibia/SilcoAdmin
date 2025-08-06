@@ -1311,9 +1311,13 @@ export function ClassesTab({
                       categoriaInstructor,
                       formulaParaDisciplina,
                     )
-                    const montoCalculado = resultadoCalculo.montoPago
+                    
+                    // Usar el monto real calculado en lugar del recalculado
+                    const montoCalculado = detalleClase.montoCalculado
                     const detalleCalculo = {
-                      mensaje: resultadoCalculo.detalleCalculo,
+                      mensaje: clase.esVersus && clase.vsNum && clase.vsNum > 1 
+                        ? `Clase Versus: ${clase.reservasTotales} reservas × S/.${resultadoCalculo.tarifaAplicada.toFixed(2)} = S/.${(clase.reservasTotales * resultadoCalculo.tarifaAplicada).toFixed(2)}`
+                        : resultadoCalculo.detalleCalculo,
                       pasos: [
                         {
                           descripcion: `Tarifa aplicada: ${resultadoCalculo.tarifaAplicada} (${resultadoCalculo.tipoTarifa})`,
@@ -1321,7 +1325,9 @@ export function ClassesTab({
                         {
                           descripcion: `Reservas: ${esFullHouse ? clase.lugares + ' (Full House)' : clase.reservasTotales} de ${clase.lugares} lugares`,
                         },
-                        { descripcion: `Monto calculado: ${resultadoCalculo.montoPago.toFixed(2)}` },
+                        { descripcion: `Monto base: ${(clase.reservasTotales * resultadoCalculo.tarifaAplicada).toFixed(2)}` },
+                        { descripcion: `División entre ${clase.vsNum || 1} instructores: ${((clase.reservasTotales * resultadoCalculo.tarifaAplicada) / (clase.vsNum || 1)).toFixed(2)}` },
+                        { descripcion: `Monto final aplicado: ${montoCalculado.toFixed(2)}` },
                       ],
                     }
 

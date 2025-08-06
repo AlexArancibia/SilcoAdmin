@@ -55,6 +55,10 @@ export async function POST(
         clases: { where: { periodoId } },
         penalizaciones: { where: { periodoId } },
         categorias: { where: { periodoId } },
+        coversComoReemplazo: { where: { periodoId } }, // Cargar covers donde es instructor de reemplazo
+        brandeos: { where: { periodoId } }, // Cargar brandeos del instructor
+        themeRides: { where: { periodoId } }, // Cargar theme rides del instructor
+        workshops: { where: { periodoId } }, // Cargar workshops del instructor
       },
     });
 
@@ -71,9 +75,17 @@ export async function POST(
 
     const clasesDelInstructor = instructor.clases as Clase[];
     const penalizacionesDelInstructor = instructor.penalizaciones as Penalizacion[];
+    const coversComoReemplazo = instructor.coversComoReemplazo || [];
+    const brandeosDelInstructor = instructor.brandeos || [];
+    const themeRidesDelInstructor = instructor.themeRides || [];
+    const workshopsDelInstructor = instructor.workshops || [];
     
     logs.push(`📝 Clases del instructor: ${clasesDelInstructor.length}`);
     logs.push(`⚠️ Penalizaciones del instructor: ${penalizacionesDelInstructor.length}`);
+    logs.push(`🔄 Covers como reemplazo: ${coversComoReemplazo.length}`);
+    logs.push(`🏆 Brandeos del instructor: ${brandeosDelInstructor.length}`);
+    logs.push(`⚡ Theme Rides del instructor: ${themeRidesDelInstructor.length}`);
+    logs.push(`🎓 Workshops del instructor: ${workshopsDelInstructor.length}`);
 
     // Si no hay clases, no se calcula nada
     if (clasesDelInstructor.length === 0) {
@@ -292,18 +304,82 @@ export async function POST(
     
     logs.push(`💰 Monto total por clases: ${montoTotal.toFixed(2)}`);
 
+    // CALCULAR COVERS Y FULL HOUSE
+    logs.push(`\n💰 CALCULANDO COVERS Y FULL HOUSE...`);
+    
+    // 1. Calcular bono de covers (solo covers justificados con pagoBono = true)
+    const coversConBono = coversComoReemplazo.filter(cover => 
+      cover.justificacion === "APROBADO" && cover.pagoBono === true
+    );
+    const bonoCovers = coversConBono.length * 80;
+    logs.push(`💰 Covers con bono: ${coversConBono.length} x S/.80 = S/.${bonoCovers}`);
+    
+    // 2. Identificar clases que deben tratarse como full house por covers
+    const coversConFullHouse = coversComoReemplazo.filter(cover => 
+      cover.justificacion === "APROBADO" && 
+      cover.pagoFullHouse === true && 
+      cover.claseId // Solo covers con clase asociada
+    );
+    
+    const clasesFullHouseIds = new Set(coversConFullHouse.map(cover => cover.claseId!));
+    logs.push(`🏠 Covers con full house: ${coversConFullHouse.length} (clases IDs: ${Array.from(clasesFullHouseIds).join(', ')})`);
+    
+    // Crear un mapa para verificar rápidamente si una clase debe ser full house
+    const clasesFullHouseMap = new Map<string, boolean>();
+    clasesDelInstructor.forEach(clase => {
+      clasesFullHouseMap.set(clase.id, clasesFullHouseIds.has(clase.id));
+    });
+    
+    logs.push(`🗺️ Mapa de clases full house creado: ${clasesFullHouseMap.size} clases procesadas`);
+    
+    // CALCULAR BONOS DE BRANDEOS, THEME RIDES Y WORKSHOPS
+    logs.push(`\n🏆 CALCULANDO BONOS ADICIONALES...`);
+    
+    // 3. Calcular bono de brandeos (número de brandeos x S/.15)
+    const totalBrandeos = brandeosDelInstructor.reduce((total, brandeo) => total + brandeo.numero, 0);
+    const bonoBrandeos = totalBrandeos * 15;
+    logs.push(`🏆 Brandeos: ${totalBrandeos} x S/.15 = S/.${bonoBrandeos}`);
+    
+    // 4. Calcular bono de theme rides (número de theme rides x S/.30)
+    const totalThemeRides = themeRidesDelInstructor.reduce((total, themeRide) => total + themeRide.numero, 0);
+    const bonoThemeRides = totalThemeRides * 30;
+    logs.push(`⚡ Theme Rides: ${totalThemeRides} x S/.30 = S/.${bonoThemeRides}`);
+    
+    // 5. Calcular bono de workshops (suma de todos los pagos de workshops)
+    const bonoWorkshops = workshopsDelInstructor.reduce((total, workshop) => total + workshop.pago, 0);
+    logs.push(`🎓 Workshops: ${workshopsDelInstructor.length} workshops = S/.${bonoWorkshops.toFixed(2)}`);
+    
+    // 6. Calcular bono de versus (S/.30 por clase versus, excepto Síclo)
+    const clasesVersus = clasesDelInstructor.filter(clase => {
+      const disciplina = disciplinasDb.find(d => d.id === clase.disciplinaId);
+      return clase.esVersus && clase.vsNum && clase.vsNum > 1 && disciplina?.nombre !== "Síclo";
+    });
+    const bonoVersus = clasesVersus.length * 30;
+    logs.push(`⚖️ Clases versus: ${clasesVersus.length} x S/.30 = S/.${bonoVersus}`);
+    
+    logs.push(`💰 Total bonos adicionales: S/.${(bonoBrandeos + bonoThemeRides + bonoWorkshops + bonoVersus).toFixed(2)}`);
+
     // Penalización global del instructor (sobre todas sus clases)
     logs.push(`⚠️ Calculando penalizaciones...`);
     const penalizacionResumen = calcularPenalizacion(clasesDelInstructor, penalizacionesDelInstructor, disciplinasDb);
     logs.push(`📊 Penalizaciones calculadas:`);
     logs.push(`   - Descuento: ${penalizacionResumen.descuento || 0}%`);
     logs.push(`   - Detalle: ${JSON.stringify(penalizacionResumen)}`);
-
-    const coverTotal = 0 * 80;
-    logs.push(`🔄 Cover total: ${coverTotal}`);
     
     // El monto base es solo la suma de los pagos por clase
     const montoBase = montoTotal;
+    
+    // Los bonos se suman al monto base
+    const bono = pagoExistente?.bono || 0;
+    const cover = bonoCovers; // Usar el bono de covers calculado
+    const brandeo = bonoBrandeos; // Usar el bono de brandeos calculado
+    const themeRide = bonoThemeRides; // Usar el bono de theme rides calculado
+    const workshop = bonoWorkshops; // Usar el bono de workshops calculado
+    const versus = bonoVersus; // Usar el bono de versus calculado
+    
+    // Calcular el total de bonos
+    const totalBonos = bono + cover + brandeo + themeRide + workshop + versus;
+    
     // Calcular el reajuste según tipo
     let reajusteCalculado = 0;
     if (pagoExistente?.tipoReajuste === "PORCENTAJE") {
@@ -311,21 +387,22 @@ export async function POST(
     } else {
       reajusteCalculado = pagoExistente?.reajuste || 0;
     }
-    // El bono y cover también se suman después
-    const bono = pagoExistente?.bono || 0;
-    const cover = coverTotal;
-    // El subtotal es la suma de monto base + reajuste + bono + cover
-    const subtotal = montoBase + reajusteCalculado + bono + cover;
-    // Usar el subtotal como base para los cálculos finales
-    const pagoTotalInstructor = subtotal;
+    
+    // La penalización se aplica sobre monto base + reajuste + bonos
     const descuentoPenalizacion = penalizacionResumen.descuento || 0;
-    const montoDescuento = pagoTotalInstructor * (descuentoPenalizacion / 100);
-    const montoFinal = pagoTotalInstructor - montoDescuento;
+    const baseParaPenalizacion = montoBase + reajusteCalculado + totalBonos;
+    const montoDescuento = baseParaPenalizacion * (descuentoPenalizacion / 100);
+    
+    // Cálculo final: monto base + reajuste + bonos - penalización
+    const montoFinal = baseParaPenalizacion - montoDescuento;
     const retencion = montoFinal * 0.08; // 8% retención
     const pagoFinal = montoFinal - retencion;
     
     logs.push(`💰 Cálculos finales:`);
-    logs.push(`   - Pago total instructor: ${pagoTotalInstructor.toFixed(2)}`);
+    logs.push(`   - Monto base (clases): ${montoBase.toFixed(2)}`);
+    logs.push(`   - Reajuste: ${reajusteCalculado.toFixed(2)}`);
+    logs.push(`   - Total bonos: ${totalBonos.toFixed(2)} (Bono: ${bono.toFixed(2)}, Cover: ${cover.toFixed(2)}, Brandeo: ${brandeo.toFixed(2)}, Theme Ride: ${themeRide.toFixed(2)}, Workshop: ${workshop.toFixed(2)})`);
+    logs.push(`   - Base para penalización (monto base + reajuste + bonos): ${baseParaPenalizacion.toFixed(2)}`);
     logs.push(`   - Descuento penalización: ${descuentoPenalizacion}% = ${montoDescuento.toFixed(2)}`);
     logs.push(`   - Monto final: ${montoFinal.toFixed(2)}`);
     logs.push(`   - Retención (8%): ${retencion.toFixed(2)}`);
@@ -334,10 +411,45 @@ export async function POST(
     // Preparar detalles del instructor
     const detallesInstructor = {
       clases: detallesClases,
-      penalizaciones: penalizacionResumen,
+      penalizaciones: {
+        ...penalizacionResumen,
+        montoDescuento: montoDescuento
+      },
+      covers: {
+        totalCovers: coversComoReemplazo.length,
+        coversConBono: coversConBono.length,
+        bonoTotal: bonoCovers,
+        coversConFullHouse: coversConFullHouse.length,
+        clasesFullHouse: Array.from(clasesFullHouseIds)
+      },
+      brandeos: {
+        totalBrandeos: totalBrandeos,
+        bonoTotal: bonoBrandeos,
+        brandeos: brandeosDelInstructor
+      },
+      themeRides: {
+        totalThemeRides: totalThemeRides,
+        bonoTotal: bonoThemeRides,
+        themeRides: themeRidesDelInstructor
+      },
+      workshops: {
+        totalWorkshops: workshopsDelInstructor.length,
+        bonoTotal: bonoWorkshops,
+        workshops: workshopsDelInstructor
+      },
+      versus: {
+        totalClasesVersus: clasesVersus.length,
+        bonoTotal: bonoVersus,
+        clasesVersus: clasesVersus.map(clase => ({
+          id: clase.id,
+          fecha: clase.fecha,
+          disciplina: disciplinasDb.find(d => d.id === clase.disciplinaId)?.nombre || 'Desconocida',
+          vsNum: clase.vsNum
+        }))
+      },
       resumen: {
         totalClases: clasesDelInstructor.length,
-        totalMonto: pagoTotalInstructor,
+        totalMonto: montoFinal,
         descuentoPenalizacion,
         montoDescuento,
         retencion,
@@ -349,22 +461,22 @@ export async function POST(
 
     const resultado = {
       pago: pagoFinal,
-      resumen: {
-        instructor: {
-          id: instructor.id,
-          nombre: instructor.nombre,
+              resumen: {
+          instructor: {
+            id: instructor.id,
+            nombre: instructor.nombre,
+          },
+          periodo: {
+            id: periodo.id,
+            numero: periodo.numero,
+            año: periodo.año,
+          },
+          clases: detallesClases.length,
+          montoBase: montoFinal,
+          penalizacion: montoDescuento,
+          retencion,
+          pagoFinal,
         },
-        periodo: {
-          id: periodo.id,
-          numero: periodo.numero,
-          año: periodo.año,
-        },
-        clases: detallesClases.length,
-        montoBase: pagoTotalInstructor,
-        penalizacion: montoDescuento,
-        retencion,
-        pagoFinal,
-      },
       detalles: detallesInstructor,
       logs,
     };
@@ -378,12 +490,16 @@ export async function POST(
           monto: montoBase, // Solo el monto base
           bono,
           reajuste: pagoExistente.reajuste,
-          penalizacion: descuentoPenalizacion,
+          penalizacion: montoDescuento, // Guardar el monto de penalización, no el porcentaje
           tipoReajuste: pagoExistente.tipoReajuste,
           retencion,
           pagoFinal,
           dobleteos,
           cover,
+          brandeo,
+          themeRide,
+          workshop,
+          bonoVersus: versus,
           horariosNoPrime,
           detalles: detallesInstructor,
         },
@@ -404,10 +520,14 @@ export async function POST(
           pagoFinal,
           dobleteos,
           cover,
+          brandeo,
+          themeRide,
+          workshop,
+          bonoVersus: versus,
           horariosNoPrime,
           participacionEventos: true,
           cumpleLineamientos: true,
-          penalizacion: descuentoPenalizacion,
+          penalizacion: montoDescuento, // Guardar el monto de penalización, no el porcentaje
           estado: "PENDIENTE",
           detalles: detallesInstructor,
         },

@@ -15,7 +15,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { CalendarDays, LogOut, Calculator, Home, User, CreditCard, Sliders, File, ShieldAlert, UserCog } from "lucide-react"
+import { CalendarDays, LogOut, Calculator, Home, User, CreditCard, Sliders, File, ShieldAlert, UserCog, Award, Zap, GraduationCap } from "lucide-react"
 import { useAuthStore } from "@/store/useAuthStore"
 import { useRouter, usePathname } from "next/navigation"
 import { Separator } from "@/components/ui/separator"
@@ -25,6 +25,9 @@ import { type EstadoPago, Rol, type PagoInstructor } from "@/types/schema"
 const protectedRoutes = {
   "/covers": [Rol.MANAGER, "instructor"],
   "/penalizaciones": [Rol.MANAGER],
+  "/brandeos": [Rol.SUPER_ADMIN, Rol.ADMIN],
+  "/theme-rides": [Rol.SUPER_ADMIN, Rol.ADMIN],
+  "/workshops": [Rol.SUPER_ADMIN, Rol.ADMIN],
   "/": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
   "/configuracion": [Rol.SUPER_ADMIN, Rol.ADMIN],
   "/importar": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
@@ -521,6 +524,45 @@ export function AppSidebar() {
                     <Link href="/penalizaciones">
                       <ShieldAlert className="h-5 w-5" />
                       <span>Penalizaciones</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Brandeos"
+                    isActive={isActive("/brandeos")}
+                    className={claseitem}
+                  >
+                    <Link href="/brandeos">
+                      <Award className="h-5 w-5" />
+                      <span>Brandeos</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Theme Rides"
+                    isActive={isActive("/theme-rides")}
+                    className={claseitem}
+                  >
+                    <Link href="/theme-rides">
+                      <Zap className="h-5 w-5" />
+                      <span>Theme Rides</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Workshops"
+                    isActive={isActive("/workshops")}
+                    className={claseitem}
+                  >
+                    <Link href="/workshops">
+                      <GraduationCap className="h-5 w-5" />
+                      <span>Workshops</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

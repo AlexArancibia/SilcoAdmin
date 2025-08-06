@@ -49,6 +49,9 @@ model Instructor {
   coversComoDador    Cover[]   @relation("InstructorOriginal")
   coversComoReemplazo Cover[]   @relation("InstructorReemplazo")
   penalizaciones Penalizacion[]
+  brandeos      Brandeo[]
+  themeRides    ThemeRide[]
+  workshops     Workshop[]
 }
 
 model Disciplina {
@@ -88,6 +91,9 @@ model Periodo {
   categorias CategoriaInstructor[] // Relación para categorías
   covers     Cover[]
   penalizaciones Penalizacion[]
+  brandeos   Brandeo[]
+  themeRides ThemeRide[]
+  workshops  Workshop[]
 }
 
 model Formula {
@@ -246,6 +252,10 @@ model PagoInstructor {
   reajuste            Float    @default(0.0) // Ajuste aplicado al pago
   penalizacion        Float    @default(0.0)
   cover               Float    @default(0.0)
+  brandeo             Float    @default(0.0) // Monto del bono de brandeo
+  themeRide           Float    @default(0.0) // Monto del bono de theme ride
+  workshop            Float    @default(0.0) // Monto del bono de workshop
+  bonoVersus          Float    @default(0.0) // Monto del bono de versus
   tipoReajuste        String   @default("FIJO") // Puede ser "FIJO" o "PORCENTAJE"
   bono                Float?   // Monto del bono
 
@@ -258,6 +268,7 @@ model PagoInstructor {
   // Relaciones
   instructor          Instructor @relation(fields: [instructorId], references: [id])
   periodo             Periodo    @relation(fields: [periodoId], references: [id])
+ 
 
   // Restricción de unicidad
   @@unique([instructorId, periodoId])
@@ -271,4 +282,61 @@ model Archivo {
   descripcion String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Nueva tabla para el sistema de brandeo
+model Brandeo {
+  id           Int      @id @default(autoincrement())
+  numero       Int      // Número de brandeo
+  instructorId Int      // Instructor que dio el brandeo
+  periodoId    Int      // Periodo al que pertenece
+  comentarios  String?  // Comentarios adicionales
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  instructor   Instructor @relation(fields: [instructorId], references: [id])
+  periodo      Periodo    @relation(fields: [periodoId], references: [id])
+ 
+
+  // Restricción de unicidad para evitar duplicados en el mismo periodo
+  @@unique([numero, periodoId])
+}
+
+// Nueva tabla para el sistema de theme rides
+model ThemeRide {
+  id           Int      @id @default(autoincrement())
+  numero       Int      // Número de theme rides
+  instructorId Int      // Instructor que dio el theme ride
+  periodoId    Int      // Periodo al que pertenece
+  comentarios  String?  // Comentarios adicionales
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  instructor   Instructor @relation(fields: [instructorId], references: [id])
+  periodo      Periodo    @relation(fields: [periodoId], references: [id])
+
+  // Restricción de unicidad para evitar duplicados en el mismo periodo
+  @@unique([numero, periodoId])
+}
+
+// Nueva tabla para el sistema de workshops
+model Workshop {
+  id           Int      @id @default(autoincrement())
+  nombre       String   // Nombre del workshop
+  instructorId Int      // Instructor que dio el workshop
+  periodoId    Int      // Periodo al que pertenece
+  fecha        DateTime // Fecha del workshop
+  comentarios  String?  // Comentarios adicionales
+  pago         Float    // Monto variable a pagar al instructor
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relaciones
+  instructor   Instructor @relation(fields: [instructorId], references: [id])
+  periodo      Periodo    @relation(fields: [periodoId], references: [id])
 }

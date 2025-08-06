@@ -535,6 +535,7 @@ export default function PagoDetallePage() {
             disciplinaId: disciplinaId,
             periodoId: pagoSeleccionado.periodoId,
             categoria: categoriaCalculada,
+            esManual: false,
             metricas: metricas,
             disciplina: disciplina,
           })
@@ -954,7 +955,7 @@ export default function PagoDetallePage() {
                 clasesInstructor={clasesInstructor}
                 totalReservas={totalReservas}
                 totalCapacidad={totalCapacidad}
-                coversInstructor={instructor.covers}
+                coversInstructor={instructor.coversComoReemplazo || []}
               />
             )}
 
@@ -996,6 +997,7 @@ export default function PagoDetallePage() {
             {activeTab === "penalizacionycover" && (
               <PenalizacionesCoversTab
                 detalles={pagoSeleccionado.detalles}
+                pagoSeleccionado={pagoSeleccionado}
               />
             )}
           </div>

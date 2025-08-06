@@ -105,6 +105,9 @@ export interface Instructor {
   penalizaciones? : Penalizacion  []
   coversComoDador?: Cover[] // Covers donde este instructor fue el original
   coversComoReemplazo?: Cover[] // Covers donde este instructor fue el reemplazo
+  brandeos?: Brandeo[]
+  themeRides?: ThemeRide[]
+  workshops?: Workshop[]
 }
 
 export interface InstructorExtraInfo {
@@ -129,6 +132,9 @@ export interface Disciplina {
   instructores?: Instructor[]
   categorias?: CategoriaInstructorModel[]
   covers?: Cover[] // Nueva relación para covers
+  brandeos?: Brandeo[]
+  themeRides?: ThemeRide[]
+  workshops?: Workshop[]
 }
 
 export interface Periodo {
@@ -149,6 +155,9 @@ export interface Periodo {
   formulas?: FormulaDB[]
   categorias?: CategoriaInstructorModel[]
   covers?: Cover[] // Nueva relación para covers
+  brandeos?: Brandeo[]
+  themeRides?: ThemeRide[]
+  workshops?: Workshop[]
 }
 
 export interface RequisitosCategoria {
@@ -238,6 +247,10 @@ export interface PagoInstructor {
   retencion: number
   reajuste: number
   cover: number
+  brandeo: number // Monto del bono de brandeo
+  themeRide: number // Monto del bono de theme ride
+  workshop: number // Monto del bono de workshop
+  bonoVersus: number // Monto del bono de versus
   penalizacion:number
   tipoReajuste: TipoReajuste
   bono?: number // Monto del bono
@@ -248,6 +261,7 @@ export interface PagoInstructor {
   // Relaciones
   instructor?: Instructor
   periodo?: Periodo
+  brandeos?: Brandeo[]
 }
 
 export interface Archivo {
@@ -489,4 +503,78 @@ export const parametrosPagoEjemplo = {
     retencionPorcentaje: 8.0,
     ajustePorDobleteo: 1.0,
   },
+}
+
+// Nueva interfaz para Brandeo
+export interface Brandeo {
+  id: number
+  numero: number
+  instructorId: number
+  periodoId: number
+  comentarios?: string
+  createdAt?: Date
+  updatedAt?: Date
+
+  // Relaciones
+  instructor?: Instructor
+  periodo?: Periodo
+  pagos?: PagoInstructor[]
+}
+
+// Query parameter types for brandeos
+export interface BrandeosQueryParams extends PaginationParams {
+  periodoId?: number
+  instructorId?: number
+  numero?: number
+  busqueda?: string
+}
+
+// Nueva interfaz para ThemeRide
+export interface ThemeRide {
+  id: number
+  numero: number
+  instructorId: number
+  periodoId: number
+  comentarios?: string
+  createdAt?: Date
+  updatedAt?: Date
+
+  // Relaciones
+  instructor?: Instructor
+  periodo?: Periodo
+}
+
+// Query parameter types for theme rides
+export interface ThemeRidesQueryParams extends PaginationParams {
+  periodoId?: number
+  instructorId?: number
+  numero?: number
+  busqueda?: string
+}
+
+// Nueva interfaz para Workshop
+export interface Workshop {
+  id: number
+  nombre: string
+  instructorId: number
+  periodoId: number
+  fecha: Date
+  comentarios?: string
+  pago: number
+  createdAt?: Date
+  updatedAt?: Date
+
+  // Relaciones
+  instructor?: Instructor
+  periodo?: Periodo
+}
+
+// Query parameter types for workshops
+export interface WorkshopsQueryParams extends PaginationParams {
+  periodoId?: number
+  instructorId?: number
+  nombre?: string
+  busqueda?: string
+  fechaDesde?: string
+  fechaHasta?: string
 }

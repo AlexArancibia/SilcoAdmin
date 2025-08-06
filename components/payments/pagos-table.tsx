@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { ArrowUpDown, Calendar, Download, Eye, FileText, Printer, Calculator, RefreshCw } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ArrowUpDown, Calendar, Download, Eye, FileText, Printer, Calculator, RefreshCw, HelpCircle } from "lucide-react"
 import {
   Pagination,
   PaginationContent,
@@ -291,9 +292,23 @@ export function PagosTable() {
                   <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
                 </Button>
               </TableHead>
-              <TableHead className="text-foreground font-medium">Cover</TableHead>
-              <TableHead className="text-foreground font-medium">Penalización</TableHead>
+              <TableHead className="text-foreground font-medium">
+                <div className="flex items-center gap-1">
+                  Bonos
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p className="text-xs">Hover para ver el detalle de cada bono</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </TableHead>
               <TableHead className="text-foreground font-medium">Reajuste</TableHead>
+              <TableHead className="text-foreground font-medium w-32">Penalización</TableHead>
               <TableHead className="text-foreground font-medium">Retención</TableHead>
               <TableHead className="text-foreground font-medium">Total</TableHead>
               <TableHead className="text-foreground font-medium">
@@ -322,14 +337,23 @@ export function PagosTable() {
                 const isRecalculating = recalculandoPagoId === pago.id
                 const bono = pago.bono ?? 0
                 const penalizacion = pago.penalizacion ?? 0
-                // Mostrar penalización como monto descontado
-                const montoPenalizacion = pago.monto * (penalizacion / 100)
                 const cover = pago.cover ?? 0
+                const brandeo = pago.brandeo ?? 0
+                const themeRide = pago.themeRide ?? 0
+                const workshop = pago.workshop ?? 0
+                const versus = pago.bonoVersus ?? 0
+                
+                // Calcular total de bonos
+                const totalBonos = bono + cover + brandeo + themeRide + workshop + versus
+                
+                // El campo penalizacion ya contiene el monto calculado por el backend
+                const montoPenalizacion = penalizacion
+                
                 const reajusteCalculado = pago.tipoReajuste === "PORCENTAJE"
                   ? (pago.monto * pago.reajuste) / 100
                   : pago.reajuste
                 const retencion = pago.retencion ?? 0
-                const total = pago.monto + cover - penalizacion + bono + reajusteCalculado - retencion
+                const total = pago.pagoFinal
 
                 return (
                   <TableRow key={pago.id} className="hover:bg-muted/20 transition-colors">
@@ -350,18 +374,55 @@ export function PagosTable() {
                       {formatCurrency(pago.monto)}
                     </TableCell>
                     <TableCell>
-                      {cover > 0 ? (
-                        <span className="text-green-600 text-sm">+{formatCurrency(cover)}</span>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {montoPenalizacion > 0 ? (
-                        <span className="text-red-600 text-sm">-{formatCurrency(montoPenalizacion)}</span>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help flex items-center gap-1">
+                              {cover + brandeo + themeRide + workshop + versus > 0 ? (
+                                <span className="text-green-600 text-sm font-medium">
+                                  +{formatCurrency(cover + brandeo + themeRide + workshop + versus)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">-</span>
+                              )}
+                              <HelpCircle className="h-3 w-3 text-muted-foreground opacity-60" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <div className="space-y-1">
+                              <div className="font-medium text-xs">Detalle de Bonos:</div>
+                              {cover > 0 && (
+                                <div className="text-xs">
+                                  <span className="text-green-600">Cover:</span> +{formatCurrency(cover)}
+                                </div>
+                              )}
+                              {brandeo > 0 && (
+                                <div className="text-xs">
+                                  <span className="text-green-600">Brandeo:</span> +{formatCurrency(brandeo)}
+                                </div>
+                              )}
+                              {themeRide > 0 && (
+                                <div className="text-xs">
+                                  <span className="text-green-600">Theme Ride:</span> +{formatCurrency(themeRide)}
+                                </div>
+                              )}
+                              {workshop > 0 && (
+                                <div className="text-xs">
+                                  <span className="text-green-600">Workshop:</span> +{formatCurrency(workshop)}
+                                </div>
+                              )}
+                              {versus > 0 && (
+                                <div className="text-xs">
+                                  <span className="text-green-600">Versus:</span> +{formatCurrency(versus)}
+                                </div>
+                              )}
+                              {(cover === 0 && brandeo === 0 && themeRide === 0 && workshop === 0 && versus === 0) && (
+                                <div className="text-xs text-muted-foreground">Sin bonos aplicados</div>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                     <TableCell>
                       {isEditing ? (
@@ -403,6 +464,61 @@ export function PagosTable() {
                             <FileText className="h-3 w-3" />
                           </Button>
                         </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="w-32">
+                      {montoPenalizacion > 0 ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-help flex flex-col">
+                                <span className="text-red-600 text-sm">-{formatCurrency(montoPenalizacion)}</span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  ({pago.detalles?.penalizaciones?.descuento || ((montoPenalizacion / (pago.monto + reajusteCalculado + totalBonos)) * 100).toFixed(1)}%)
+                                </span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <div className="space-y-2">
+                                <div className="font-medium text-xs">Detalle de Penalización:</div>
+                                {pago.detalles?.penalizaciones?.detalle ? (
+                                  <div className="space-y-1">
+                                    <div className="text-xs">
+                                      <span className="font-medium">Puntos totales:</span> {pago.detalles.penalizaciones.puntos}
+                                    </div>
+                                    <div className="text-xs">
+                                      <span className="font-medium">Puntos permitidos:</span> {pago.detalles.penalizaciones.maxPermitidos}
+                                    </div>
+                                    <div className="text-xs">
+                                      <span className="font-medium">Puntos excedentes:</span> {pago.detalles.penalizaciones.excedentes}
+                                    </div>
+                                    <div className="text-xs">
+                                      <span className="font-medium">Descuento aplicado:</span> {pago.detalles.penalizaciones.descuento}%
+                                    </div>
+                                    {pago.detalles.penalizaciones.detalle && pago.detalles.penalizaciones.detalle.length > 0 && (
+                                      <div className="mt-2">
+                                        <div className="text-xs font-medium">Penalizaciones aplicadas:</div>
+                                        <div className="space-y-1 max-h-20 overflow-y-auto">
+                                          {pago.detalles.penalizaciones.detalle.map((pen: any, index: number) => (
+                                            <div key={index} className="text-xs text-muted-foreground">
+                                              • {pen.tipo}: {pen.puntos} pts - {pen.descripcion}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-muted-foreground">
+                                    Sin detalles de penalización disponibles
+                                  </div>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
                     <TableCell>

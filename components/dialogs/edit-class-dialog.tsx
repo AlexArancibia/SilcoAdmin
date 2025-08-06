@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Clock, Loader2, Trash2 } from "lucide-react"
+import { CalendarIcon, Clock, Loader2, Trash2, Users, Check, X } from "lucide-react"
 import { format, addHours, subHours, setHours, setMinutes } from "date-fns"
 import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
@@ -17,10 +17,11 @@ import { useClasesStore } from "@/store/useClasesStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
-import type { Clase } from "@/types/schema"
+import type { Clase, Instructor } from "@/types/schema"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Switch } from "@/components/ui/switch"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +63,9 @@ export function EditClassDialog({
   const [selectedMinute, setSelectedMinute] = useState("00")
   const [activeTab, setActiveTab] = useState("general")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isVersusMode, setIsVersusMode] = useState(false)
+  const [additionalInstructors, setAdditionalInstructors] = useState<Instructor[]>([])
+  const [instructorSearch, setInstructorSearch] = useState("")
   const [formData, setFormData] = useState<Partial<Clase> & { id?: string }>({
     id: classId || "",
     fecha: new Date(),
@@ -145,6 +149,55 @@ export function EditClassDialog({
     }))
   }
 
+  const handleVersusModeToggle = (enabled: boolean) => {
+    setIsVersusMode(enabled)
+    if (!enabled) {
+      setAdditionalInstructors([])
+      setFormData(prev => ({ 
+        ...prev, 
+        esVersus: false, 
+        vsNum: undefined 
+      }))
+    } else {
+      setAdditionalInstructors([])
+      setFormData(prev => ({ 
+        ...prev, 
+        esVersus: true, 
+        vsNum: 0,
+        instructorId: 0 // Limpiar instructor principal cuando se activa versus
+      }))
+    }
+  }
+
+  const handleInstructorToggle = (instructor: Instructor) => {
+    setAdditionalInstructors(prev => {
+      const isSelected = prev.some(i => i.id === instructor.id)
+      if (isSelected) {
+        const newList = prev.filter(i => i.id !== instructor.id)
+        setFormData(prevData => ({ 
+          ...prevData, 
+          vsNum: newList.length 
+        }))
+        return newList
+      } else {
+        if (prev.length >= 4) { // Máximo 4 instructores total
+          toast({
+            title: "Límite alcanzado",
+            description: "Máximo 4 instructores por clase versus",
+            variant: "destructive",
+          })
+          return prev
+        }
+        const newList = [...prev, instructor]
+        setFormData(prevData => ({ 
+          ...prevData, 
+          vsNum: newList.length 
+        }))
+        return newList
+      }
+    })
+  }
+
   // Actualizar la fecha cuando cambia la hora o minutos
   useEffect(() => {
     if (formData.fecha) {
@@ -161,7 +214,7 @@ export function EditClassDialog({
   }, [selectedHour, selectedMinute])
 
   const handleSubmit = async () => {
-    if (!formData.instructorId || !formData.disciplinaId || !formData.periodoId || !formData.id) {
+    if (!formData.disciplinaId || !formData.periodoId || !formData.id) {
       toast({
         title: "Error",
         description: "Por favor completa todos los campos requeridos, incluyendo el ID",
@@ -170,16 +223,37 @@ export function EditClassDialog({
       return
     }
 
+    // Validar instructor solo si NO es versus
+    if (!isVersusMode && !formData.instructorId) {
+      toast({
+        title: "Error",
+        description: "Por favor selecciona un instructor",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validar que el ID base no termine en letra para clases versus
+    if (isVersusMode && additionalInstructors.length > 0) {
+      const lastChar = formData.id.slice(-1)
+      if (/[a-z]/.test(lastChar)) {
+        toast({
+          title: "Error",
+          description: "El ID base no debe terminar en letra para clases versus. Ejemplo: usa 'VS_001' en lugar de 'VS_001a'",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     setIsSubmitting(true)
     try {
       // Ajustar la fecha para guardar con -5 horas
       const fechaAjustada = formData.fecha ? subHours(formData.fecha, 5) : new Date()
 
-      let savedClase: Clase
-
       if (classId) {
         // Actualizar clase existente
-        savedClase = await actualizarClase(classId, {
+        const savedClase = await actualizarClase(classId, {
           ...formData,
           fecha: fechaAjustada,
         })
@@ -187,21 +261,69 @@ export function EditClassDialog({
           title: "Clase actualizada",
           description: "La clase se ha actualizado correctamente",
         })
+        if (onSaved) {
+          onSaved(savedClase)
+        }
       } else {
-        // Crear nueva clase
-        savedClase = await crearClase({
-          ...formData,
-          id: formData.id,
-          fecha: fechaAjustada,
-        } as Omit<Clase, "createdAt" | "updatedAt">)
+        // Crear nueva(s) clase(s)
+            if (isVersusMode && additionalInstructors.length > 0) {
+      // Crear múltiples clases para versus usando el patrón del sistema de importación
+      const allInstructors = additionalInstructors
+      
+      if (allInstructors.length === 0) {
         toast({
-          title: "Clase creada",
-          description: "La clase se ha creado correctamente",
+          title: "Error",
+          description: "Debes seleccionar al menos un instructor para crear una clase versus",
+          variant: "destructive",
         })
+        return
       }
+          const createdClasses: Clase[] = []
+          const baseId = formData.id
 
-      if (onSaved) {
-        onSaved(savedClase)
+          for (let i = 0; i < allInstructors.length; i++) {
+            const instructor = allInstructors[i]
+            // Usar el patrón: VS_001a, VS_001b, VS_001c, VS_001d
+            const classId = `${baseId}${String.fromCharCode(97 + i)}` // 97 = 'a', 98 = 'b', etc.
+            
+            const claseData = {
+              ...formData,
+              id: classId,
+              instructorId: instructor.id,
+              fecha: fechaAjustada,
+              esVersus: true,
+              vsNum: allInstructors.length,
+            } as Omit<Clase, "createdAt" | "updatedAt">
+
+            const savedClase = await crearClase(claseData)
+            createdClasses.push(savedClase)
+          }
+
+          toast({
+            title: "Clases versus creadas",
+            description: `Se han creado ${createdClasses.length} clases versus para ${allInstructors.length} instructores`,
+          })
+
+          if (onSaved && createdClasses.length > 0) {
+            onSaved(createdClasses[0]) // Devolver la primera clase creada
+          }
+        } else {
+          // Crear clase normal
+          const savedClase = await crearClase({
+            ...formData,
+            id: formData.id,
+            fecha: fechaAjustada,
+          } as Omit<Clase, "createdAt" | "updatedAt">)
+          
+          toast({
+            title: "Clase creada",
+            description: "La clase se ha creado correctamente",
+          })
+
+          if (onSaved) {
+            onSaved(savedClase)
+          }
+        }
       }
 
       onClose()
@@ -338,26 +460,45 @@ export function EditClassDialog({
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      {/* Instructor */}
+                      {/* Instructor (solo si NO es versus) */}
+                      {!isVersusMode && (
+                        <div className="space-y-1">
+                          <Label htmlFor="instructor" className="text-xs font-medium">
+                            Instructor <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={formData.instructorId?.toString() || ""}
+                            onValueChange={(value) => handleChange("instructorId", Number.parseInt(value))}
+                          >
+                            <SelectTrigger className="h-8 text-xs" id="instructor">
+                              <SelectValue placeholder="Seleccionar instructor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {instructores.map((instructor) => (
+                                <SelectItem key={instructor.id} value={instructor.id.toString()} className="text-xs">
+                                  {instructor.nombre}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Switch de Versus */}
                       <div className="space-y-1">
-                        <Label htmlFor="instructor" className="text-xs font-medium">
-                          Instructor <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={formData.instructorId?.toString() || ""}
-                          onValueChange={(value) => handleChange("instructorId", Number.parseInt(value))}
-                        >
-                          <SelectTrigger className="h-8 text-xs" id="instructor">
-                            <SelectValue placeholder="Seleccionar instructor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {instructores.map((instructor) => (
-                              <SelectItem key={instructor.id} value={instructor.id.toString()} className="text-xs">
-                                {instructor.nombre}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium flex items-center gap-2">
+                            <Users className="h-3 w-3" />
+                            Clase Versus
+                          </Label>
+                          <Switch
+                            checked={isVersusMode}
+                            onCheckedChange={handleVersusModeToggle}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Activar para crear clase versus con múltiples instructores (misma jerarquía)
+                        </p>
                       </div>
 
                       {/* Disciplina */}
@@ -382,6 +523,88 @@ export function EditClassDialog({
                         </Select>
                       </div>
                     </div>
+
+                    {/* Instructores Versus (solo si es versus) */}
+                    {isVersusMode && (
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium flex items-center gap-2">
+                          <Users className="h-3 w-3" />
+                          Seleccionar Instructores para Versus ({additionalInstructors.length}/4)
+                        </Label>
+                        <div className="text-xs text-muted-foreground mb-2">
+                          Selecciona hasta 4 instructores para esta clase versus. Todos tienen la misma jerarquía y recibirán un bono de S/.30.
+                          <br />
+                          <strong>IDs generados:</strong> Si el ID base es "VS_001", se crearán: VS_001a, VS_001b, VS_001c, VS_001d
+                          <br />
+                          <strong>Nota:</strong> No hay instructor principal en clases versus.
+                        </div>
+                        
+                        {/* Campo de búsqueda */}
+                        <div className="space-y-1">
+                          <Input
+                            placeholder="Buscar instructor por nombre..."
+                            value={instructorSearch}
+                            onChange={(e) => setInstructorSearch(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                          {instructores
+                            .filter(instructor => 
+                              instructor.nombre.toLowerCase().includes(instructorSearch.toLowerCase()) ||
+                              instructor.id.toString().includes(instructorSearch)
+                            )
+                            .map((instructor) => {
+                              const isSelected = additionalInstructors.some(i => i.id === instructor.id)
+                              
+                              return (
+                                <div
+                                  key={instructor.id}
+                                  className={cn(
+                                    "flex items-center justify-between p-2 border rounded-md cursor-pointer transition-colors text-xs",
+                                    isSelected
+                                      ? "border-indigo-500 bg-indigo-50"
+                                      : "border-border hover:border-indigo-300"
+                                  )}
+                                  onClick={() => handleInstructorToggle(instructor)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className={cn(
+                                      "w-3 h-3 rounded-full border-2 flex items-center justify-center",
+                                      isSelected
+                                        ? "border-indigo-500 bg-indigo-500"
+                                        : "border-gray-300"
+                                    )}>
+                                      {isSelected && <Check className="w-2 h-2 text-white" />}
+                                    </div>
+                                    <div>
+                                      <div className="font-medium">{instructor.nombre}</div>
+                                      <div className="text-muted-foreground">ID: {instructor.id}</div>
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 text-xs">
+                                      Seleccionado
+                                    </Badge>
+                                  )}
+                                </div>
+                              )
+                            })}
+                        </div>
+                        
+                        {additionalInstructors.length > 0 && (
+                          <div className="bg-green-50 border border-green-200 rounded-md p-2">
+                            <div className="text-xs text-green-800">
+                              <strong>Instructores seleccionados:</strong> {additionalInstructors.length}
+                            </div>
+                            <div className="text-xs text-green-700 mt-1">
+                              {additionalInstructors.map(instructor => instructor.nombre).join(", ")}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Fecha y Hora */}
                     <div className="space-y-1">
@@ -680,7 +903,14 @@ export function EditClassDialog({
             </Button>
             <Button onClick={handleSubmit} disabled={isLoading || isSubmitting} size="sm" className="h-7 px-4 text-xs">
               {isSubmitting && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-              {classId ? "Guardar cambios" : "Crear clase"}
+              {classId 
+                ? "Guardar cambios" 
+                : isVersusMode && additionalInstructors.length > 0
+                ? `Crear ${additionalInstructors.length} clases versus`
+                : isVersusMode && additionalInstructors.length === 0
+                ? "Seleccionar instructores"
+                : "Crear clase"
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

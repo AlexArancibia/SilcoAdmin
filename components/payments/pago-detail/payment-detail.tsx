@@ -138,6 +138,11 @@ export function PaymentDetails({
   const coverTotal = pagoSeleccionado.cover || 0
   const totalCovers = coversInstructor.length
 
+  // Calcular nuevos bonos
+  const brandeoTotal = pagoSeleccionado.brandeo || 0
+  const themeRideTotal = pagoSeleccionado.themeRide || 0
+  const workshopTotal = pagoSeleccionado.workshop || 0
+
   // Calcular penalización
   const penalizacionTotal = pagoSeleccionado.penalizacion || 0
   const penalizacionPorcentaje = pagoSeleccionado.detalles?.penalizaciones?.porcentajeDescuento || 0
@@ -145,7 +150,7 @@ export function PaymentDetails({
   const maxPuntosPermitidos = pagoSeleccionado.detalles?.penalizaciones?.maxPuntosPermitidos || 0
 
   // Calcular subtotal y monto final con reajuste, bonos y covers
-  const subtotal = totalMontoBase + montoReajuste + (pagoSeleccionado.bono ?? 0) + coverTotal - penalizacionTotal
+  const subtotal = totalMontoBase + montoReajuste + (pagoSeleccionado.bono ?? 0) + coverTotal + brandeoTotal + themeRideTotal + workshopTotal - penalizacionTotal
 
   // Total de clases
   const totalClases = pagoSeleccionado.detalles?.resumen?.totalClases || clasesInstructor.length
@@ -384,6 +389,36 @@ export function PaymentDetails({
               </div>
             )}
 
+            {/* Brandeo */}
+            {brandeoTotal > 0 && (
+              <div className="flex justify-between items-center py-3 px-4 sm:px-6 hover:bg-muted/5">
+                <div className="text-xs sm:text-sm font-medium">Brandeo:</div>
+                <div className="font-medium text-xs sm:text-sm text-emerald-600">
+                  +{formatCurrency(brandeoTotal)}
+                </div>
+              </div>
+            )}
+
+            {/* Theme Ride */}
+            {themeRideTotal > 0 && (
+              <div className="flex justify-between items-center py-3 px-4 sm:px-6 hover:bg-muted/5">
+                <div className="text-xs sm:text-sm font-medium">Theme Ride:</div>
+                <div className="font-medium text-xs sm:text-sm text-emerald-600">
+                  +{formatCurrency(themeRideTotal)}
+                </div>
+              </div>
+            )}
+
+            {/* Workshop */}
+            {workshopTotal > 0 && (
+              <div className="flex justify-between items-center py-3 px-4 sm:px-6 hover:bg-muted/5">
+                <div className="text-xs sm:text-sm font-medium">Workshop:</div>
+                <div className="font-medium text-xs sm:text-sm text-emerald-600">
+                  +{formatCurrency(workshopTotal)}
+                </div>
+              </div>
+            )}
+
             {/* Penalización */}
             {penalizacionTotal > 0 && (
               <div className="flex justify-between items-center py-3 px-4 sm:px-6 hover:bg-muted/5">
@@ -394,9 +429,9 @@ export function PaymentDetails({
               </div>
             )}
 
-            {/* Subtotal con Reajustes, Penalizaciones y Covers */}
+            {/* Subtotal con Reajustes, Penalizaciones y Bonos */}
             <div className="flex justify-between items-center py-3 px-4 sm:px-6 bg-muted/5 font-medium">
-              <div className="text-xs sm:text-sm">Subtotal con Reajustes, Penalizaciones y Cover:</div>
+              <div className="text-xs sm:text-sm">Subtotal con Reajustes, Penalizaciones y Bonos:</div>
               <div className="font-medium text-xs sm:text-sm">{formatCurrency(subtotal)}</div>
             </div>
 

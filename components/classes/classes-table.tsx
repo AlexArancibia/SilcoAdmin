@@ -492,6 +492,8 @@ export function ClassesTable({ id, periodoId, periodoInicio, periodoFin, instruc
             instructorId={instructorId}
             disciplinaId={disciplinaId}
           />
+
+
         </CardContent>
       </Card>
 

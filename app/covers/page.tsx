@@ -43,6 +43,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -63,7 +64,8 @@ import {
   Eye,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronsUpDown
 } from 'lucide-react'
 
 // Stores
@@ -71,6 +73,7 @@ import { useCoversStore } from '@/store/useCoverStore'
 import { useInstructoresStore } from '@/store/useInstructoresStore'
 import { usePeriodosStore } from '@/store/usePeriodosStore'
 import { useDisciplinasStore } from '@/store/useDisciplinasStore'
+import { useClasesStore } from '@/store/useClasesStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import type { Cover, StatusCover } from '@/types/schema'
 
@@ -101,12 +104,17 @@ export default function CoversPage() {
   const { instructores, fetchInstructores } = useInstructoresStore()
   const { periodos, fetchPeriodos } = usePeriodosStore()
   const { disciplinas, fetchDisciplinas } = useDisciplinasStore()
+  const { clases, fetchClases, isLoading: isLoadingClases } = useClasesStore()
   const { user } = useAuthStore()
 
   // Estados
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedPeriodo, setSelectedPeriodo] = useState<number | 'all'>('all')
   const [selectedJustificacion, setSelectedJustificacion] = useState<StatusCover | 'all'>('all')
+  
+  // Estados para el buscador de clases
+  const [openCreateClaseSearch, setOpenCreateClaseSearch] = useState(false)
+  const [openEditClaseSearch, setOpenEditClaseSearch] = useState(false)
   
   // Diálogos
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -179,6 +187,38 @@ export default function CoversPage() {
     }
     loadData()
   }, [fetchInstructores, fetchPeriodos, fetchDisciplinas, fetchCovers, fetchMisReemplazos, isInstructor, user?.id, toast])
+
+  // Cargar clases cuando se selecciona un periodo
+  useEffect(() => {
+    if (selectedPeriodo !== 'all' && typeof selectedPeriodo === 'number') {
+      fetchClases({ periodoId: selectedPeriodo })
+    }
+  }, [selectedPeriodo, fetchClases])
+
+  // Limpiar campo de clase cuando se cambia el periodo en el formulario de creación
+  useEffect(() => {
+    if (createForm.periodoId !== selectedPeriodo) {
+      setCreateForm(prev => ({ ...prev, claseId: '' }))
+      setOpenCreateClaseSearch(false)
+    }
+  }, [selectedPeriodo, createForm.periodoId])
+
+
+
+  // Limpiar campo de clase cuando se cambia el periodo en el formulario de edición
+  useEffect(() => {
+    if (editForm.periodoId && editForm.periodoId !== selectedPeriodo) {
+      setEditForm(prev => ({ ...prev, claseId: '' }))
+      setOpenEditClaseSearch(false)
+    }
+  }, [selectedPeriodo, editForm.periodoId])
+
+  // Limpiar checkbox de Full House cuando se desenlaza una clase
+  useEffect(() => {
+    if (!editForm.claseId && editForm.pagoFullHouse) {
+      setEditForm(prev => ({ ...prev, pagoFullHouse: false }))
+    }
+  }, [editForm.claseId, editForm.pagoFullHouse])
 
   // Filtros
   const handleSearch = useCallback(async () => {
@@ -322,9 +362,10 @@ export default function CoversPage() {
       comentarios: '',
       cambioDeNombre: '',
     })
+    setOpenCreateClaseSearch(false)
   }
 
-     const openEditDialog = (cover: Cover) => {
+     const openEditDialog = async (cover: Cover) => {
      setCoverSeleccionado(cover)
      setEditForm({
        instructorOriginalId: cover.instructorOriginalId,
@@ -340,6 +381,12 @@ export default function CoversPage() {
        comentarios: cover.comentarios || '',
        cambioDeNombre: cover.cambioDeNombre || '',
      })
+     
+     // Cargar clases del periodo si no están cargadas
+     if (cover.periodoId && !clases.some(c => c.periodoId === cover.periodoId)) {
+       await fetchClases({ periodoId: cover.periodoId })
+     }
+     
      setIsEditDialogOpen(true)
    }
 
@@ -365,6 +412,22 @@ export default function CoversPage() {
   const getPeriodoLabel = (id: number) => {
     const periodo = periodos.find(p => p.id === id)
     return periodo ? `P${periodo.numero}-${periodo.año}` : `ID: ${id}`
+  }
+
+  // Función para obtener información de una clase por ID
+  const getClaseInfo = (claseId: string) => {
+    return clases.find(clase => clase.id.toString() === claseId)
+  }
+
+  // Función para obtener el texto de la clase seleccionada
+  const getClaseDisplayText = (claseId: string) => {
+    const clase = getClaseInfo(claseId)
+    if (!clase) return 'Seleccionar clase...'
+    
+    const instructor = instructores.find(i => i.id === clase.instructorId)
+    const disciplina = disciplinas.find(d => d.id === clase.disciplinaId)
+    
+    return `ID: ${clase.id} - ${instructor?.nombre || 'Sin instructor'} - ${disciplina?.nombre || 'Sin disciplina'}`
   }
 
   const getJustificacionBadge = (justificacion: StatusCover) => {
@@ -744,12 +807,76 @@ export default function CoversPage() {
              </div>
 
             <div>
-              <Label htmlFor="claseId">ID de Clase (opcional)</Label>
-              <Input
-                  placeholder="ID de la clase a enlazar"
-                  value={createForm.claseId}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, claseId: e.target.value }))}
-                />
+              <Label htmlFor="claseId">Clase a Enlazar (opcional)</Label>
+              {selectedPeriodo !== 'all' && typeof selectedPeriodo === 'number' ? (
+                <Popover open={openCreateClaseSearch} onOpenChange={setOpenCreateClaseSearch}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openCreateClaseSearch}
+                      className="w-full justify-between"
+                      disabled={isLoadingClases}
+                    >
+                      {createForm.claseId ? getClaseDisplayText(createForm.claseId) : "Seleccionar clase..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[500px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar clase por ID, instructor o disciplina..." />
+                      <CommandList 
+                        className="max-h-[300px] overflow-y-auto"
+                        onWheel={(e) => {
+                          e.preventDefault()
+                          const target = e.currentTarget
+                          target.scrollTop += e.deltaY
+                        }}
+                      >
+                        <CommandEmpty>
+                          {isLoadingClases ? "Cargando clases..." : "No se encontraron clases en este periodo."}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {clases.map((clase) => {
+                            const instructor = instructores.find(i => i.id === clase.instructorId)
+                            const disciplina = disciplinas.find(d => d.id === clase.disciplinaId)
+                            return (
+                              <CommandItem
+                                key={clase.id}
+                                value={`${clase.id} ${instructor?.nombre || ''} ${disciplina?.nombre || ''}`}
+                                onSelect={() => {
+                                  setCreateForm(prev => ({ ...prev, claseId: clase.id.toString() }))
+                                  setOpenCreateClaseSearch(false)
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Check
+                                  className={`mr-2 h-4 w-4 ${
+                                    createForm.claseId === clase.id.toString() ? "opacity-100" : "opacity-0"
+                                  }`}
+                                />
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="font-medium truncate">ID: {clase.id}</span>
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    {instructor?.nombre || 'Sin instructor'} • {disciplina?.nombre || 'Sin disciplina'}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(clase.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
+                                  </span>
+                                </div>
+                              </CommandItem>
+                            )
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
+                  Selecciona un periodo para buscar clases disponibles
+                </div>
+              )}
             </div>
 
             <div>
@@ -818,7 +945,24 @@ export default function CoversPage() {
                 {coverSeleccionado.claseId && (
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Clase Enlazada</Label>
-                    <p className="font-medium">{coverSeleccionado.claseId}</p>
+                    <div className="mt-1">
+                      <p className="font-medium">ID: {coverSeleccionado.claseId}</p>
+                      {(() => {
+                        const clase = getClaseInfo(coverSeleccionado.claseId)
+                        if (clase) {
+                          const instructor = instructores.find(i => i.id === clase.instructorId)
+                          const disciplina = disciplinas.find(d => d.id === clase.disciplinaId)
+                          return (
+                            <div className="text-sm text-muted-foreground mt-1">
+                              <p>Instructor: {instructor?.nombre || 'Sin instructor'}</p>
+                              <p>Disciplina: {disciplina?.nombre || 'Sin disciplina'}</p>
+                              <p>Fecha: {format(new Date(clase.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                            </div>
+                          )
+                        }
+                        return <p className="text-sm text-muted-foreground">Clase no encontrada</p>
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1015,12 +1159,76 @@ export default function CoversPage() {
               </div>
 
               <div>
-                <Label htmlFor="claseId">ID de Clase (opcional)</Label>
-                <Input
-                  placeholder="ID de la clase a enlazar"
-                  value={editForm.claseId}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, claseId: e.target.value }))}
-                />
+                <Label htmlFor="claseId">Clase a Enlazar (opcional)</Label>
+                {editForm.periodoId && editForm.periodoId !== 0 ? (
+                  <Popover open={openEditClaseSearch} onOpenChange={setOpenEditClaseSearch}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openEditClaseSearch}
+                        className="w-full justify-between"
+                        disabled={isLoadingClases}
+                      >
+                        {editForm.claseId ? getClaseDisplayText(editForm.claseId) : "Seleccionar clase..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[500px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar clase por ID, instructor o disciplina..." />
+                        <CommandList 
+                          className="max-h-[300px] overflow-y-auto"
+                          onWheel={(e) => {
+                            e.preventDefault()
+                            const target = e.currentTarget
+                            target.scrollTop += e.deltaY
+                          }}
+                        >
+                          <CommandEmpty>
+                            {isLoadingClases ? "Cargando clases..." : "No se encontraron clases en este periodo."}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {clases.map((clase) => {
+                              const instructor = instructores.find(i => i.id === clase.instructorId)
+                              const disciplina = disciplinas.find(d => d.id === clase.disciplinaId)
+                              return (
+                                <CommandItem
+                                  key={clase.id}
+                                  value={`${clase.id} ${instructor?.nombre || ''} ${disciplina?.nombre || ''}`}
+                                  onSelect={() => {
+                                    setEditForm(prev => ({ ...prev, claseId: clase.id.toString() }))
+                                    setOpenEditClaseSearch(false)
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 ${
+                                      editForm.claseId === clase.id.toString() ? "opacity-100" : "opacity-0"
+                                    }`}
+                                  />
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="font-medium truncate">ID: {clase.id}</span>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {instructor?.nombre || 'Sin instructor'} • {disciplina?.nombre || 'Sin disciplina'}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(clase.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
+                    Selecciona un periodo para buscar clases disponibles
+                  </div>
+                )}
               </div>
 
               {/* Campos administrativos para admins */}
@@ -1060,9 +1268,20 @@ export default function CoversPage() {
                         id="pagoFullHouse"
                         checked={editForm.pagoFullHouse}
                         onChange={(e) => setEditForm(prev => ({ ...prev, pagoFullHouse: e.target.checked }))}
+                        disabled={!editForm.claseId}
                         className="rounded"
                       />
-                      <Label htmlFor="pagoFullHouse">Pago Full House</Label>
+                      <Label 
+                        htmlFor="pagoFullHouse" 
+                        className={!editForm.claseId ? "text-muted-foreground cursor-not-allowed" : ""}
+                      >
+                        Pago Full House
+                        {!editForm.claseId && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            (requiere clase enlazada)
+                          </span>
+                        )}
+                      </Label>
                     </div>
                   </div>
                 </>
