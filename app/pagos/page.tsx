@@ -180,13 +180,35 @@ function PagosContent() {
       if (periodoFin) queryParams.periodoFin = periodoFin
     }
     
-    fetchPagos(queryParams)
+    // Only fetch pagos if we have period parameters
+    // This prevents fetching all periods when the page first loads
+    if (periodoId || periodoInicio || periodoFin) {
+      fetchPagos(queryParams)
+    }
   }, [page, limit, estado, instructorId, periodoId, periodoInicio, periodoFin, busqueda, fetchPagos])
 
   useEffect(() => {
     if (periodos.length === 0) fetchPeriodos()
     if (instructores.length === 0) fetchInstructores()
   }, [fetchPeriodos, fetchInstructores])
+
+  // Wait for period selection and then fetch pagos if no period parameters in URL
+  useEffect(() => {
+    // Only fetch pagos if there are no period parameters in the URL and we have a selected period
+    if (!periodoId && !periodoInicio && !periodoFin && rangoSeleccionado) {
+      const queryParams: any = { page, limit, estado, instructorId, busqueda }
+      
+      // Use the selected period range
+      if (rangoSeleccionado[0] === rangoSeleccionado[1]) {
+        queryParams.periodoId = rangoSeleccionado[0]
+      } else {
+        queryParams.periodoInicio = rangoSeleccionado[0]
+        queryParams.periodoFin = rangoSeleccionado[1]
+      }
+      
+      fetchPagos(queryParams)
+    }
+  }, [rangoSeleccionado, page, limit, estado, instructorId, busqueda, fetchPagos, periodoId, periodoInicio, periodoFin])
 
   // Wrapper function for setting selected period in dialogs
   const handleSetSelectedPeriodoId = (periodoId: number | null) => {
@@ -239,7 +261,9 @@ function PagosContent() {
             </Card>
           }
         >
+        
           <PagosTable />
+   
         </Suspense>
       </div>
       <CalculateDialog

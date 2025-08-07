@@ -256,10 +256,10 @@ export function PagosTable() {
           {pagination ? `Mostrando ${pagination.page} de ${pagination.totalPages} páginas (${pagination.total} pagos total)` : "Cargando..."}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="overflow-x-auto w-fit">
         <div className="rounded-lg border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <Table className="min-w-[1200px]">
+            <Table className="">
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="text-foreground font-medium">
