@@ -5,16 +5,15 @@ import { ExcelImport } from "@/components/import/excel-import"
 
 export const metadata: Metadata = {
   title: "Importar Datos | Sistema de Gestión de Instructores",
-  description: "Importar datos de clases para cálculos de pagos",
+  description: "Importa datos de clases desde Excel con mapeo automático de semanas",
 }
 
-// Actualizar el espaciado para mantener consistencia
 export default function ImportPage() {
   return (
     <DashboardShell>
       <DashboardHeader
         heading="Importar Datos"
-        text="Importa datos de clases desde Excel para calcular pagos de instructores."
+        text="Importa datos de clases desde Excel con mapeo automático de semanas. Proceso simplificado en 3 pasos."
       />
       <div className="grid gap-6">
         <ExcelImport />

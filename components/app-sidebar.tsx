@@ -25,9 +25,9 @@ import { type EstadoPago, Rol, type PagoInstructor } from "@/types/schema"
 const protectedRoutes = {
   "/covers": [Rol.MANAGER, "instructor"],
   "/penalizaciones": [Rol.MANAGER],
-  "/brandeos": [Rol.SUPER_ADMIN, Rol.ADMIN],
-  "/theme-rides": [Rol.SUPER_ADMIN, Rol.ADMIN],
-  "/workshops": [Rol.SUPER_ADMIN, Rol.ADMIN],
+  "/brandeos": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.RH],
+  "/theme-rides": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.RH],
+  "/workshops": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.RH],
   "/": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
   "/configuracion": [Rol.SUPER_ADMIN, Rol.ADMIN],
   "/importar": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
@@ -120,7 +120,13 @@ export function AppSidebar() {
       if (userType === "instructor") {
         router.push(`/instructores/${user?.id}`)
       } else {
-        router.push(user?.rol === Rol.MANAGER ? "/covers" : "/")
+        if (user?.rol === Rol.MANAGER) {
+          router.push("/covers")
+        } else if (user?.rol === Rol.RH) {
+          router.push("/brandeos")
+        } else {
+          router.push("/")
+        }
       }
       return
     }
@@ -128,6 +134,11 @@ export function AppSidebar() {
     // Redirect manager if trying to access unauthorized routes
     if (user?.rol === Rol.MANAGER && !pathname.startsWith("/covers") && !pathname.startsWith("/penalizaciones")) {
       router.push("/covers")
+    }
+
+    // Redirect RH if trying to access unauthorized routes
+    if (user?.rol === Rol.RH && !pathname.startsWith("/brandeos") && !pathname.startsWith("/theme-rides") && !pathname.startsWith("/workshops")) {
+      router.push("/brandeos")
     }
 
     if (userType === "instructor") {
@@ -172,6 +183,7 @@ export function AppSidebar() {
   const isAdmin = () => user?.rol === Rol.ADMIN
   const isSuperAdmin = () => user?.rol === Rol.SUPER_ADMIN
   const isManager = () => user?.rol === Rol.MANAGER
+  const isRH = () => user?.rol === Rol.RH
   const isInstructor = () => userType === "instructor"
 
   const handleLogout = () => {
@@ -253,6 +265,94 @@ export function AppSidebar() {
                     <Link href="/penalizaciones">
                       <ShieldAlert className="h-5 w-5" />
                       <span>Penalizaciones</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="p-4 border-t border-border/40">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={handleLogout}
+                className="hover:bg-destructive/10 text-accent font-bold hover:text-destructive transition-colors duration-200"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Cerrar Sesión</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+    )
+  }
+
+  // RH-specific sidebar (only shows Brandeos, Theme Rides, and Workshops)
+  if (isRH()) {
+    return (
+      <Sidebar variant="sidebar" collapsible="icon" className="bg-primary border-r">
+        <SidebarHeader className="px-5 pt-3.5 pb-3.5 border-b border-border/40">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-left">
+              {isCollapsed ? (
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
+                  S
+                </div>
+              ) : (
+                <div className="flex justify-between items-center w-full">
+                  <h1 className="text-xl font-bold items-start text-white">Siclo Admin</h1>
+                  <ModeToggle />
+                </div>
+              )}
+            </div>
+          </div>
+        </SidebarHeader>
+
+        <SidebarContent className="px-2">
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-semibold text-white/70">RECURSOS HUMANOS</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Brandeos"
+                    isActive={isActive("/brandeos")}
+                    className={claseitem}
+                  >
+                    <Link href="/brandeos">
+                      <Award className="h-5 w-5" />
+                      <span>Brandeos</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Theme Rides"
+                    isActive={isActive("/theme-rides")}
+                    className={claseitem}
+                  >
+                    <Link href="/theme-rides">
+                      <Zap className="h-5 w-5" />
+                      <span>Theme Rides</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Workshops"
+                    isActive={isActive("/workshops")}
+                    className={claseitem}
+                  >
+                    <Link href="/workshops">
+                      <GraduationCap className="h-5 w-5" />
+                      <span>Workshops</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

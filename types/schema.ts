@@ -65,6 +65,7 @@ export enum Rol {
   ADMIN = "ADMIN",
   MANAGER = "MANAGER",
   USUARIO = "USUARIO",
+  RH = "RH",
 }
 
 export interface Usuario {
