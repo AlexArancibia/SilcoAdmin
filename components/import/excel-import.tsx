@@ -5,66 +5,52 @@ import { usePeriodosStore } from "@/store/usePeriodosStore"
 import type { Periodo } from "@/types/schema"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
-import { DataPreview } from "./data-preview"
 import { FileUploader } from "./file-uploader"
-import { InstructorValidation } from "./instructor-validation"
-import { DisciplineValidation } from "./discipline-validation"
+import { ClassesEditableTable } from "./classes-editable-table"
 import { ImportSummary } from "./import-summary"
-import { ProgressIndicator } from "./progress-indicator"
-import { useExcelImport } from "@/hooks/use-excel-import"
-
-// Import modularized components
- 
+import { ImportResult } from "./import-result"
+import { useExcelImportAPI } from "@/hooks/use-excel-import-api"
 
 export function ExcelImport() {
   const {
     file,
     setFile,
-    parsedData,
-    setParsedData,
-    selectedWeek,
-    setSelectedWeek,
-    currentPage,
-    setCurrentPage,
-    rowsPerPage,
-    setRowsPerPage,
-    showAllColumns,
-    setShowAllColumns,
     currentStep,
     setCurrentStep,
-    isInitialLoading,
+    isGenerating,
     isImporting,
-    progress,
-    resultado,
+    resultadoImportacion,
     error,
-    statusMessage,
-    instructorAnalysis,
-    disciplineAnalysis,
-    vsInstructors,
     periodoSeleccionadoId,
     setPeriodoSeleccionadoId,
-    paginatedData,
-    totalPages,
+    
+    // Configuraciones
+    semanaInicial,
+    setSemanaInicial,
+    mapeoDisciplinas,
+    instructoresCreados,
+    tablaClases,
+    
+    // Stores
+    periodos,
+    disciplinas,
+    instructores,
+    isLoadingPeriodos,
+    isLoadingDisciplinas,
+    isLoadingInstructores,
+    
+    // Actions
     handleFileChange,
-    handlePrevPage,
-    handleNextPage,
-    handleRowsPerPageChange,
-    toggleKeepVsInstructor,
-    handleDisciplineMapping,
-    handleSubmit,
-    formatDateTime,
-    formatTime,
-    getMainColumns,
-    getAdditionalColumns,
-    detailedLogging,
-    setDetailedLogging,
-    detailedLogs,
-  } = useExcelImport()
-
-  // Obtener datos de los stores
-  const { periodos, periodoActual, isLoading: isLoadingPeriodos } = usePeriodosStore()
-  const { isLoading: isLoadingDisciplinas } = useDisciplinasStore()
-  const { isLoading: isLoadingInstructores } = useInstructoresStore()
+    generarTablaClases,
+    procesarImportacion,
+    actualizarMapeoDisciplinas,
+    toggleInstructorCreado,
+    validarConfiguracion,
+    resetState,
+    // Funciones de edición
+    editarClase,
+    toggleEliminarClase
+  } = useExcelImportAPI()
 
   // Función para obtener el nombre del periodo
   const getNombrePeriodo = (periodo: Periodo): string => {
@@ -81,102 +67,92 @@ export function ExcelImport() {
             handleFileChange={handleFileChange}
             periodoSeleccionadoId={periodoSeleccionadoId}
             setPeriodoSeleccionadoId={setPeriodoSeleccionadoId}
-            selectedWeek={selectedWeek}
-            setSelectedWeek={setSelectedWeek}
+            semanaInicial={semanaInicial}
+            setSemanaInicial={setSemanaInicial}
             periodos={periodos}
             isLoadingPeriodos={isLoadingPeriodos}
-            isInitialLoading={isInitialLoading}
             error={error}
             getNombrePeriodo={getNombrePeriodo}
-            setCurrentStep={setCurrentStep}
-            detailedLogging={detailedLogging}
-            setDetailedLogging={setDetailedLogging}
-          >
-            {parsedData && (
-              <DataPreview
-                parsedData={parsedData}
-                paginatedData={paginatedData}
-                showAllColumns={showAllColumns}
-                setShowAllColumns={setShowAllColumns}
-                currentPage={currentPage}
-                totalPages={totalPages}
-                rowsPerPage={rowsPerPage}
-                handlePrevPage={handlePrevPage}
-                handleNextPage={handleNextPage}
-                handleRowsPerPageChange={handleRowsPerPageChange}
-                mainColumns={getMainColumns()}
-                additionalColumns={getAdditionalColumns()}
-                formatDateTime={formatDateTime}
-                formatTime={formatTime}
-              />
-            )}
-          </FileUploader>
+            onGenerarTabla={generarTablaClases}
+            isGenerating={isGenerating}
+          />
         )
+      
       case 2:
         return (
-          <InstructorValidation
-            instructorAnalysis={instructorAnalysis}
-            vsInstructors={vsInstructors}
-            toggleKeepVsInstructor={toggleKeepVsInstructor}
-            isLoadingInstructores={isLoadingInstructores}
-            setCurrentStep={setCurrentStep}
-          />
+          <div className="space-y-6">
+            {tablaClases && (
+              <>
+                <ClassesEditableTable
+                  tablaClases={tablaClases}
+                  disciplinas={disciplinas}
+                  instructores={instructores}
+                  onEditClase={editarClase}
+                  onToggleEliminar={toggleEliminarClase}
+                />
+                
+                <ImportSummary
+                  tablaClases={tablaClases}
+                  onProcesar={procesarImportacion}
+                  isProcessing={isImporting}
+                />
+              </>
+            )}
+          </div>
         )
+      
       case 3:
         return (
-          <DisciplineValidation
-            disciplineAnalysis={disciplineAnalysis}
-            handleDisciplineMapping={handleDisciplineMapping}
-            isLoadingDisciplinas={isLoadingDisciplinas}
-            setCurrentStep={setCurrentStep}
-          />
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-green-600">Importación Completada</CardTitle>
+                <CardDescription>
+                  La importación se ha procesado exitosamente
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => {
+                      resetState()
+                      setCurrentStep(1)
+                    }}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                  >
+                    Importar Otro Archivo
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {resultadoImportacion && (
+              <ImportResult resultado={resultadoImportacion} />
+            )}
+          </div>
         )
-      case 4:
-        return (
-          <ImportSummary
-            periodos={periodos}
-            periodoSeleccionadoId={periodoSeleccionadoId}
-            selectedWeek={selectedWeek}
-            file={file}
-            parsedData={parsedData}
-            instructorAnalysis={instructorAnalysis}
-            disciplineAnalysis={disciplineAnalysis}
-            isImporting={isImporting}
-            progress={progress}
-            statusMessage={statusMessage}
-            resultado={resultado}
-            handleSubmit={handleSubmit}
-            setCurrentStep={setCurrentStep}
-            getNombrePeriodo={getNombrePeriodo}
-            detailedLogging={detailedLogging}
-            detailedLogs={detailedLogs}
-          />
-        )
+      
       default:
         return null
     }
   }
 
   return (
-    <Card className="w-full border shadow-sm">
-      <CardHeader className="bg-muted/20 border-b">
-        <CardTitle className="text-primary flex items-center gap-2">
-          <FileSpreadsheet className="h-5 w-5" />
-          Importar Datos de Excel
-        </CardTitle>
-        <CardDescription>
-          Sigue los pasos para importar datos de clases para el periodo y semana seleccionados.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-6">
-        <ProgressIndicator currentStep={currentStep} />
-        {renderStep()}
-      </CardContent>
-    </Card>
+    <div className="container mx-auto py-6 space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-6 w-6" />
+            Importar Clases desde Excel
+          </CardTitle>
+          <CardDescription>
+            Importa clases desde un archivo Excel con mapeo automático de semanas
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {renderStep()}
+        </CardContent>
+      </Card>
+    </div>
   )
-}
-
-function obtenerDiaSemana(fecha: Date): string {
-  const diasSemana = ["DOMINGO", "LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"]
-  return diasSemana[fecha.getDay()]
 }

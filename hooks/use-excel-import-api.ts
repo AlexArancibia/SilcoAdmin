@@ -4,11 +4,12 @@ import type React from "react"
 import { toast } from "@/hooks/use-toast"
 import type { 
   DatosExcelClase, 
-  ResultadoAnalisis, 
   ResultadoImportacion, 
   ConfiguracionImportacion,
+  ConfiguracionFinalImportacion,
   MapeoSemanas,
-  InstructorVS
+  TablaClasesEditable,
+  ClaseEditable
 } from "@/types/importacion"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
@@ -18,18 +19,17 @@ export function useExcelImportAPI() {
   // State variables
   const [file, setFile] = useState<File | null>(null)
   const [currentStep, setCurrentStep] = useState(1)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
-  const [resultadoAnalisis, setResultadoAnalisis] = useState<ResultadoAnalisis | null>(null)
   const [resultadoImportacion, setResultadoImportacion] = useState<ResultadoImportacion | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [periodoSeleccionadoId, setPeriodoSeleccionadoId] = useState<number | null>(null)
 
   // Configuración de importación
-  const [mapeoSemanas, setMapeoSemanas] = useState<MapeoSemanas[]>([])
+  const [semanaInicial, setSemanaInicial] = useState<number>(1)
   const [mapeoDisciplinas, setMapeoDisciplinas] = useState<Record<string, string>>({})
-  const [instructoresVS, setInstructoresVS] = useState<InstructorVS[]>([])
   const [instructoresCreados, setInstructoresCreados] = useState<string[]>([])
+  const [tablaClases, setTablaClases] = useState<TablaClasesEditable | null>(null)
 
   // Obtener datos de los stores
   const { periodos, periodoActual, fetchPeriodos, isLoading: isLoadingPeriodos } = usePeriodosStore()
@@ -86,15 +86,13 @@ export function useExcelImportAPI() {
 
   // Helper functions
   const resetState = () => {
-    setIsAnalyzing(false)
+    setIsGenerating(false)
     setIsImporting(false)
-    setResultadoAnalisis(null)
     setResultadoImportacion(null)
     setError(null)
-    setMapeoSemanas([])
     setMapeoDisciplinas({})
-    setInstructoresVS([])
     setInstructoresCreados([])
+    setTablaClases(null)
   }
 
   // File handling
@@ -106,85 +104,64 @@ export function useExcelImportAPI() {
     }
   }
 
-  // Step 1: Analizar archivo
-  const analizarArchivo = async () => {
-    if (!file) {
+  // Generar tabla de clases directamente (sin análisis previo)
+  const generarTablaClases = async () => {
+    if (!file || !periodoSeleccionadoId) {
       toast({
         title: "Error",
-        description: "Por favor seleccione un archivo para analizar",
+        description: "Por favor seleccione un archivo y un periodo",
         variant: "destructive",
       })
       return
     }
 
     try {
-      setIsAnalyzing(true)
+      setIsGenerating(true)
       setError(null)
 
       const formData = new FormData()
       formData.append("file", file)
+      formData.append("semanaInicial", semanaInicial.toString())
 
-      const response = await fetch("/api/importar/analizar", {
+      const response = await fetch("/api/importar/generar-tabla", {
         method: "POST",
         body: formData,
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Error al analizar el archivo")
+        throw new Error(errorData.error || "Error al generar la tabla de clases")
       }
 
-      const resultado: ResultadoAnalisis = await response.json()
-      setResultadoAnalisis(resultado)
-
-      // Inicializar configuraciones por defecto
-      inicializarConfiguraciones(resultado)
+      const resultado = await response.json()
+      setTablaClases(resultado.tablaClases)
+      
+      // Inicializar mapeo de disciplinas por defecto
+      if (resultado.mapeoDisciplinas) {
+        setMapeoDisciplinas(resultado.mapeoDisciplinas)
+      }
 
       setCurrentStep(2)
       toast({
-        title: "Análisis completado",
-        description: `Se encontraron ${resultado.totalRegistros} registros para procesar`,
+        title: "Tabla generada",
+        description: `Se generaron ${resultado.tablaClases.totalClases} clases para revisar`,
       })
     } catch (error) {
-      console.error("Error al analizar archivo:", error)
+      console.error("Error al generar tabla:", error)
       setError(error instanceof Error ? error.message : "Error desconocido")
       toast({
-        title: "Error al analizar archivo",
+        title: "Error al generar tabla",
         description: error instanceof Error ? error.message : "Error desconocido",
         variant: "destructive",
       })
     } finally {
-      setIsAnalyzing(false)
+      setIsGenerating(false)
     }
   }
 
-  // Inicializar configuraciones por defecto
-  const inicializarConfiguraciones = (resultado: ResultadoAnalisis) => {
-    // Mapeo de semanas vacío por defecto - el usuario debe configurar manualmente
-    setMapeoSemanas([])
-
-    // Mapeo de disciplinas por defecto (sin mapeo)
-    const mapeoDisciplinasDefault: Record<string, string> = {}
-    resultado.disciplineAnalysis.disciplines.forEach(disciplina => {
-      if (!disciplina.exists && disciplina.matchedDiscipline) {
-        mapeoDisciplinasDefault[disciplina.name] = disciplina.matchedDiscipline.nombre
-      }
-    })
-    setMapeoDisciplinas(mapeoDisciplinasDefault)
-
-    // Instructores VS por defecto (todos activos)
-    setInstructoresVS(resultado.instructoresVS)
-
-    // Instructores a crear por defecto (solo los nuevos)
-    const instructoresNuevos = resultado.instructorAnalysis.instructors
-      .filter(instructor => !instructor.exists)
-      .map(instructor => instructor.name)
-    setInstructoresCreados(instructoresNuevos)
-  }
-
-  // Step 2: Procesar importación
+  // Step 2: Procesar importación final
   const procesarImportacion = async () => {
-    if (!file || !resultadoAnalisis || !periodoSeleccionadoId) {
+    if (!tablaClases || !periodoSeleccionadoId) {
       toast({
         title: "Error",
         description: "Faltan datos necesarios para la importación",
@@ -197,16 +174,20 @@ export function useExcelImportAPI() {
       setIsImporting(true)
       setError(null)
 
-      const configuracion: ConfiguracionImportacion = {
+      const configuracion: ConfiguracionFinalImportacion = {
         periodoId: periodoSeleccionadoId,
-        mapeoSemanas,
-        mapeoDisciplinas,
-        instructoresVS,
-        instructoresCreados
+        clases: tablaClases.clases.filter(c => !c.eliminada).map(clase => ({
+          ...clase,
+          instructor: clase.instructorEditado || clase.instructor,
+          disciplina: clase.disciplinaEditada || clase.mapeoDisciplina || clase.disciplina,
+          salon: clase.salonEditado || clase.salon,
+          dia: clase.diaEditado || clase.dia,
+          hora: clase.horaEditada || clase.hora
+        })),
+        instructoresCreados: []
       }
 
       const formData = new FormData()
-      formData.append("file", file)
       formData.append("configuracion", JSON.stringify(configuracion))
 
       const response = await fetch("/api/importar/procesar", {
@@ -241,48 +222,11 @@ export function useExcelImportAPI() {
   }
 
   // Handlers para configuraciones
-  const actualizarMapeoSemanas = (semanaExcel: number, semanaPeriodo: number) => {
-    setMapeoSemanas(prev => {
-      // Si semanaExcel es 0 o vacío, eliminar el mapeo
-      if (!semanaExcel) {
-        return prev.filter(ms => ms.semanaPeriodo !== semanaPeriodo)
-      }
-      
-      // Buscar si ya existe un mapeo para esta semana del periodo
-      const existing = prev.find(ms => ms.semanaPeriodo === semanaPeriodo)
-      if (existing) {
-        return prev.map(ms => 
-          ms.semanaPeriodo === semanaPeriodo 
-            ? { ...ms, semanaExcel } 
-            : ms
-        )
-      } else {
-        return [...prev, { semanaExcel, semanaPeriodo }]
-      }
-    })
-  }
-
   const actualizarMapeoDisciplinas = (disciplinaExcel: string, disciplinaSistema: string) => {
     setMapeoDisciplinas(prev => ({
       ...prev,
       [disciplinaExcel]: disciplinaSistema
     }))
-  }
-
-  const toggleInstructorVS = (originalName: string, instructorIndex: number) => {
-    setInstructoresVS(prev => 
-      prev.map(vs => {
-        if (vs.originalName === originalName) {
-          const newKeepInstructores = [...vs.keepInstructores]
-          newKeepInstructores[instructorIndex] = !newKeepInstructores[instructorIndex]
-          return {
-            ...vs,
-            keepInstructores: newKeepInstructores
-          }
-        }
-        return vs
-      })
-    )
   }
 
   const toggleInstructorCreado = (nombreInstructor: string) => {
@@ -295,6 +239,39 @@ export function useExcelImportAPI() {
     })
   }
 
+  // Funciones para editar clases
+  const editarClase = (claseId: string, campo: string, valor: any) => {
+    setTablaClases(prev => {
+      if (!prev) return prev
+      
+      return {
+        ...prev,
+        clases: prev.clases.map(clase => {
+          if (clase.id === claseId) {
+            return { ...clase, [campo]: valor }
+          }
+          return clase
+        })
+      }
+    })
+  }
+
+  const toggleEliminarClase = (claseId: string) => {
+    setTablaClases(prev => {
+      if (!prev) return prev
+      
+      return {
+        ...prev,
+        clases: prev.clases.map(clase => {
+          if (clase.id === claseId) {
+            return { ...clase, eliminada: !clase.eliminada }
+          }
+          return clase
+        })
+      }
+    })
+  }
+
   // Validaciones
   const validarConfiguracion = (): { valido: boolean; errores: string[] } => {
     const errores: string[] = []
@@ -303,12 +280,8 @@ export function useExcelImportAPI() {
       errores.push("Debe seleccionar un periodo")
     }
 
-    if (mapeoSemanas.length === 0) {
-      errores.push("Debe configurar al menos un mapeo de semanas")
-    }
-
-    if (instructoresCreados.length === 0 && (resultadoAnalisis?.instructorAnalysis.new ?? 0) > 0) {
-      errores.push("Debe seleccionar al menos un instructor nuevo para crear")
+    if (semanaInicial < 1) {
+      errores.push("La semana inicial debe ser mayor a 0")
     }
 
     return {
@@ -323,19 +296,19 @@ export function useExcelImportAPI() {
     setFile,
     currentStep,
     setCurrentStep,
-    isAnalyzing,
+    isGenerating,
     isImporting,
-    resultadoAnalisis,
     resultadoImportacion,
     error,
     periodoSeleccionadoId,
     setPeriodoSeleccionadoId,
     
     // Configuraciones
-    mapeoSemanas,
+    semanaInicial,
+    setSemanaInicial,
     mapeoDisciplinas,
-    instructoresVS,
     instructoresCreados,
+    tablaClases,
     
     // Stores
     periodos,
@@ -347,13 +320,14 @@ export function useExcelImportAPI() {
     
     // Actions
     handleFileChange,
-    analizarArchivo,
+    generarTablaClases,
     procesarImportacion,
-    actualizarMapeoSemanas,
     actualizarMapeoDisciplinas,
-    toggleInstructorVS,
     toggleInstructorCreado,
     validarConfiguracion,
-    resetState
+    resetState,
+    // Funciones de edición
+    editarClase,
+    toggleEliminarClase
   }
 } 

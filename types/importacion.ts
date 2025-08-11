@@ -41,6 +41,58 @@ export interface InstructorVS {
   instructores: string[] // Array de hasta 4 instructores
   count: number
   keepInstructores: boolean[] // Array de booleanos para cada instructor
+  semanas: Set<number> // Semanas en las que aparece este instructor VS
+}
+
+// Interfaz para instructores VS serializados (para JSON)
+export interface InstructorVSSerialized {
+  originalName: string
+  instructores: string[] // Array de hasta 4 instructores
+  count: number
+  keepInstructores: boolean[] // Array de booleanos para cada instructor
+  semanas: number[] // Semanas en las que aparece este instructor VS
+}
+
+// Interfaz para una clase individual en la tabla de edición
+export interface ClaseEditable {
+  id: string // ID único de la fila
+  filaOriginal: number // Número de fila en el Excel original
+  instructor: string
+  disciplina: string
+  estudio: string
+  salon: string
+  dia: string
+  hora: string
+  semana: number
+  reservasTotales: number
+  listasEspera: number
+  cortesias: number
+  lugares: number
+  reservasPagadas: number
+  esInstructorVS: boolean
+  instructoresVS?: string[] // Solo si es instructor VS
+  mapeoDisciplina?: string // Disciplina mapeada en el sistema
+  mapeoSemana?: number // Semana mapeada en el periodo
+  instructorExiste: boolean // Si el instructor ya existe en el sistema
+  instructorNuevo: boolean // Si el instructor es nuevo y se creará
+  eliminada: boolean // Si la clase debe ser eliminada
+  errores?: string[] // Errores de validación
+  // Campos editables
+  instructorEditado?: string // Instructor seleccionado del sistema
+  disciplinaEditada?: string // Disciplina seleccionada del sistema
+  estudioEditado?: string // Estudio editado
+  salonEditado?: string // Salón editado
+  diaEditado?: string // Día editado
+  horaEditada?: string // Hora editada
+}
+
+// Interfaz para la tabla de clases editables
+export interface TablaClasesEditable {
+  clases: ClaseEditable[]
+  totalClases: number
+  clasesValidas: number
+  clasesConErrores: number
+  clasesEliminadas: number
 }
 
 // Interfaz para el análisis de instructores
@@ -77,7 +129,6 @@ export interface ConfiguracionImportacion {
   periodoId: number
   mapeoSemanas: MapeoSemanas[]
   mapeoDisciplinas: Record<string, string> // { disciplinaExcel: disciplinaSistema }
-  instructoresVS: InstructorVS[]
   instructoresCreados: string[] // Nombres de instructores que se crearán
 }
 
@@ -87,8 +138,6 @@ export interface ResultadoAnalisis {
   semanasEncontradas: number[]
   instructoresEncontrados: string[]
   disciplinasEncontradas: string[]
-  instructoresVS: InstructorVS[]
-  instructorAnalysis: InstructorAnalysis
   disciplineAnalysis: DisciplineAnalysis
   errores: ErrorImportacion[]
 }
@@ -112,5 +161,12 @@ export interface ResultadoImportacion {
   pagosCreados?: number
   pagosActualizados?: number
   asignacionesCreadas?: number
+}
+
+// Interfaz para la configuración final de importación
+export interface ConfiguracionFinalImportacion {
+  periodoId: number
+  clases: ClaseEditable[]
+  instructoresCreados: string[]
 }
 
