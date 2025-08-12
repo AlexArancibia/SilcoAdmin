@@ -73,6 +73,12 @@ const ITEMS_PER_PAGE_MOBILE = 10
 const ITEMS_PER_PAGE_DESKTOP = 15
 
 const HORAS_DISPONIBLES = [
+  "00:00",
+  "01:00",
+  "02:00",
+  "03:00",
+  "04:00",
+  "05:00",
   "06:00",
   "07:00",
   "08:00",
@@ -107,10 +113,10 @@ export function ClassesTab({
     disciplinas: [],
     horario: "todos",
     ocupacionMin: 0,
-    ocupacionMax: 110,
+    ocupacionMax: 120,
     conCortesias: false,
-    horaInicio: "06:00",
-    horaFin: "23:00",
+    horaInicio: "00:00",
+    horaFin: "23:59",
   })
 
   const [showStats, setShowStats] = useState(false)
@@ -368,10 +374,10 @@ export function ClassesTab({
       disciplinas: [],
       horario: "todos",
       ocupacionMin: 0,
-      ocupacionMax: 110,
+      ocupacionMax: 120,
       conCortesias: false,
-      horaInicio: "06:00",
-      horaFin: "23:00",
+      horaInicio: "00:00",
+      horaFin: "23:59",
     })
     setCurrentPage(1)
   }
@@ -383,9 +389,9 @@ export function ClassesTab({
     if (filters.estudios.length > 0) count++
     if (filters.disciplinas.length > 0) count++
     if (filters.horario !== "todos") count++
-    if (filters.ocupacionMin > 0 || filters.ocupacionMax < 110) count++
+    if (filters.ocupacionMin > 0 || filters.ocupacionMax < 120) count++
     if (filters.conCortesias) count++
-    if (filters.horaInicio !== "06:00" || filters.horaFin !== "23:00") count++
+    if (filters.horaInicio !== "00:00" || filters.horaFin !== "23:59") count++
     return count
   }
 
@@ -612,7 +618,7 @@ export function ClassesTab({
                       <Slider
                         defaultValue={[filters.ocupacionMin, filters.ocupacionMax]}
                         min={0}
-                        max={110}
+                        max={120}
                         step={5}
                         onValueChange={(values) => {
                           setFilters({
@@ -886,7 +892,7 @@ export function ClassesTab({
                       <Slider
                         defaultValue={[filters.ocupacionMin, filters.ocupacionMax]}
                         min={0}
-                        max={110}
+                        max={120}
                         step={5}
                         onValueChange={(values) => {
                           setFilters({
@@ -1056,13 +1062,13 @@ export function ClassesTab({
             </Badge>
           )}
 
-          {(filters.ocupacionMin > 0 || filters.ocupacionMax < 110) && (
+          {(filters.ocupacionMin > 0 || filters.ocupacionMax < 120) && (
             <Badge variant="secondary" className="flex items-center gap-1">
               Ocupación: {filters.ocupacionMin}% - {filters.ocupacionMax}%
               <X
                 className="h-3 w-3 ml-1 cursor-pointer"
                 onClick={() => {
-                  setFilters({ ...filters, ocupacionMin: 0, ocupacionMax: 110 })
+                  setFilters({ ...filters, ocupacionMin: 0, ocupacionMax: 120 })
                   setCurrentPage(1)
                 }}
               />
@@ -1082,13 +1088,13 @@ export function ClassesTab({
             </Badge>
           )}
 
-          {(filters.horaInicio !== "06:00" || filters.horaFin !== "23:00") && (
+          {(filters.horaInicio !== "00:00" || filters.horaFin !== "23:59") && (
             <Badge variant="secondary" className="flex items-center gap-1">
               Horario: {filters.horaInicio} - {filters.horaFin}
               <X
                 className="h-3 w-3 ml-1 cursor-pointer"
                 onClick={() => {
-                  setFilters({ ...filters, horaInicio: "06:00", horaFin: "23:00" })
+                  setFilters({ ...filters, horaInicio: "00:00", horaFin: "23:59" })
                   setCurrentPage(1)
                 }}
               />
