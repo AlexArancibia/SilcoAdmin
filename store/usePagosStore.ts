@@ -69,6 +69,7 @@ export const usePagosStore = create<PagosState>((set, get) => ({
     try {
       const pago = await pagosApi.getPago(id)
       set({ pagoSeleccionado: pago, isLoading: false })
+      console.log("🔍 [DEBUG PAGO] Pago obtenido:", pago)
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error desconocido al obtener el pago",

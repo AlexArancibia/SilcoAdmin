@@ -109,11 +109,19 @@ export const calcularMetricasDisciplina = (
   const totalLugares = clasesDisciplina.reduce((sum, c) => sum + c.lugares, 0);
   const ocupacionPromedio = totalLugares > 0 ? (totalReservas / totalLugares) * 100 : 0;
   
-  const localesEnLima = new Set(
-    clasesDisciplina
-      .filter(c => c.ciudad.toLowerCase().includes("lima"))
-      .map(c => c.estudio)
-  ).size;
+  // Contar locales únicos (estudios) donde el instructor dictó clases
+  const estudios = clasesDisciplina
+    .map(c => c.estudio)
+    .filter(estudio => estudio && estudio.trim() !== ''); // Filtrar estudios vacíos
+  
+  const localesEnLima = new Set(estudios).size;
+  
+  // Logs para debugging
+  console.log(`🔍 DEBUG: calcularMetricasDisciplina para disciplina ${disciplinaId}:`);
+  console.log(`   - Total clases: ${totalClases}`);
+  console.log(`   - Estudios encontrados: ${estudios.join(', ')}`);
+  console.log(`   - Estudios únicos: ${localesEnLima}`);
+  console.log(`   - Ocupación: ${ocupacionPromedio.toFixed(2)}%`);
 
   const dobleteos = calcularDobleteos(clasesDisciplina, sicloId);
   const horariosNoPrime = calcularHorariosNoPrime(clasesDisciplina, sicloId);
@@ -158,13 +166,23 @@ export const determinarCategoria = (
   metricas: MetricasDisciplina,
   categoriaManual?: CategoriaInstructor
 ): CategoriaInstructor => {
+  console.log("🔍 DEBUG: determinarCategoria llamada con:", {
+    formulaId: formula.id,
+    metricas,
+    requisitos: formula.requisitosCategoria
+  });
+
   if (categoriaManual) {
+    console.log("✅ Usando categoría manual:", categoriaManual);
     return categoriaManual;
   }
 
   const requisitos = formula.requisitosCategoria;
   
-  // Orden de evaluación: de mayor a menor categoría
+  // Orden de evaluación: de mayor a menor categoría (EMBAJADOR_SENIOR -> EMBAJADOR -> EMBAJADOR_JUNIOR -> INSTRUCTOR)
+  
+  // 1. Evaluar EMBAJADOR_SENIOR (categoría más alta)
+  console.log("🔍 Evaluando EMBAJADOR_SENIOR...");
   if (requisitos.EMBAJADOR_SENIOR &&
       metricas.ocupacionPromedio >= requisitos.EMBAJADOR_SENIOR.ocupacion &&
       (metricas.totalClases / 4) >= requisitos.EMBAJADOR_SENIOR.clases &&
@@ -173,8 +191,21 @@ export const determinarCategoria = (
       metricas.horariosNoPrime >= requisitos.EMBAJADOR_SENIOR.horariosNoPrime &&
       (metricas.participacionEventos || !requisitos.EMBAJADOR_SENIOR.participacionEventos) &&
       (metricas.cumpleLineamientos || !requisitos.EMBAJADOR_SENIOR.lineamientos)) {
+    console.log("✅ Cumple requisitos para EMBAJADOR_SENIOR");
     return "EMBAJADOR_SENIOR";
   }
+
+  // 2. Evaluar EMBAJADOR (categoría intermedia)
+  console.log("🔍 Evaluando EMBAJADOR...");
+  console.log("🔍 Requisitos EMBAJADOR:", requisitos.EMBAJADOR);
+  console.log("🔍 Métricas vs Requisitos:");
+  console.log(`   - Ocupación: ${metricas.ocupacionPromedio}% >= ${requisitos.EMBAJADOR?.ocupacion}% = ${metricas.ocupacionPromedio >= (requisitos.EMBAJADOR?.ocupacion || 0)}`);
+  console.log(`   - Clases por semana: ${(metricas.totalClases / 4)} >= ${requisitos.EMBAJADOR?.clases} = ${(metricas.totalClases / 4) >= (requisitos.EMBAJADOR?.clases || 0)}`);
+  console.log(`   - Locales en Lima: ${metricas.totalLocales} >= ${requisitos.EMBAJADOR?.localesEnLima} = ${metricas.totalLocales >= (requisitos.EMBAJADOR?.localesEnLima || 0)}`);
+  console.log(`   - Dobleteos: ${metricas.totalDobleteos} >= ${requisitos.EMBAJADOR?.dobleteos} = ${metricas.totalDobleteos >= (requisitos.EMBAJADOR?.dobleteos || 0)}`);
+  console.log(`   - Horarios no prime: ${metricas.horariosNoPrime} >= ${requisitos.EMBAJADOR?.horariosNoPrime} = ${metricas.horariosNoPrime >= (requisitos.EMBAJADOR?.horariosNoPrime || 0)}`);
+  console.log(`   - Participación eventos: ${metricas.participacionEventos} || !${requisitos.EMBAJADOR?.participacionEventos} = ${(metricas.participacionEventos || !requisitos.EMBAJADOR?.participacionEventos)}`);
+  console.log(`   - Cumple lineamientos: ${metricas.cumpleLineamientos} || !${requisitos.EMBAJADOR?.lineamientos} = ${(metricas.cumpleLineamientos || !requisitos.EMBAJADOR?.lineamientos)}`);
 
   if (requisitos.EMBAJADOR &&
       metricas.ocupacionPromedio >= requisitos.EMBAJADOR.ocupacion &&
@@ -184,9 +215,12 @@ export const determinarCategoria = (
       metricas.horariosNoPrime >= requisitos.EMBAJADOR.horariosNoPrime &&
       (metricas.participacionEventos || !requisitos.EMBAJADOR.participacionEventos) &&
       (metricas.cumpleLineamientos || !requisitos.EMBAJADOR.lineamientos)) {
+    console.log("✅ Cumple requisitos para EMBAJADOR");
     return "EMBAJADOR";
   }
 
+  // 3. Evaluar EMBAJADOR_JUNIOR (categoría baja)
+  console.log("🔍 Evaluando EMBAJADOR_JUNIOR...");
   if (requisitos.EMBAJADOR_JUNIOR &&
       metricas.ocupacionPromedio >= requisitos.EMBAJADOR_JUNIOR.ocupacion &&
       (metricas.totalClases / 4) >= requisitos.EMBAJADOR_JUNIOR.clases &&
@@ -195,9 +229,12 @@ export const determinarCategoria = (
       metricas.horariosNoPrime >= requisitos.EMBAJADOR_JUNIOR.horariosNoPrime &&
       (metricas.participacionEventos || !requisitos.EMBAJADOR_JUNIOR.participacionEventos) &&
       (metricas.cumpleLineamientos || !requisitos.EMBAJADOR_JUNIOR.lineamientos)) {
+    console.log("✅ Cumple requisitos para EMBAJADOR_JUNIOR");
     return "EMBAJADOR_JUNIOR";
   }
 
+  // 4. Categoría por defecto
+  console.log("⚠️ No cumple requisitos para ninguna categoría especial, asignando INSTRUCTOR");
   return "INSTRUCTOR";
 };
 

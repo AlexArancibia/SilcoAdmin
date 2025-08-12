@@ -217,7 +217,7 @@ export interface Clase {
   lugares: number
   reservasPagadas: number
   textoEspecial?: string | null
-  fecha: Date
+  fecha: Date // Incluye fecha y hora completa
   
   // Nuevos campos
   esVersus: boolean

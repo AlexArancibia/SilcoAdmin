@@ -95,6 +95,7 @@ export function ExcelImport() {
                   tablaClases={tablaClases}
                   onProcesar={procesarImportacion}
                   isProcessing={isImporting}
+                  periodoInfo={periodos.find(p => p.id === periodoSeleccionadoId)}
                 />
               </>
             )}

@@ -7,11 +7,10 @@ import { downloadPagoPDF, printPagoPDF } from "@/utils/pago-instructor-pdf"
 import { retencionValor } from "@/utils/const"
 import type { EstadoPago, TipoReajuste, Instructor, Periodo, Clase, CategoriaInstructor } from "@/types/schema"
 
-// Store imports
+// Store imports - Solo los necesarios
 import { usePagosStore } from "@/store/usePagosStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
-import { useClasesStore } from "@/store/useClasesStore"
 import { useDisciplinasStore } from "@/store/useDisciplinasStore"
 import { useFormulasStore } from "@/store/useFormulaStore"
 import { useAuthStore } from "@/store/useAuthStore"
@@ -168,11 +167,10 @@ export default function PagoDetallePage() {
   const params = useParams()
   const pagoId = Number.parseInt(params.id as string)
 
-  // Store hooks
+  // Store hooks - Solo los necesarios
   const { pagoSeleccionado, fetchPago, actualizarPago, isLoading: isLoadingPagos } = usePagosStore()
-  const { instructores, fetchInstructores, actualizarInstructor, fetchInstructor } = useInstructoresStore()
+  const { instructorSeleccionado, fetchInstructor, actualizarInstructor, isLoading: isLoadingInstructor } = useInstructoresStore()
   const { periodos, fetchPeriodos } = usePeriodosStore()
-  const { clases, fetchClases, isLoading: isLoadingClases } = useClasesStore()
   const { disciplinas, fetchDisciplinas, isLoading: isLoadingDisciplinas } = useDisciplinasStore()
   const { formulas, fetchFormulas } = useFormulasStore()
 
@@ -180,10 +178,8 @@ export default function PagoDetallePage() {
   const userType = useAuthStore((state) => state.userType)
   const isInstructor = userType === "instructor"
 
-  // Local state
-  const [instructor, setInstructor] = useState<Instructor | null>(null)
+  // Local state simplificado
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
-  const [clasesInstructor, setClasesInstructor] = useState<Clase[]>([])
   const [isActualizandoReajuste, setIsActualizandoReajuste] = useState<boolean>(false)
   const [activeTab, setActiveTab] = useState<string>("detalles")
   const [editandoReajuste, setEditandoReajuste] = useState<boolean>(false)
@@ -218,15 +214,22 @@ export default function PagoDetallePage() {
     }>
   >([])
 
-  // Load initial data
+  // Load initial data - Solo lo esencial
   useEffect(() => {
     fetchPago(pagoId)
-    fetchInstructores()
     fetchPeriodos()
     fetchDisciplinas()
     fetchFormulas()
-  }, [pagoId, fetchPago, fetchInstructores, fetchPeriodos, fetchDisciplinas, fetchFormulas])
+  }, [pagoId, fetchPago, fetchPeriodos, fetchDisciplinas, fetchFormulas])
 
+  // Cuando se carga el pago, hacer fetch del instructor
+  useEffect(() => {
+    if (pagoSeleccionado && pagoSeleccionado.instructorId) {
+      fetchInstructor(pagoSeleccionado.instructorId)
+    }
+  }, [pagoSeleccionado, fetchInstructor])
+
+  // Manejar cambio de tab cuando no hay disciplinas con categorización visual
   useEffect(() => {
     if (
       activeTab === "categoria" &&
@@ -237,13 +240,12 @@ export default function PagoDetallePage() {
     }
   }, [activeTab, disciplinas])
 
-  // Set instructor and period when data is loaded
+  // Set periodo when data is loaded
   useEffect(() => {
-    if (pagoSeleccionado && instructores.length > 0 && periodos.length > 0) {
-      const instructorEncontrado = instructores.find((i) => i.id === pagoSeleccionado.instructorId) || null
-      setInstructor(instructorEncontrado)
+    if (pagoSeleccionado && periodos.length > 0) {
+      setPeriodo(periodos.find((p) => p.id === pagoSeleccionado.periodoId) || null)
 
-      if (instructorEncontrado) {
+      if (pagoSeleccionado) {
         setFactoresEditados({
           cumpleLineamientos: pagoSeleccionado.cumpleLineamientos || false,
           dobleteos: pagoSeleccionado.dobleteos || 0,
@@ -251,33 +253,22 @@ export default function PagoDetallePage() {
           participacionEventos: pagoSeleccionado.participacionEventos || false,
         })
 
-        fetchInstructor(instructorEncontrado.id)
+        setNuevoReajuste(pagoSeleccionado.reajuste)
+        setTipoReajuste(pagoSeleccionado.tipoReajuste)
       }
-
-      setPeriodo(periodos.find((p) => p.id === pagoSeleccionado.periodoId) || null)
-
-      if (pagoSeleccionado.instructorId && pagoSeleccionado.periodoId) {
-        fetchClases({
-          instructorId: pagoSeleccionado.instructorId,
-          periodoId: pagoSeleccionado.periodoId,
-        })
-      }
-
-      setNuevoReajuste(pagoSeleccionado.reajuste)
-      setTipoReajuste(pagoSeleccionado.tipoReajuste)
     }
-  }, [pagoSeleccionado, instructores, periodos, fetchClases, fetchInstructor])
+  }, [pagoSeleccionado, periodos])
 
-  // Update instructor classes when classes are loaded
-  useEffect(() => {
-    if (clases.length > 0 && pagoSeleccionado) {
-      setClasesInstructor(
-        clases.filter(
-          (c) => c.instructorId === pagoSeleccionado.instructorId && c.periodoId === pagoSeleccionado.periodoId,
-        ),
-      )
+  // Helper function para obtener las clases del instructor del periodo actual
+  const getClasesInstructor = (): Clase[] => {
+    if (!instructorSeleccionado || !pagoSeleccionado || !instructorSeleccionado.clases) {
+      return []
     }
-  }, [clases, pagoSeleccionado])
+    
+    return instructorSeleccionado.clases.filter(
+      (c) => c.periodoId === pagoSeleccionado.periodoId
+    )
+  }
 
   // Helper functions
   const formatCurrency = (amount: number): string => {
@@ -456,112 +447,60 @@ export default function PagoDetallePage() {
 
   // Function to reevaluate all categories
   const reevaluarTodasCategorias = async () => {
-    if (!instructor || !pagoSeleccionado || !periodo) return
+    if (!instructorSeleccionado || !pagoSeleccionado || !periodo) return
 
     setIsActualizandoCategorias(true)
 
     try {
-      const disciplinasInstructor = new Set(clasesInstructor.map((c) => c.disciplinaId))
-      const categoriasPorDisciplina = instructor.categorias || []
-      const nuevasCategorias = [...categoriasPorDisciplina]
+      console.log("🔄 Iniciando recálculo de categorías...")
+      
+      // Llamar a la API de recálculo de categorías
+      const response = await fetch('/api/pagos/calculo/categorias', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          periodoId: pagoSeleccionado.periodoId,
+          instructorId: instructorSeleccionado.id,
+        }),
+      })
 
-      const instructorParams = {
-        dobleteos: pagoSeleccionado.dobleteos || 0,
-        horariosNoPrime: pagoSeleccionado.horariosNoPrime || 0,
-        participacionEventos: pagoSeleccionado.participacionEventos || false,
-        cumpleLineamientos: pagoSeleccionado.cumpleLineamientos || false,
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
 
-      let cambiosRealizados = false
-      const resumenCambios: Array<{
-        disciplina: string
-        categoriaAnterior: CategoriaInstructor
-        categoriaNueva: CategoriaInstructor
-      }> = []
+      const result = await response.json()
+      console.log("✅ Resultado del recálculo:", result)
 
-      for (const disciplinaId of disciplinasInstructor) {
-        const disciplina = disciplinas.find((d) => d.id === disciplinaId)
-        const nombreDisciplina = disciplina?.nombre || `Disciplina ${disciplinaId}`
-
-        const metricasBase = calcularMetricas(clasesInstructor, disciplinaId)
-
-        const metricas = {
-          ...metricasBase,
-          dobleteos: instructorParams.dobleteos,
-          horariosNoPrime: instructorParams.horariosNoPrime,
-          participacionEventos: instructorParams.participacionEventos,
-        }
-
-        const categoriaCalculada = evaluarCategoriaInstructor(metricas, instructorParams, disciplinaId)
-
-        const categoriaExistente = categoriasPorDisciplina.find(
-          (cat) => cat.disciplinaId === disciplinaId && cat.periodoId === pagoSeleccionado.periodoId,
-        )
-
-        if (categoriaExistente) {
-          if (categoriaExistente.categoria !== categoriaCalculada) {
-            const index = nuevasCategorias.findIndex(
-              (cat) => cat.disciplinaId === disciplinaId && cat.periodoId === pagoSeleccionado.periodoId,
-            )
-
-            if (disciplina && mostrarCategoriaVisual(disciplina.nombre)) {
-              resumenCambios.push({
-                disciplina: nombreDisciplina,
-                categoriaAnterior: categoriaExistente.categoria,
-                categoriaNueva: categoriaCalculada,
-              })
-            }
-
-            nuevasCategorias[index] = {
-              ...categoriaExistente,
-              categoria: categoriaCalculada,
-              metricas: metricas,
-            }
-
-            cambiosRealizados = true
-          }
-        } else {
-          if (disciplina && mostrarCategoriaVisual(disciplina.nombre)) {
-            resumenCambios.push({
-              disciplina: nombreDisciplina,
-              categoriaAnterior: "INSTRUCTOR" as CategoriaInstructor,
-              categoriaNueva: categoriaCalculada,
-            })
-          }
-
-          nuevasCategorias.push({
-            id: Date.now(),
-            instructorId: instructor.id,
-            disciplinaId: disciplinaId,
-            periodoId: pagoSeleccionado.periodoId,
-            categoria: categoriaCalculada,
-            esManual: false,
-            metricas: metricas,
-            disciplina: disciplina,
+      if (result.summary) {
+        const { categoriasCreadas, categoriasActualizadas } = result.summary
+        
+        if (categoriasCreadas > 0 || categoriasActualizadas > 0) {
+          toast({
+            title: "Categorías recalculadas",
+            description: `Se crearon ${categoriasCreadas} y actualizaron ${categoriasActualizadas} categorías.`,
           })
-
-          cambiosRealizados = true
+          
+          // Recargar el instructor para obtener las nuevas categorías
+          await fetchInstructor(instructorSeleccionado.id)
+        } else {
+          toast({
+            title: "Categorías evaluadas",
+            description: "Las categorías del instructor ya están correctamente asignadas.",
+          })
         }
-      }
-
-      if (cambiosRealizados) {
-        const instructorActualizado = {
-          ...instructor,
-          categorias: nuevasCategorias,
-        }
-
-        await actualizarInstructor(instructor.id, instructorActualizado)
-        await fetchInstructor(instructor.id)
-
-        setCambiosCategorias(resumenCambios)
-        setShowResumenDialog(true)
       } else {
         toast({
-          title: "Categorías evaluadas",
-          description: "Las categorías del instructor ya están correctamente asignadas.",
+          title: "Recálculo completado",
+          description: "Las categorías han sido recalculadas exitosamente.",
         })
+        
+        // Recargar el instructor para obtener las nuevas categorías
+        await fetchInstructor(instructorSeleccionado.id)
       }
     } catch (error) {
+      console.error("❌ Error en recálculo de categorías:", error)
       toast({
         title: "Error al reevaluar categorías",
         description: error instanceof Error ? error.message : "Error desconocido al reevaluar categorías",
@@ -622,9 +561,9 @@ export default function PagoDetallePage() {
 
   // Function to get instructor categories
   const obtenerCategoriasInstructor = () => {
-    if (!instructor || !instructor.categorias || !pagoSeleccionado) return []
+    if (!instructorSeleccionado || !instructorSeleccionado.categorias || !pagoSeleccionado) return []
 
-    return instructor.categorias.filter((cat) => {
+    return instructorSeleccionado.categorias.filter((cat) => {
       const disciplina = disciplinas.find((d) => d.id === cat.disciplinaId)
       return cat.periodoId === pagoSeleccionado.periodoId && disciplina && mostrarCategoriaVisual(disciplina.nombre)
     })
@@ -662,19 +601,19 @@ export default function PagoDetallePage() {
 
   // Function to export to PDF
   const handleExportPDF = () => {
-    if (!pagoSeleccionado || !instructor || !periodo) return
-    downloadPagoPDF(pagoSeleccionado, instructor, periodo, clasesInstructor, disciplinas)
+    if (!pagoSeleccionado || !instructorSeleccionado || !periodo) return
+    downloadPagoPDF(pagoSeleccionado, instructorSeleccionado, periodo, getClasesInstructor(), disciplinas)
   }
 
   // Function to print
   const handlePrint = () => {
-    if (!pagoSeleccionado || !instructor || !periodo) return
-    printPagoPDF(pagoSeleccionado, instructor, periodo, clasesInstructor, disciplinas)
+    if (!pagoSeleccionado || !instructorSeleccionado || !periodo) return
+    printPagoPDF(pagoSeleccionado, instructorSeleccionado, periodo, getClasesInstructor(), disciplinas)
   }
 
   // Function to update instructor category
   const actualizarCategoriaInstructor = async () => {
-    if (!instructor || !categoriaSeleccionada || !categoriaCalculada) return
+    if (!instructorSeleccionado || !categoriaSeleccionada || !categoriaCalculada) return
 
     try {
       const categoriaActualizada = {
@@ -682,7 +621,7 @@ export default function PagoDetallePage() {
         categoria: categoriaCalculada,
       }
 
-      const categoriasPorDisciplina = instructor.categorias || []
+      const categoriasPorDisciplina = instructorSeleccionado.categorias || []
       const nuevasCategorias = [...categoriasPorDisciplina]
 
       const index = nuevasCategorias.findIndex(
@@ -695,18 +634,18 @@ export default function PagoDetallePage() {
       }
 
       const instructorActualizado = {
-        ...instructor,
+        ...instructorSeleccionado,
         categorias: nuevasCategorias,
       }
 
-      await actualizarInstructor(instructor.id, instructorActualizado)
+      await actualizarInstructor(instructorSeleccionado.id, instructorActualizado)
 
       toast({
         title: "Categoría actualizada",
         description: `La categoría del instructor para ${disciplinaSeleccionada?.nombre || "esta disciplina"} ha sido actualizada de ${categoriaPrevia} a ${categoriaCalculada}.`,
       })
 
-      await fetchInstructor(instructor.id)
+      await fetchInstructor(instructorSeleccionado.id)
     } catch (error) {
       toast({
         title: "Error al actualizar categoría",
@@ -791,13 +730,13 @@ export default function PagoDetallePage() {
   }
 
   // If loading, show skeleton
-  if (isLoadingPagos || !pagoSeleccionado || !instructor || !periodo) {
+  if (isLoadingPagos || isLoadingInstructor || !pagoSeleccionado || !instructorSeleccionado || !periodo) {
     return <LoadingSkeleton />
   }
 
   // Calculate statistics
-  const totalReservas = clasesInstructor.reduce((sum, clase) => sum + clase.reservasTotales, 0)
-  const totalCapacidad = clasesInstructor.reduce((sum, clase) => sum + clase.lugares, 0)
+  const totalReservas = getClasesInstructor().reduce((sum, clase) => sum + clase.reservasTotales, 0)
+  const totalCapacidad = getClasesInstructor().reduce((sum, clase) => sum + clase.lugares, 0)
   const ocupacionPromedio = totalCapacidad > 0 ? Math.round((totalReservas / totalCapacidad) * 100) : 0
   const ocupacionPorcentaje = totalCapacidad > 0 ? Math.round((totalReservas / totalCapacidad) * 100) : 0
   const montoFinalCalculado = calcularMontoFinal(
@@ -812,7 +751,7 @@ export default function PagoDetallePage() {
     <DashboardShell>
       {/* Header */}
       <PageHeader
-        instructor={instructor}
+        instructor={instructorSeleccionado}
         periodo={periodo}
         pagoSeleccionado={pagoSeleccionado}
         getEstadoColor={getEstadoColor}
@@ -828,7 +767,7 @@ export default function PagoDetallePage() {
           <div className="space-y-1">
             <CardTitle className="text-lg sm:text-xl text-foreground">Información del Pago</CardTitle>
             <CardDescription className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
-              Detalles para {instructor.nombre}
+              Detalles para {instructorSeleccionado.nombre}
             </CardDescription>
           </div>
 
@@ -938,7 +877,7 @@ export default function PagoDetallePage() {
             {activeTab === "detalles" && (
               <PaymentDetails
                 pagoSeleccionado={pagoSeleccionado}
-                instructor={instructor}
+                instructor={instructorSeleccionado}
                 periodo={periodo}
                 disciplinas={disciplinas}
                 editandoReajuste={editandoReajuste}
@@ -952,17 +891,17 @@ export default function PagoDetallePage() {
                 formatCurrency={formatCurrency}
                 montoFinalCalculado={montoFinalCalculado}
                 ocupacionPromedio={ocupacionPromedio}
-                clasesInstructor={clasesInstructor}
+                clasesInstructor={getClasesInstructor()}
                 totalReservas={totalReservas}
                 totalCapacidad={totalCapacidad}
-                coversInstructor={instructor.coversComoReemplazo || []}
+                coversInstructor={instructorSeleccionado.coversComoReemplazo || []}
               />
             )}
 
             {/* Clases Tab */}
             {activeTab === "clases" && (
               <ClassesTab
-                clasesInstructor={clasesInstructor}
+                clasesInstructor={getClasesInstructor()}
                 pagoSeleccionado={pagoSeleccionado}
                 formulas={formulas}
                 disciplinas={disciplinas}
@@ -973,11 +912,11 @@ export default function PagoDetallePage() {
             {/* Categoría Tab */}
             {activeTab === "categoria" && (
               <CategoryTab
-                instructor={instructor}
+                instructor={instructorSeleccionado}
                 pagoSeleccionado={pagoSeleccionado}
                 categoriasPorDisciplina={categoriasPorDisciplina}
                 disciplinas={disciplinas}
-                clasesInstructor={clasesInstructor}
+                clasesInstructor={getClasesInstructor()}
                 formulas={formulas}
                 editandoCategoria={editandoCategoria}
                 setEditandoCategoria={setEditandoCategoria}

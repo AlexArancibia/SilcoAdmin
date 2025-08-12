@@ -131,29 +131,24 @@ async function procesarImportacion(configuracion: ConfiguracionFinalImportacion)
       disciplinasCache[disciplina.nombre.toLowerCase()] = disciplina.id
     })
 
-    // 3. PASO 3: ELIMINAR CLASES EXISTENTES PARA LAS SEMANAS A IMPORTAR
-    console.log("=== PASO 3: Eliminando clases existentes ===")
-    const semanasAImportar = [...new Set(configuracion.clases.map(c => c.semana))]
+    // 3. PASO 3: ELIMINAR TODAS LAS CLASES EXISTENTES DEL PERIODO
+    console.log("=== PASO 3: Eliminando todas las clases existentes del periodo ===")
     
     const clasesExistentes = await prisma.clase.findMany({
       where: {
-        periodoId: configuracion.periodoId,
-        semana: {
-          in: semanasAImportar
-        }
+        periodoId: configuracion.periodoId
       }
     })
 
     if (clasesExistentes.length > 0) {
       await prisma.clase.deleteMany({
         where: {
-          periodoId: configuracion.periodoId,
-          semana: {
-            in: semanasAImportar
-          }
+          periodoId: configuracion.periodoId
         }
       })
-      console.log(`Se eliminaron ${clasesExistentes.length} clases existentes`)
+      console.log(`Se eliminaron ${clasesExistentes.length} clases existentes del periodo ${configuracion.periodoId}`)
+    } else {
+      console.log(`No se encontraron clases existentes en el periodo ${configuracion.periodoId}`)
     }
 
     // 4. PASO 4: CREAR CLASES
@@ -173,10 +168,12 @@ async function procesarImportacion(configuracion: ConfiguracionFinalImportacion)
         }
 
         // Procesar fecha y hora
+        console.log(`Procesando clase: ${clase.instructor} - Día: ${clase.dia} - Hora: ${clase.hora}`)
         const fecha = await procesarFechaHora(clase.dia, clase.hora)
         if (!fecha) {
           throw new Error(`Fecha/hora inválida: ${clase.dia} ${clase.hora}`)
         }
+        console.log(`Fecha procesada: ${fecha.toISOString()} para instructor: ${clase.instructor}`)
 
         // Crear la clase
         if (clase.esInstructorVS && clase.instructoresVS) {
@@ -243,17 +240,31 @@ async function crearInstructor(nombre: string): Promise<number> {
 async function procesarFechaHora(dia: any, hora: any): Promise<Date | null> {
   let fecha: Date | null = null
 
+  console.log(`=== PROCESANDO FECHA Y HORA ===`)
+  console.log(`Día recibido: ${dia} (tipo: ${typeof dia})`)
+  console.log(`Hora recibida: ${hora} (tipo: ${typeof hora})`)
+
   // Procesar fecha
   if (dia instanceof Date && !isNaN(dia.getTime())) {
-    fecha = dia
+    fecha = new Date(dia) // Crear una nueva instancia para no modificar la original
+    console.log(`Fecha es instancia de Date válida: ${fecha.toISOString()}`)
   } else if (typeof dia === "string") {
     try {
+      // Intentar diferentes formatos de fecha
       fecha = new Date(dia)
       if (isNaN(fecha.getTime())) {
+        // Formato DD/MM/YYYY
         const parts = dia.split("/")
         if (parts.length === 3) {
           fecha = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`)
+          console.log(`Fecha parseada desde DD/MM/YYYY: ${fecha.toISOString()}`)
+        } else {
+          // Formato YYYY-MM-DD
+          fecha = new Date(dia)
+          console.log(`Fecha parseada desde YYYY-MM-DD: ${fecha.toISOString()}`)
         }
+      } else {
+        console.log(`Fecha parseada directamente: ${fecha.toISOString()}`)
       }
     } catch (error) {
       console.error(`Error al parsear fecha: ${dia}`, error)
@@ -262,23 +273,114 @@ async function procesarFechaHora(dia: any, hora: any): Promise<Date | null> {
   }
 
   if (!fecha || isNaN(fecha.getTime())) {
+    console.error(`Fecha inválida: ${dia}`)
     return null
   }
 
-  // Procesar hora
+  // Procesar hora - asegurar que se incluya correctamente
   if (hora) {
     const horaStr = String(hora).trim()
+    console.log(`Procesando hora: "${horaStr}" para fecha: ${fecha.toISOString()}`)
+    
     if (horaStr.includes(":")) {
-      const [horasStr, minutosStr] = horaStr.split(":")
-      const horas = Number.parseInt(horasStr, 10)
-      const minutos = Number.parseInt(minutosStr, 10)
+      // Formato HH:MM:SS a.m./p.m. (hora peruana) - "7:00:00 a. m. (hora peruana)"
+      if (horaStr.includes("a. m.") || horaStr.includes("p. m.") || horaStr.includes("(hora peruana)")) {
+        // Limpiar texto adicional y convertir a formato estándar
+        let horaLimpia = horaStr
+          .replace(/\s*\(hora peruana\)/g, "") // Remover "(hora peruana)"
+          .replace(/\s*a\.\s*m\./g, " AM") // Normalizar "a. m." a "AM"
+          .replace(/\s*p\.\s*m\./g, " PM") // Normalizar "p. m." a "PM"
+          .replace(/\s+/g, " ") // Normalizar espacios múltiples
+          .trim()
+        
+        console.log(`Hora limpia (formato peruano): "${horaLimpia}"`)
+        
+        // Extraer horas, minutos y periodo
+        const match = horaLimpia.match(/^(\d{1,2}):(\d{1,2}):(\d{1,2})\s*(AM|PM)$/i)
+        if (match) {
+          let [_, horas, minutos, segundos, periodo] = match
+          let horasNum = parseInt(horas)
+          const minutosNum = parseInt(minutos)
+          
+          // Convertir a formato 24 horas
+          if (periodo.toUpperCase() === 'PM' && horasNum !== 12) {
+            horasNum += 12
+          } else if (periodo.toUpperCase() === 'AM' && horasNum === 12) {
+            horasNum = 0
+          }
+          
+          fecha.setHours(horasNum, minutosNum, 0, 0)
+          console.log(`Hora aplicada desde formato peruano: ${fecha.toISOString()} (${horasNum}:${minutosNum.toString().padStart(2, '0')})`)
+        } else {
+          // Fallback: intentar extraer solo horas y minutos
+          const matchSimple = horaLimpia.match(/^(\d{1,2}):(\d{1,2})\s*(AM|PM)$/i)
+          if (matchSimple) {
+            let [_, horas, minutos, periodo] = matchSimple
+            let horasNum = parseInt(horas)
+            const minutosNum = parseInt(minutos)
+            
+            if (periodo.toUpperCase() === 'PM' && horasNum !== 12) {
+              horasNum += 12
+            } else if (periodo.toUpperCase() === 'AM' && horasNum === 12) {
+              horasNum = 0
+            }
+            
+            fecha.setHours(horasNum, minutosNum, 0, 0)
+            console.log(`Hora aplicada (fallback peruano): ${fecha.toISOString()} (${horasNum}:${minutosNum.toString().padStart(2, '0')})`)
+          }
+        }
+      } else {
+        // Formato HH:MM estándar
+        const [horasStr, minutosStr] = horaStr.split(":")
+        const horas = Number.parseInt(horasStr, 10)
+        const minutos = Number.parseInt(minutosStr, 10)
 
-      if (!isNaN(horas) && !isNaN(minutos)) {
-        fecha.setUTCHours(horas, minutos, 0, 0)
+        if (!isNaN(horas) && !isNaN(minutos) && horas >= 0 && horas <= 23 && minutos >= 0 && minutos <= 59) {
+          // Usar setHours en lugar de setUTCHours para evitar problemas de zona horaria
+          fecha.setHours(horas, minutos, 0, 0)
+          console.log(`Hora aplicada estándar: ${fecha.toISOString()} (${horas}:${minutos.toString().padStart(2, '0')})`)
+        } else {
+          console.warn(`Hora inválida: ${horas}:${minutos}`)
+        }
       }
+    } else if (horaStr.match(/^\d{1,2}$/)) {
+      // Solo horas (ej: "14" para 2:00 PM)
+      const horas = Number.parseInt(horaStr, 10)
+      if (horas >= 0 && horas <= 23) {
+        fecha.setHours(horas, 0, 0, 0)
+        console.log(`Hora aplicada solo horas: ${fecha.toISOString()} (${horas}:00)`)
+      }
+    } else if (horaStr.match(/^\d{1,2}:\d{2}\s*(AM|PM)$/i)) {
+      // Formato 12 horas (ej: "2:30 PM")
+      const match = horaStr.match(/^(\d{1,2}):(\d{1,2})\s*(AM|PM)$/i)
+      if (match) {
+        let [_, horas, minutos, periodo] = match
+        let horasNum = parseInt(horas)
+        const minutosNum = parseInt(minutos)
+        
+        if (periodo.toUpperCase() === 'PM' && horasNum !== 12) {
+          horasNum += 12
+        } else if (periodo.toUpperCase() === 'AM' && horasNum === 12) {
+          horasNum = 0
+        }
+        
+        fecha.setHours(horasNum, minutosNum, 0, 0)
+        console.log(`Hora aplicada desde formato 12h: ${fecha.toISOString()} (${horasNum}:${minutosNum.toString().padStart(2, '0')})`)
+      }
+    } else {
+      console.warn(`Formato de hora no reconocido: ${horaStr}`)
     }
+  } else {
+    // Si no hay hora, establecer una hora por defecto (ej: 12:00 PM)
+    fecha.setHours(12, 0, 0, 0)
+    console.log(`Hora por defecto aplicada: ${fecha.toISOString()} (12:00)`)
   }
 
+  console.log(`=== FECHA FINAL PROCESADA ===`)
+  console.log(`ISO String: ${fecha.toISOString()}`)
+  console.log(`Locale String: ${fecha.toLocaleString('es-MX')}`)
+  console.log(`Timestamp: ${fecha.getTime()}`)
+  
   return fecha
 }
 
