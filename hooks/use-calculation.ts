@@ -60,14 +60,24 @@ function obtenerHora(fecha: any): string {
 
       const dateObj = new Date(fecha)
       if (!isNaN(dateObj.getTime())) {
-        return `${String(dateObj.getHours()).padStart(2, "0")}:${String(dateObj.getMinutes()).padStart(2, "0")}`
+        return dateObj.toLocaleTimeString('es-PE', { 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          hour12: false, 
+          timeZone: 'America/Lima' 
+        })
       }
 
       return "00:00"
     }
 
     if (fecha instanceof Date && !isNaN(fecha.getTime())) {
-      return `${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`
+      return fecha.toLocaleTimeString('es-PE', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false, 
+        timeZone: 'America/Lima' 
+      })
     }
 
     if (fecha && typeof fecha === "object") {

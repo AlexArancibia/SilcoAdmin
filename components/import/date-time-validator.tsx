@@ -12,6 +12,7 @@ interface DateTimeValidatorProps {
   onDiaChange: (dia: string) => void
   onHoraChange: (hora: string) => void
   className?: string
+  isISO?: boolean // Indica si la fecha ya está en formato ISO
 }
 
 export function DateTimeValidator({ 
@@ -19,7 +20,8 @@ export function DateTimeValidator({
   hora, 
   onDiaChange, 
   onHoraChange, 
-  className = "" 
+  className = "",
+  isISO = false
 }: DateTimeValidatorProps) {
   const [isValid, setIsValid] = useState<boolean>(true)
   const [validationMessage, setValidationMessage] = useState<string>("")
@@ -28,6 +30,27 @@ export function DateTimeValidator({
   // Validar fecha y hora en tiempo real
   useEffect(() => {
     const validateDateTime = () => {
+      // Si es fecha ISO, validar directamente
+      if (isISO && dia.includes('T')) {
+        try {
+          const fechaISO = new Date(dia)
+          if (!isNaN(fechaISO.getTime())) {
+            setIsValid(true)
+            setValidationMessage("Fecha y hora válidas")
+            setPreviewDate(fechaISO.toLocaleString('es-ES'))
+          } else {
+            setIsValid(false)
+            setValidationMessage("Formato ISO inválido")
+            setPreviewDate("")
+          }
+        } catch (error) {
+          setIsValid(false)
+          setValidationMessage("Error al validar fecha ISO")
+          setPreviewDate("")
+        }
+        return
+      }
+
       if (!dia || !hora) {
         setIsValid(false)
         setValidationMessage("Fecha y hora son requeridas")

@@ -54,7 +54,13 @@ export function SalonTab({ filteredClases, getPeriodoNombre, isLoadingClases }: 
       .sort((a, b) => b.count - a.count)
       .slice(0, 5),
     horariosMasPopulares: filteredClases
-      .map((c) => new Date(c.fecha).getHours())
+      .map((c) => {
+        const date = new Date(c.fecha)
+        return parseInt(date.toLocaleTimeString('es-PE', { 
+          hour: '2-digit', 
+          timeZone: 'America/Lima' 
+        }).split(':')[0])
+      })
       .reduce(
         (acc, hour) => {
           acc[hour] = (acc[hour] || 0) + 1

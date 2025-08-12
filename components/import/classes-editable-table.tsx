@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DateTimeValidator } from "./date-time-validator"
 import type { TablaClasesEditable, ClaseEditable } from "@/types/importacion"
+import { getDateFromISO, getHourFromISO } from "@/utils/date-utils"
 
 interface ClassesEditableTableProps {
   tablaClases: TablaClasesEditable
@@ -34,6 +35,14 @@ export function ClassesEditableTable({
 }: ClassesEditableTableProps) {
   const [unlockedInstructors, setUnlockedInstructors] = useState<Set<string>>(new Set())
   const [editingCells, setEditingCells] = useState<Set<string>>(new Set())
+
+  // Función para validar que un valor no sea vacío para los selectores
+  const getValidValue = (value: any, fallback: string): string => {
+    if (!value || value === "" || value === "undefined" || value === "null") {
+      return fallback
+    }
+    return String(value)
+  }
 
   const toggleInstructorLock = (claseId: string) => {
     setUnlockedInstructors(prev => {
@@ -102,7 +111,7 @@ export function ClassesEditableTable({
                 <TableHead className="w-28">Disciplina</TableHead>
                 <TableHead className="w-20">Estudio</TableHead>
                 <TableHead className="w-20">Salón</TableHead>
-                <TableHead className="w-32">Fecha y Hora</TableHead>
+                <TableHead className="w-40">Fecha y Hora</TableHead>
                 <TableHead className="w-12">Sem</TableHead>
                 <TableHead className="w-16">Reservas</TableHead>
                 <TableHead className="w-16">Lugares</TableHead>
@@ -152,7 +161,7 @@ export function ClassesEditableTable({
                           // Instructor existente O instructor nuevo desbloqueado - selector normal
                           <div className="space-y-1">
                             <Select
-                              value={clase.instructorEditado || clase.instructor}
+                              value={getValidValue(clase.instructorEditado || clase.instructor, "Seleccionar")}
                               onValueChange={(valor) => onEditClase(clase.id, "instructorEditado", valor)}
                             >
                               <SelectTrigger className="h-7 w-28 text-xs">
@@ -160,8 +169,8 @@ export function ClassesEditableTable({
                               </SelectTrigger>
                               <SelectContent>
                                 {instructores.map((instructor) => (
-                                  <SelectItem key={instructor.id} value={instructor.nombre}>
-                                    {instructor.nombre}
+                                  <SelectItem key={instructor.id} value={instructor.nombre || `instructor-${instructor.id}`}>
+                                    {instructor.nombre || `Instructor ${instructor.id}`}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -185,19 +194,19 @@ export function ClassesEditableTable({
                     </TableCell>
                     <TableCell>
                       <Select
-                        value={clase.disciplinaEditada || clase.mapeoDisciplina || ""}
+                        value={getValidValue(clase.disciplinaEditada || clase.mapeoDisciplina || clase.disciplina, "Seleccionar")}
                         onValueChange={(valor) => onEditClase(clase.id, "disciplinaEditada", valor)}
                       >
                         <SelectTrigger className="h-7 w-24 text-xs">
                           <SelectValue placeholder="Mapear" />
                         </SelectTrigger>
-                        <SelectContent>
-                          {disciplinas.map((disciplina) => (
-                            <SelectItem key={disciplina.id} value={disciplina.nombre}>
-                              {disciplina.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
+                                                      <SelectContent>
+                                {disciplinas.map((disciplina) => (
+                                  <SelectItem key={disciplina.id} value={disciplina.nombre || `disciplina-${disciplina.id}`}>
+                                    {disciplina.nombre || `Disciplina ${disciplina.id}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
                       </Select>
                     </TableCell>
                     <TableCell className="text-xs">
@@ -230,15 +239,38 @@ export function ClassesEditableTable({
                           onDiaChange={(valor) => onEditClase(clase.id, "diaEditado", valor)}
                           onHoraChange={(valor) => onEditClase(clase.id, "horaEditada", valor)}
                           className="min-w-[280px]"
+                          isISO={typeof (clase.diaEditado || clase.dia) === 'string' && (clase.diaEditado || clase.dia).includes('T')}
                         />
                       ) : (
                         <div className="space-y-1">
-                          <div className="font-medium">
-                            {clase.diaEditado || clase.dia}
-                          </div>
-                          <div className="text-muted-foreground">
-                            {clase.horaEditada || clase.hora}
-                          </div>
+                          {typeof (clase.diaEditado || clase.dia) === 'string' && (clase.diaEditado || clase.dia).includes('T') ? (
+                            // Si es fecha ISO, mostrar formateada
+                            <div className="font-medium text-blue-600">
+                              {new Date(clase.diaEditado || clase.dia).toLocaleDateString('es-ES', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
+                            </div>
+                          ) : (
+                            // Si son campos separados, mostrar ambos
+                            <>
+                              <div className="font-medium text-blue-600">
+                                {clase.diaEditado || clase.dia}
+                              </div>
+                              <div className="text-muted-foreground text-green-600">
+                                {clase.horaEditada || clase.hora}
+                              </div>
+                            </>
+                          )}
+                          {typeof (clase.diaEditado || clase.dia) === 'string' && (clase.diaEditado || clase.dia).includes('T') && (
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(clase.diaEditado || clase.dia).toLocaleTimeString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
                     </TableCell>

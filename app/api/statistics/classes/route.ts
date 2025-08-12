@@ -77,30 +77,42 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.count - a.count)
 
-    // Classes by hour (adjusted +5 hours as in original code)
+    // Classes by hour (using Peru timezone)
     const porHorario = Array.from({ length: 24 })
       .map((_, i) => {
-        const adjustedHour = (i + 5) % 24
-        const clasesDeEstaHora = clases.filter((c) => new Date(c.fecha).getHours() === i)
+        const clasesDeEstaHora = clases.filter((c) => {
+          const date = new Date(c.fecha)
+          const peruHour = parseInt(date.toLocaleTimeString('es-PE', { 
+            hour: '2-digit', 
+            timeZone: 'America/Lima' 
+          }).split(':')[0])
+          return peruHour === i
+        })
         
         return {
-          hora: `${String(adjustedHour).padStart(2, "0")}:00`,
+          hora: `${String(i).padStart(2, "0")}:00`,
           count: clasesDeEstaHora.length,
           reservas: clasesDeEstaHora.reduce((acc, clase) => acc + clase.reservasTotales, 0),
         }
       })
       .filter((hour) => hour.count > 0) // Only show hours with classes
 
-    // Reservations by hour (adjusted +5 hours as in original code)
+    // Reservations by hour (using Peru timezone)
     const reservasPorHorario = Array.from({ length: 24 })
       .map((_, i) => {
-        const adjustedHour = (i + 5) % 24
-        const clasesDeEstaHora = clases.filter((c) => new Date(c.fecha).getHours() === i)
+        const clasesDeEstaHora = clases.filter((c) => {
+          const date = new Date(c.fecha)
+          const peruHour = parseInt(date.toLocaleTimeString('es-PE', { 
+            hour: '2-digit', 
+            timeZone: 'America/Lima' 
+          }).split(':')[0])
+          return peruHour === i
+        })
         const totalReservas = clasesDeEstaHora.reduce((acc, clase) => acc + clase.reservasTotales, 0)
         const totalCapacidad = clasesDeEstaHora.reduce((acc, clase) => acc + clase.lugares, 0)
         
         return {
-          hora: `${String(adjustedHour).padStart(2, "0")}:00`,
+          hora: `${String(i).padStart(2, "0")}:00`,
           reservas: totalReservas,
           ocupacionPromedio: totalCapacidad > 0 ? Math.round((totalReservas / totalCapacidad) * 100) : 0,
         }

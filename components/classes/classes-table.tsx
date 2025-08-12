@@ -12,6 +12,7 @@ import { useInstructoresStore } from "@/store/useInstructoresStore"
 import type { Clase } from "@/types/schema"
 import { format, addHours } from "date-fns"
 import { es } from "date-fns/locale"
+import { getDateFromISO, getHourFromISO } from "@/utils/date-utils"
 import { Edit, MoreHorizontal, Trash2, Loader2, UserCheck, UserX, User } from "lucide-react"
 import {
   Pagination,
@@ -112,16 +113,33 @@ export function ClassesTable({ id, periodoId, periodoInicio, periodoFin, instruc
     fetchClases(queryParams)
   }, [searchParams, id, periodoId, periodoInicio, periodoFin, instructorId, disciplinaId, semana, estudio, fetchClases])
 
-  const formatDate = (date: Date) => {
-    // Añadir 5 horas para mostrar en la tabla
-    const adjustedDate = addHours(new Date(date), 5)
-    return format(adjustedDate, "EEEE d MMMM, yyyy", { locale: es })
+  const formatDate = (date: Date | string) => {
+    // Usar la función de formateo peruano
+    if (typeof date === 'string' && date.includes('T')) {
+      return getDateFromISO(date)
+    }
+    // Para fechas que no son ISO, usar zona horaria peruana
+    return new Date(date).toLocaleDateString('es-PE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'America/Lima'
+    })
   }
 
-  const formatTime = (date: Date) => {
-    // Añadir 5 horas para mostrar en la tabla
-    const adjustedDate = addHours(new Date(date), 5)
-    return format(adjustedDate, "HH:mm", { locale: es })
+  const formatTime = (date: Date | string) => {
+    // Usar la función de formateo peruano
+    if (typeof date === 'string' && date.includes('T')) {
+      return getHourFromISO(date)
+    }
+    // Para fechas que no son ISO, usar zona horaria peruana
+    return new Date(date).toLocaleTimeString('es-PE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'America/Lima'
+    })
   }
 
   const router = useRouter();

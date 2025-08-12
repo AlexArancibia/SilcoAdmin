@@ -57,21 +57,21 @@ export const generatePagoPDF = (
       day: "2-digit",
       month: "2-digit",
       year: "2-digit",
+      timeZone: "America/Lima"
     })
   }
 
   /**
-   * Formatea una hora en formato (HH:MM AM/PM) con +5 horas
+   * Formatea una hora en formato (HH:MM AM/PM) con zona horaria peruana
    */
   const formatTime = (date: Date | string): string => {
     const dateObj = new Date(date)
-    // Añadir 5 horas
-    dateObj.setHours(dateObj.getHours() + 5)
-
+    
     return dateObj.toLocaleTimeString("es-PE", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
+      timeZone: "America/Lima"
     })
   }
 

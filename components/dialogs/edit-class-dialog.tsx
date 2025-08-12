@@ -101,8 +101,8 @@ export function EditClassDialog({
     if (classId && isOpen) {
       const claseToEdit = clases.find((c) => c.id === classId)
       if (claseToEdit) {
-        // Ajustar la fecha para mostrar +5 horas
-        const fechaAjustada = claseToEdit.fecha ? addHours(new Date(claseToEdit.fecha), 5) : new Date()
+        // Usar la fecha original sin ajustes manuales, la zona horaria se manejará en la UI
+        const fechaAjustada = claseToEdit.fecha ? new Date(claseToEdit.fecha) : new Date()
 
         setFormData({
           ...claseToEdit,

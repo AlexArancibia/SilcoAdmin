@@ -131,21 +131,16 @@ export function ClassesTab({
 
   const obtenerHora = (fecha: any): string => {
     try {
-      let hours = 0
-      let minutes = 0
-
-      if (fecha instanceof Date) {
-        hours = fecha.getUTCHours()
-        minutes = fecha.getUTCMinutes()
-      } else {
-        const dateObj = new Date(fecha)
-        if (!isNaN(dateObj.getTime())) {
-          hours = dateObj.getUTCHours()
-          minutes = dateObj.getUTCMinutes()
-        }
+      const dateObj = new Date(fecha)
+      if (isNaN(dateObj.getTime())) {
+        throw new Error('Fecha inválida')
       }
-
-      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+      return dateObj.toLocaleTimeString('es-PE', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false, 
+        timeZone: 'America/Lima' 
+      })
     } catch (error) {
       console.error("Error al obtener hora:", error)
       return "00:00"
@@ -1131,6 +1126,9 @@ export function ClassesTab({
             <Table>
               <TableHeader className="bg-accent/5 border-b border-border/40">
                 <TableRow>
+                  <TableHead className="text-accent font-medium whitespace-nowrap w-[80px]">
+                    ID
+                  </TableHead>
                   <TableHead
                     className="text-accent font-medium whitespace-nowrap cursor-pointer w-[120px]"
                     onClick={() => toggleSort("fecha")}
@@ -1184,6 +1182,9 @@ export function ClassesTab({
 
   return (
     <TableRow key={clase.id} className="hover:bg-muted/5 transition-colors border-b border-border/30">
+      <TableCell className="text-xs font-mono text-muted-foreground">
+        {clase.id}
+      </TableCell>
       <TableCell className="font-medium whitespace-nowrap text-foreground">
         <div>
           {new Date(clase.fecha).toLocaleDateString()}

@@ -299,16 +299,26 @@ export default function PenalizacionesPage() {
 
   const formatPeruDateTime = useCallback((date: Date | string) => {
     if (!date) return 'N/A'
-    const d = addHours(new Date(date), 5) // Add 5 hours for Peru time
+    const d = new Date(date)
     return (
       <div className="flex flex-col">
         <span className="flex items-center text-sm">
           <Calendar className="mr-1 h-3 w-3" />
-          {format(d, 'PPP', { locale: es })}
+          {d.toLocaleDateString('es-PE', { 
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'America/Lima'
+          })}
         </span>
         <span className="flex items-center text-xs text-muted-foreground">
           <Clock className="mr-1 h-3 w-3" />
-          {format(d, 'p', { locale: es })}
+          {d.toLocaleTimeString('es-PE', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: 'America/Lima'
+          })}
         </span>
       </div>
     )
@@ -736,7 +746,15 @@ export default function PenalizacionesPage() {
             {penalizacionSeleccionada.createdAt ? (
               <div className="flex items-center text-sm">
                 <Calendar className="mr-1 h-3 w-3" />
-                {format(addHours(new Date(penalizacionSeleccionada.createdAt), 5), 'PPPp', { locale: es })}
+                {new Date(penalizacionSeleccionada.createdAt).toLocaleString('es-PE', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                  timeZone: 'America/Lima'
+                })}
               </div>
             ) : 'N/A'}
           </div>

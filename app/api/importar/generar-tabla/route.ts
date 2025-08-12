@@ -39,11 +39,33 @@ export async function POST(request: NextRequest) {
       dateNF: "yyyy-mm-dd",
       cellDates: true,
       defval: "",
+      cellText: false,
+      cellNF: false,
+      cellStyles: false
     }
 
     // Convertir a JSON
     const rawData = XLSX.utils.sheet_to_json(worksheet, options)
+    console.log("Datos raw del Excel:", JSON.stringify(rawData.slice(0, 2), null, 2))
+    
+    // Verificar las columnas del Excel
+    if (rawData.length > 0) {
+      const primeraFila = rawData[0] as any
+      console.log("📋 Columnas detectadas en Excel:", Object.keys(primeraFila))
+      console.log("📊 Valores de la primera fila:", primeraFila)
+      
+      // Verificar si hay columnas con valores de fecha por defecto de Excel
+      const columnas = Object.keys(primeraFila)
+      for (const col of columnas) {
+        const valor = primeraFila[col]
+        if (valor === "1900-01-01" || valor === "1900-01-01T00:00:00.000Z") {
+          console.log(`⚠️ Columna "${col}" tiene valor por defecto de Excel: ${valor}`)
+        }
+      }
+    }
+    
     const processedData = preprocessExcelData(rawData)
+    console.log("Datos procesados:", JSON.stringify(processedData.slice(0, 2), null, 2))
 
     // Obtener datos del sistema
     const [instructores, disciplinas] = await Promise.all([
@@ -84,14 +106,48 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Función para verificar que las columnas Día y Hora existan
+function verifyRequiredColumns(data: any[]): boolean {
+  if (data.length === 0) return false
+  
+  const primeraFila = data[0]
+  const columnas = Object.keys(primeraFila)
+  
+  console.log("🔍 Verificando columnas requeridas...")
+  console.log("Columnas disponibles:", columnas)
+  
+  const tieneDia = columnas.includes('Día')
+  const tieneHora = columnas.includes('Hora')
+  
+  if (!tieneDia) {
+    console.log("❌ Columna 'Día' no encontrada")
+    return false
+  }
+  
+  if (!tieneHora) {
+    console.log("❌ Columna 'Hora' no encontrada")
+    return false
+  }
+  
+  console.log("✅ Columnas 'Día' y 'Hora' encontradas correctamente")
+  return true
+}
+
 // Función para preprocesar los datos del Excel
 function preprocessExcelData(data: any[]): DatosExcelClase[] {
-  let processedData = data.filter((row) => {
+  // Verificar que las columnas requeridas existan
+  if (!verifyRequiredColumns(data)) {
+    throw new Error("El archivo Excel debe contener las columnas 'Día' y 'Hora'")
+  }
+  
+  let processedData = data.filter((row: any) => {
     const hasCriticalData = row.Instructor && row.Disciplina && row.Día
     return hasCriticalData
   })
 
-  processedData = processedData.map((row) => {
+  processedData = processedData.map((row, index) => {
+    console.log(`\n--- Procesando fila ${index + 1} ---`)
+    console.log("Row original:", row)
     const processedRow = { ...row }
 
     // Normalizar nombres de instructores
@@ -117,10 +173,48 @@ function preprocessExcelData(data: any[]): DatosExcelClase[] {
       processedRow.Salon = processedRow.Salon.trim()
     }
 
-    // Procesar fecha
+    // Procesar fecha - manejar diferentes formatos
     if (processedRow.Día) {
       if (typeof processedRow.Día === 'string') {
-        processedRow.Día = new Date(processedRow.Día)
+        // Limpiar la fecha si tiene caracteres extra
+        const fechaLimpia = processedRow.Día.toString().trim()
+        console.log(`Procesando fecha original: "${fechaLimpia}"`)
+        
+        // Intentar parsear la fecha
+        const fechaParsed = new Date(fechaLimpia)
+        
+        // Verificar si la fecha es válida
+        if (!isNaN(fechaParsed.getTime())) {
+          processedRow.Día = fechaParsed
+          console.log(`Fecha parseada exitosamente: ${fechaParsed.toISOString()}`)
+        } else {
+          console.log(`Error al parsear fecha: "${fechaLimpia}"`)
+          // Si no se puede parsear, mantener como string
+          processedRow.Día = fechaLimpia
+        }
+      }
+    }
+
+    // Verificar si hay problema con fecha y hora separadas
+    // Si la fecha es "1900-01-01" (fecha por defecto de Excel) y hay hora válida,
+    // probablemente la fecha real está en otro campo
+    if (processedRow.Día && processedRow.Hora) {
+      if (processedRow.Día instanceof Date && processedRow.Día.getFullYear() === 1900) {
+        console.log("⚠️ Detectada fecha por defecto de Excel (1900-01-01), revisando otros campos...")
+        // Buscar en otros campos que puedan contener la fecha real
+        const camposPosibles = ['Fecha', 'Date', 'Dia', 'Día', 'Fecha y Hora']
+        for (const campo of camposPosibles) {
+          if (processedRow[campo] && processedRow[campo] !== processedRow.Día) {
+            console.log(`Encontrado campo alternativo "${campo}":`, processedRow[campo])
+            // Intentar usar este campo como fecha
+            const fechaAlternativa = new Date(processedRow[campo])
+            if (!isNaN(fechaAlternativa.getTime()) && fechaAlternativa.getFullYear() > 1900) {
+              console.log(`✅ Usando fecha alternativa: ${fechaAlternativa.toISOString()}`)
+              processedRow.Día = fechaAlternativa
+              break
+            }
+          }
+        }
       }
     }
 
@@ -130,10 +224,23 @@ function preprocessExcelData(data: any[]): DatosExcelClase[] {
       
       console.log(`Procesando hora original: "${horaStr}"`)
       
+      // Verificar si Excel interpretó la hora como fecha (formato 1900-01-01)
+      if (horaStr === "1900-01-01" || horaStr === "1900-01-01T00:00:00.000Z") {
+        console.log(`⚠️ Excel interpretó la hora como fecha: "${horaStr}"`)
+        console.log(`🔍 Esto puede indicar un problema en el formato de la columna Hora del Excel`)
+        console.log(`💡 Asegúrate de que la columna Hora tenga formato de hora, no de fecha`)
+        
+        // Usar hora por defecto y continuar
+        processedRow.Hora = "12:00"
+        horaStr = "12:00"
+      }
+      
       // Normalizar diferentes formatos de hora
       if (horaStr.includes(":")) {
-        // Formato HH:MM:SS a.m./p.m. (hora peruana) - "7:00:00 a. m. (hora peruana)"
+        // Formato HH:MM:SS a.m./p.m. (hora peruana) - "6:00:00 a. m."
         if (horaStr.includes("a. m.") || horaStr.includes("p. m.") || horaStr.includes("(hora peruana)")) {
+          console.log(`🕐 Procesando hora en formato peruano: "${horaStr}"`)
+          
           // Limpiar texto adicional y convertir a formato estándar
           let horaLimpia = horaStr
             .replace(/\s*\(hora peruana\)/g, "") // Remover "(hora peruana)"
@@ -151,15 +258,21 @@ function preprocessExcelData(data: any[]): DatosExcelClase[] {
             let horasNum = parseInt(horas)
             const minutosNum = parseInt(minutos)
             
-            // Convertir a formato 24 horas
+            console.log(`📊 Valores extraídos: ${horasNum}:${minutosNum} ${periodo}`)
+            
+            // Convertir a formato 24 horas CORRECTAMENTE
             if (periodo.toUpperCase() === 'PM' && horasNum !== 12) {
               horasNum += 12
+              console.log(`🔄 PM: ${horasNum - 12} → ${horasNum} (formato 24h)`)
             } else if (periodo.toUpperCase() === 'AM' && horasNum === 12) {
               horasNum = 0
+              console.log(`🔄 AM 12:00 → 00:00 (formato 24h)`)
+            } else {
+              console.log(`✅ AM: ${horasNum}:${minutosNum} (ya en formato 24h)`)
             }
             
             processedRow.Hora = `${horasNum.toString().padStart(2, '0')}:${minutosNum.toString().padStart(2, '0')}`
-            console.log(`Hora convertida desde formato peruano: "${processedRow.Hora}"`)
+            console.log(`✅ Hora convertida: "${processedRow.Hora}"`)
           } else {
             // Fallback: intentar extraer solo horas y minutos
             const matchSimple = horaLimpia.match(/^(\d{1,2}):(\d{1,2})\s*(AM|PM)$/i)
@@ -168,14 +281,20 @@ function preprocessExcelData(data: any[]): DatosExcelClase[] {
               let horasNum = parseInt(horas)
               const minutosNum = parseInt(minutos)
               
+              console.log(`📊 Valores extraídos (fallback): ${horasNum}:${minutosNum} ${periodo}`)
+              
               if (periodo.toUpperCase() === 'PM' && horasNum !== 12) {
                 horasNum += 12
+                console.log(`🔄 PM: ${horasNum - 12} → ${horasNum} (formato 24h)`)
               } else if (periodo.toUpperCase() === 'AM' && horasNum === 12) {
                 horasNum = 0
+                console.log(`🔄 AM 12:00 → 00:00 (formato 24h)`)
+              } else {
+                console.log(`✅ AM: ${horasNum}:${minutosNum} (ya en formato 24h)`)
               }
               
               processedRow.Hora = `${horasNum.toString().padStart(2, '0')}:${minutosNum.toString().padStart(2, '0')}`
-              console.log(`Hora convertida (fallback): "${processedRow.Hora}"`)
+              console.log(`✅ Hora convertida (fallback): "${processedRow.Hora}"`)
             }
           }
         } else {
@@ -212,11 +331,101 @@ function preprocessExcelData(data: any[]): DatosExcelClase[] {
           }
           
           processedRow.Hora = `${horasNum.toString().padStart(2, '0')}:${minutosNum.toString().padStart(2, '0')}`
-          console.log(`Hora formato 12h: "${processedRow.Hora}"`)
+          console.log(`Hora convertida formato 12h: "${processedRow.Hora}"`)
         }
       }
       
       console.log(`Hora final procesada: "${processedRow.Hora}"`)
+    }
+
+    // COMBINAR FECHA Y HORA EN UN SOLO CAMPO ISO
+    if (processedRow.Día && processedRow.Hora) {
+      try {
+        // Verificar si la hora es válida (no debe ser "1900-01-01")
+        if (processedRow.Hora === "1900-01-01" || processedRow.Hora === "1900-01-01T00:00:00.000Z") {
+          console.log(`⚠️ Hora inválida detectada: "${processedRow.Hora}", saltando combinación`)
+          return
+        }
+
+        console.log(`🔄 Combinando fecha y hora:`)
+        console.log(`   Fecha: ${processedRow.Día}`)
+        console.log(`   Hora: ${processedRow.Hora}`)
+
+        let fechaBase: Date
+        
+        // Si Día es un string, intentar parsearlo
+        if (typeof processedRow.Día === 'string') {
+          // Manejar formato americano 7/14/25
+          if (processedRow.Día.includes('/')) {
+            const [mes, dia, año] = processedRow.Día.split('/')
+            // Convertir año de 2 dígitos a 4 dígitos
+            const añoCompleto = parseInt(año) < 50 ? 2000 + parseInt(año) : 1900 + parseInt(año)
+            fechaBase = new Date(añoCompleto, parseInt(mes) - 1, parseInt(dia))
+            console.log(`📅 Fecha parseada desde formato americano: ${fechaBase.toISOString()}`)
+          } else {
+            fechaBase = new Date(processedRow.Día)
+            console.log(`📅 Fecha parseada desde string: ${fechaBase.toISOString()}`)
+          }
+        } else if (processedRow.Día instanceof Date) {
+          fechaBase = new Date(processedRow.Día)
+          console.log(`📅 Fecha ya es Date: ${fechaBase.toISOString()}`)
+        } else {
+          throw new Error('Formato de fecha no válido')
+        }
+
+        // Verificar que la fecha sea válida
+        if (isNaN(fechaBase.getTime())) {
+          throw new Error('Fecha inválida')
+        }
+
+        // Verificar que la hora tenga formato válido (debe contener ":")
+        if (!processedRow.Hora.includes(':')) {
+          console.log(`⚠️ Formato de hora inválido: "${processedRow.Hora}", saltando combinación`)
+          return
+        }
+
+        // Extraer hora y minutos de la hora procesada
+        const [horas, minutos] = processedRow.Hora.split(':').map(Number)
+        
+        console.log(`⏰ Hora extraída: ${horas}:${minutos}`)
+        
+        // Verificar que las horas y minutos sean números válidos
+        if (isNaN(horas) || isNaN(minutos) || horas < 0 || horas > 23 || minutos < 0 || minutos > 59) {
+          console.log(`⚠️ Valores de hora/minutos inválidos: ${horas}:${minutos}, saltando combinación`)
+          return
+        }
+        
+        // Crear fecha completa con hora
+        const fechaCompleta = new Date(fechaBase)
+        fechaCompleta.setHours(horas, minutos, 0, 0)
+        
+        console.log(`📅 Fecha base: ${fechaBase.toISOString()}`)
+        console.log(`⏰ Hora a aplicar: ${horas}:${minutos}`)
+        console.log(`📅 Fecha resultante: ${fechaCompleta.toISOString()}`)
+        
+        // Verificar que la fecha resultante sea válida
+        if (isNaN(fechaCompleta.getTime())) {
+          throw new Error('Fecha resultante inválida')
+        }
+        
+        // Convertir a ISO string
+        const fechaISO = fechaCompleta.toISOString()
+        
+        console.log(`✅ Fecha y hora combinadas exitosamente:`)
+        console.log(`   Fecha original: ${processedRow.Día}`)
+        console.log(`   Hora original: ${processedRow.Hora}`)
+        console.log(`   Resultado ISO: ${fechaISO}`)
+        
+        // Guardar la fecha ISO en el campo Día
+        processedRow.Día = fechaISO
+        
+        // Marcar que la hora está incluida en la fecha ISO
+        processedRow.Hora = "Incluida en fecha"
+        
+      } catch (error) {
+        console.error(`❌ Error al combinar fecha y hora:`, error)
+        // Mantener los campos separados si hay error
+      }
     }
 
     // Procesar semana
@@ -225,6 +434,13 @@ function preprocessExcelData(data: any[]): DatosExcelClase[] {
     } else {
       processedRow.Semana = 1
     }
+
+    console.log("Row procesada:", {
+      Día: processedRow.Día,
+      Hora: processedRow.Hora,
+      Semana: processedRow.Semana
+    })
+    console.log("--- Fin fila ---\n")
 
     return processedRow
   })
@@ -282,8 +498,8 @@ function generarTablaClases(
           disciplina: row.Disciplina,
           estudio: row.Estudio || "",
           salon: row.Salon || "",
-          dia: row.Día instanceof Date ? row.Día.toISOString().split('T')[0] : String(row.Día),
-          hora: row.Hora || "12:00", // Hora por defecto si no hay
+          dia: typeof row.Día === 'string' && row.Día.includes('T') ? row.Día : (row.Día instanceof Date ? row.Día.toISOString() : String(row.Día)),
+          hora: row.Hora || "", // Hora vacía si ya está combinada con la fecha
           semana: semanaMapeada,
           reservasTotales: Number(row["Reservas Totales"] || 0),
           listasEspera: Number(row["Listas de Espera"] || 0),
@@ -335,8 +551,8 @@ function generarTablaClases(
       disciplina: row.Disciplina,
       estudio: row.Estudio || "",
       salon: row.Salon || "",
-      dia: row.Día instanceof Date ? row.Día.toISOString().split('T')[0] : String(row.Día),
-      hora: row.Hora || "12:00", // Hora por defecto si no hay
+      dia: typeof row.Día === 'string' && row.Día.includes('T') ? row.Día : (row.Día instanceof Date ? row.Día.toISOString() : String(row.Día)),
+      hora: row.Hora || "", // Hora vacía si ya está combinada con la fecha
       semana: semanaMapeada,
       reservasTotales: Number(row["Reservas Totales"] || 0),
       listasEspera: Number(row["Listas de Espera"] || 0),
