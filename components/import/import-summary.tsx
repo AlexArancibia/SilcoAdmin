@@ -1,17 +1,24 @@
 "use client"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CheckCircle, AlertCircle, Info, Users, BookOpen, Calendar } from "lucide-react"
+import { ConfirmationDialog } from "./confirmation-dialog"
 import type { TablaClasesEditable } from "@/types/importacion"
 
 interface ImportSummaryProps {
   tablaClases: TablaClasesEditable
   onProcesar: () => void
   isProcessing: boolean
+  periodoInfo?: {
+    numero: number
+    año: number
+  }
 }
 
-export function ImportSummary({ tablaClases, onProcesar, isProcessing }: ImportSummaryProps) {
+export function ImportSummary({ tablaClases, onProcesar, isProcessing, periodoInfo }: ImportSummaryProps) {
+  const [showConfirmation, setShowConfirmation] = useState(false)
   // Calcular estadísticas
   const totalClases = tablaClases.totalClases
   const clasesValidas = tablaClases.clasesValidas
@@ -175,6 +182,18 @@ export function ImportSummary({ tablaClases, onProcesar, isProcessing }: ImportS
             </div>
           </div>
 
+          {/* Advertencia crítica sobre eliminación de clases */}
+          <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center gap-2 text-sm text-red-800 mb-2">
+              <AlertCircle className="h-4 w-4" />
+              <span className="font-medium">⚠️ Acción Crítica</span>
+            </div>
+            <div className="text-xs text-red-700 space-y-1">
+              <p><strong>Se eliminarán TODAS las clases existentes del periodo antes de crear las nuevas.</strong></p>
+              <p>Esta acción no se puede deshacer. Asegúrate de que los datos sean correctos antes de continuar.</p>
+            </div>
+          </div>
+
           {/* Advertencias compactas */}
           {(instructoresNuevos.size > 0 || disciplinasNuevas.size > 0 || clasesConErrores > 0) && (
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -199,13 +218,44 @@ export function ImportSummary({ tablaClases, onProcesar, isProcessing }: ImportS
           {/* Botón de procesar */}
           <div className="flex justify-end">
             <Button 
-              onClick={onProcesar} 
+              onClick={() => setShowConfirmation(true)} 
               disabled={isProcessing || clasesValidas === 0}
               size="lg"
+              variant={isProcessing ? "secondary" : "destructive"}
+              className={isProcessing ? "" : "bg-red-600 hover:bg-red-700"}
             >
-              {isProcessing ? "Procesando..." : "Procesar Importación"}
+              {isProcessing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Eliminar y Reemplazar Todas las Clases
+                </>
+              )}
             </Button>
           </div>
+
+          {/* Diálogo de confirmación */}
+          {periodoInfo && (
+            <ConfirmationDialog
+              isOpen={showConfirmation}
+              onClose={() => setShowConfirmation(false)}
+              onConfirm={() => {
+                setShowConfirmation(false)
+                onProcesar()
+              }}
+              periodoInfo={periodoInfo}
+              estadisticas={{
+                clasesValidas,
+                instructoresNuevos: instructoresNuevos.size,
+                disciplinasNuevas: disciplinasNuevas.size
+              }}
+              isProcessing={isProcessing}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

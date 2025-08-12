@@ -124,9 +124,99 @@ function preprocessExcelData(data: any[]): DatosExcelClase[] {
       }
     }
 
-    // Procesar hora
+    // Procesar hora - asegurar formato consistente
     if (processedRow.Hora) {
-      processedRow.Hora = processedRow.Hora.toString().trim()
+      let horaStr = processedRow.Hora.toString().trim()
+      
+      console.log(`Procesando hora original: "${horaStr}"`)
+      
+      // Normalizar diferentes formatos de hora
+      if (horaStr.includes(":")) {
+        // Formato HH:MM:SS a.m./p.m. (hora peruana) - "7:00:00 a. m. (hora peruana)"
+        if (horaStr.includes("a. m.") || horaStr.includes("p. m.") || horaStr.includes("(hora peruana)")) {
+          // Limpiar texto adicional y convertir a formato estándar
+          let horaLimpia = horaStr
+            .replace(/\s*\(hora peruana\)/g, "") // Remover "(hora peruana)"
+            .replace(/\s*a\.\s*m\./g, " AM") // Normalizar "a. m." a "AM"
+            .replace(/\s*p\.\s*m\./g, " PM") // Normalizar "p. m." a "PM"
+            .replace(/\s+/g, " ") // Normalizar espacios múltiples
+            .trim()
+          
+          console.log(`Hora limpia: "${horaLimpia}"`)
+          
+          // Extraer horas, minutos y periodo
+          const match = horaLimpia.match(/^(\d{1,2}):(\d{1,2}):(\d{1,2})\s*(AM|PM)$/i)
+          if (match) {
+            let [_, horas, minutos, segundos, periodo] = match
+            let horasNum = parseInt(horas)
+            const minutosNum = parseInt(minutos)
+            
+            // Convertir a formato 24 horas
+            if (periodo.toUpperCase() === 'PM' && horasNum !== 12) {
+              horasNum += 12
+            } else if (periodo.toUpperCase() === 'AM' && horasNum === 12) {
+              horasNum = 0
+            }
+            
+            processedRow.Hora = `${horasNum.toString().padStart(2, '0')}:${minutosNum.toString().padStart(2, '0')}`
+            console.log(`Hora convertida desde formato peruano: "${processedRow.Hora}"`)
+          } else {
+            // Fallback: intentar extraer solo horas y minutos
+            const matchSimple = horaLimpia.match(/^(\d{1,2}):(\d{1,2})\s*(AM|PM)$/i)
+            if (matchSimple) {
+              let [_, horas, minutos, periodo] = matchSimple
+              let horasNum = parseInt(horas)
+              const minutosNum = parseInt(minutos)
+              
+              if (periodo.toUpperCase() === 'PM' && horasNum !== 12) {
+                horasNum += 12
+              } else if (periodo.toUpperCase() === 'AM' && horasNum === 12) {
+                horasNum = 0
+              }
+              
+              processedRow.Hora = `${horasNum.toString().padStart(2, '0')}:${minutosNum.toString().padStart(2, '0')}`
+              console.log(`Hora convertida (fallback): "${processedRow.Hora}"`)
+            }
+          }
+        } else {
+          // Formato HH:MM o H:MM estándar
+          const [horas, minutos] = horaStr.split(":")
+          const horasNum = parseInt(horas)
+          const minutosNum = parseInt(minutos)
+          
+          if (!isNaN(horasNum) && !isNaN(minutosNum)) {
+            // Formatear como HH:MM
+            processedRow.Hora = `${horasNum.toString().padStart(2, '0')}:${minutosNum.toString().padStart(2, '0')}`
+            console.log(`Hora formateada estándar: "${processedRow.Hora}"`)
+          }
+        }
+      } else if (horaStr.match(/^\d{1,2}$/)) {
+        // Solo horas (ej: "14" para 2:00 PM)
+        const horasNum = parseInt(horaStr)
+        if (horasNum >= 0 && horasNum <= 23) {
+          processedRow.Hora = `${horasNum.toString().padStart(2, '0')}:00`
+          console.log(`Hora solo horas: "${processedRow.Hora}"`)
+        }
+      } else if (horaStr.match(/^\d{1,2}:\d{2}\s*(AM|PM)$/i)) {
+        // Formato 12 horas (ej: "2:30 PM")
+        const match = horaStr.match(/^(\d{1,2}):(\d{1,2})\s*(AM|PM)$/i)
+        if (match) {
+          let [_, horas, minutos, periodo] = match
+          let horasNum = parseInt(horas)
+          const minutosNum = parseInt(minutos)
+          
+          if (periodo.toUpperCase() === 'PM' && horasNum !== 12) {
+            horasNum += 12
+          } else if (periodo.toUpperCase() === 'AM' && horasNum === 12) {
+            horasNum = 0
+          }
+          
+          processedRow.Hora = `${horasNum.toString().padStart(2, '0')}:${minutosNum.toString().padStart(2, '0')}`
+          console.log(`Hora formato 12h: "${processedRow.Hora}"`)
+        }
+      }
+      
+      console.log(`Hora final procesada: "${processedRow.Hora}"`)
     }
 
     // Procesar semana
@@ -193,7 +283,7 @@ function generarTablaClases(
           estudio: row.Estudio || "",
           salon: row.Salon || "",
           dia: row.Día instanceof Date ? row.Día.toISOString().split('T')[0] : String(row.Día),
-          hora: row.Hora || "",
+          hora: row.Hora || "12:00", // Hora por defecto si no hay
           semana: semanaMapeada,
           reservasTotales: Number(row["Reservas Totales"] || 0),
           listasEspera: Number(row["Listas de Espera"] || 0),
@@ -246,7 +336,7 @@ function generarTablaClases(
       estudio: row.Estudio || "",
       salon: row.Salon || "",
       dia: row.Día instanceof Date ? row.Día.toISOString().split('T')[0] : String(row.Día),
-      hora: row.Hora || "",
+      hora: row.Hora || "12:00", // Hora por defecto si no hay
       semana: semanaMapeada,
       reservasTotales: Number(row["Reservas Totales"] || 0),
       listasEspera: Number(row["Listas de Espera"] || 0),

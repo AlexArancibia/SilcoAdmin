@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { DateTimeValidator } from "./date-time-validator"
 import type { TablaClasesEditable, ClaseEditable } from "@/types/importacion"
 
 interface ClassesEditableTableProps {
@@ -101,8 +102,7 @@ export function ClassesEditableTable({
                 <TableHead className="w-28">Disciplina</TableHead>
                 <TableHead className="w-20">Estudio</TableHead>
                 <TableHead className="w-20">Salón</TableHead>
-                <TableHead className="w-20">Día</TableHead>
-                <TableHead className="w-16">Hora</TableHead>
+                <TableHead className="w-32">Fecha y Hora</TableHead>
                 <TableHead className="w-12">Sem</TableHead>
                 <TableHead className="w-16">Reservas</TableHead>
                 <TableHead className="w-16">Lugares</TableHead>
@@ -126,14 +126,14 @@ export function ClassesEditableTable({
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        {!clase.instructorExiste ? (
+                        {!clase.instructorExiste && !isInstructorUnlocked ? (
                           // Instructor nuevo - input bloqueado con opción de desbloquear
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <Input
                                 value={clase.instructorEditado || clase.instructor}
                                 onChange={(e) => onEditClase(clase.id, "instructorEditado", e.target.value)}
-                                disabled={!isInstructorUnlocked}
+                                disabled={true}
                                 className="h-7 w-28 text-xs"
                                 placeholder="Nombre instructor"
                               />
@@ -143,32 +143,43 @@ export function ClassesEditableTable({
                                 onClick={() => toggleInstructorLock(clase.id)}
                                 className="h-7 w-7 p-0"
                               >
-                                {isInstructorUnlocked ? (
-                                  <Unlock className="h-3 w-3" />
-                                ) : (
-                                  <Lock className="h-3 w-3" />
-                                )}
+                                <Lock className="h-3 w-3" />
                               </Button>
                               <span className="text-xs text-red-600 font-medium">Nuevo</span>
                             </div>
                           </div>
                         ) : (
-                          // Instructor existente - selector normal
-                          <Select
-                            value={clase.instructorEditado || clase.instructor}
-                            onValueChange={(valor) => onEditClase(clase.id, "instructorEditado", valor)}
-                          >
-                            <SelectTrigger className="h-7 w-28 text-xs">
-                              <SelectValue placeholder="Seleccionar" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {instructores.map((instructor) => (
-                                <SelectItem key={instructor.id} value={instructor.nombre}>
-                                  {instructor.nombre}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          // Instructor existente O instructor nuevo desbloqueado - selector normal
+                          <div className="space-y-1">
+                            <Select
+                              value={clase.instructorEditado || clase.instructor}
+                              onValueChange={(valor) => onEditClase(clase.id, "instructorEditado", valor)}
+                            >
+                              <SelectTrigger className="h-7 w-28 text-xs">
+                                <SelectValue placeholder="Seleccionar" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {instructores.map((instructor) => (
+                                  <SelectItem key={instructor.id} value={instructor.nombre}>
+                                    {instructor.nombre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {!clase.instructorExiste && isInstructorUnlocked && (
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => toggleInstructorLock(clase.id)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Unlock className="h-3 w-3" />
+                                </Button>
+                                <span className="text-xs text-orange-600 font-medium">Editable</span>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </TableCell>
@@ -213,24 +224,22 @@ export function ClassesEditableTable({
                     </TableCell>
                     <TableCell className="text-xs">
                       {isEditing ? (
-                        <Input
-                          value={clase.diaEditado || clase.dia}
-                          onChange={(e) => onEditClase(clase.id, "diaEditado", e.target.value)}
-                          className="h-7 w-16 text-xs"
+                        <DateTimeValidator
+                          dia={clase.diaEditado || clase.dia}
+                          hora={clase.horaEditada || clase.hora}
+                          onDiaChange={(valor) => onEditClase(clase.id, "diaEditado", valor)}
+                          onHoraChange={(valor) => onEditClase(clase.id, "horaEditada", valor)}
+                          className="min-w-[280px]"
                         />
                       ) : (
-                        clase.diaEditado || clase.dia
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {isEditing ? (
-                        <Input
-                          value={clase.horaEditada || clase.hora}
-                          onChange={(e) => onEditClase(clase.id, "horaEditada", e.target.value)}
-                          className="h-7 w-16 text-xs"
-                        />
-                      ) : (
-                        clase.horaEditada || clase.hora
+                        <div className="space-y-1">
+                          <div className="font-medium">
+                            {clase.diaEditado || clase.dia}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {clase.horaEditada || clase.hora}
+                          </div>
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>

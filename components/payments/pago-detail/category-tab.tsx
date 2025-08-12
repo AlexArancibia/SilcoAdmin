@@ -96,6 +96,12 @@ export function CategoryTab({
   calcularMetricas,
   cumpleRequisito,
 }: CategoryTabProps) {
+  console.log("🔍 DEBUG: CategoryTab render")
+  console.log("🔍 DEBUG: categoriasPorDisciplina:", categoriasPorDisciplina)
+  console.log("🔍 DEBUG: disciplinas:", disciplinas)
+  console.log("🔍 DEBUG: clasesInstructor:", clasesInstructor)
+  console.log("🔍 DEBUG: instructor:", instructor)
+  console.log("🔍 DEBUG: instructor.categorias:", instructor?.categorias)
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -190,15 +196,31 @@ export function CategoryTab({
               </div>
             </div>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1 bg-card border hover:bg-muted/10 text-muted-foreground hover:text-foreground w-full sm:w-auto"
-              onClick={() => setEditandoCategoria(true)}
-            >
-              <Edit className="h-4 w-4 mr-1" />
-              <span className="sm:inline">Editar Factores</span>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-card border hover:bg-muted/10 text-muted-foreground hover:text-foreground w-full sm:w-auto"
+                onClick={() => setEditandoCategoria(true)}
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                <span className="sm:inline">Editar Factores</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1 bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-700 hover:text-blue-800 w-full sm:w-auto"
+                onClick={reevaluarTodasCategorias}
+                disabled={isActualizandoCategorias}
+              >
+                {isActualizandoCategorias ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <Award className="h-4 w-4 mr-1" />
+                )}
+                <span className="sm:inline">Recalcular Categorías</span>
+              </Button>
+            </div>
           )}
         </div>
       </div>

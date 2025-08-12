@@ -280,41 +280,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(clase)
   } catch (error) {
     // Log detallado del error con toda la información de la clase que falló
-    console.error("🚨 ERROR AL CREAR CLASE EN LA API:")
-    console.error("=".repeat(60))
-    console.error("📊 DATOS DE LA CLASE QUE FALLÓ:")
-    console.error(`   ID: ${parsedBody.id || "No especificado"}`)
-    console.error(`   Instructor ID: ${parsedBody.instructorId}`)
-    console.error(`   Disciplina ID: ${parsedBody.disciplinaId}`)
-    console.error(`   Periodo ID: ${parsedBody.periodoId}`)
-    console.error(`   Semana: ${parsedBody.semana}`)
-    console.error(`   Fecha: ${parsedBody.fecha}`)
-    console.error(`   Estudio: ${parsedBody.estudio}`)
-    console.error(`   Salón: ${parsedBody.salon}`)
-    console.error(`   País: ${parsedBody.pais}`)
-    console.error(`   Ciudad: ${parsedBody.ciudad}`)
-    console.error(`   Reservas Totales: ${parsedBody.reservasTotales || 0}`)
-    console.error(`   Listas de Espera: ${parsedBody.listasEspera || 0}`)
-    console.error(`   Cortesías: ${parsedBody.cortesias || 0}`)
-    console.error(`   Lugares: ${parsedBody.lugares}`)
-    console.error(`   Reservas Pagadas: ${parsedBody.reservasPagadas || 0}`)
-    console.error(`   Es Versus: ${parsedBody.esVersus !== undefined ? parsedBody.esVersus : false}`)
-    console.error(`   VS Num: ${parsedBody.vsNum || null}`)
-    console.error(`   Texto Especial: ${parsedBody.textoEspecial || "N/A"}`)
-    console.error("=".repeat(60))
-    console.error("🔍 ERROR DETALLADO:")
-    console.error(`   Mensaje: ${error instanceof Error ? error.message : "Error desconocido"}`)
-    console.error(`   Tipo: ${error instanceof Error ? error.name : "N/A"}`)
-    if (error instanceof Error && error.stack) {
-      console.error(`   Stack: ${error.stack}`)
-    }
-    console.error("=".repeat(60))
-    console.error("📦 DATOS ORIGINALES RECIBIDOS:")
-    console.error(JSON.stringify(body, null, 2))
-    console.error("=".repeat(60))
-    console.error("📦 DATOS PROCESADOS ANTES DE PRISMA:")
-    console.error(JSON.stringify(parsedBody, null, 2))
-    console.error("=".repeat(60))
+    
 
     // Determinar el tipo de error específico para dar una respuesta más útil
     let errorMessage = "Error al crear la clase"
@@ -341,15 +307,7 @@ export async function POST(request: NextRequest) {
       {
         error: errorMessage,
         message: error instanceof Error ? error.message : "Error desconocido",
-        details: {
-          claseId: parsedBody.id,
-          instructorId: parsedBody.instructorId,
-          disciplinaId: parsedBody.disciplinaId,
-          periodoId: parsedBody.periodoId,
-          semana: parsedBody.semana,
-          fecha: parsedBody.fecha,
-          estudio: parsedBody.estudio,
-        },
+        
         timestamp: new Date().toISOString(),
       },
       { status: statusCode },

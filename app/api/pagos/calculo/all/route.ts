@@ -243,11 +243,84 @@ export async function POST(req: Request) {
           categoriaInstructor = categoriaManual.categoria as CategoriaInstructor;
           logs.push(`🎭 Categoría manual asignada: ${categoriaInstructor}`);
         } else {
-          const categoriaInfo = instructor.categorias?.find(
-            (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
-          );
-          categoriaInstructor = (categoriaInfo?.categoria as CategoriaInstructor) || "INSTRUCTOR" as const;
-          logs.push(`🎭 Categoría ${categoriaInfo ? 'de BD' : 'por defecto'}: ${categoriaInstructor}`);
+          // SIEMPRE RECALCULAR CATEGORÍA AUTOMÁTICAMENTE
+          logs.push(`🔄 Recalculando categoría automáticamente para ${disciplina.nombre}...`);
+          
+                      // Calcular métricas para esta disciplina
+            logs.push(`🔍 DEBUG: Datos de clases para ${disciplina.nombre}:`);
+            logs.push(`   - Total clases: ${clasesDisciplina.length}`);
+            logs.push(`   - Muestra de estudios: ${clasesDisciplina.slice(0, 5).map(c => c.estudio).join(', ')}`);
+            logs.push(`   - Muestra de ciudades: ${clasesDisciplina.slice(0, 5).map(c => c.ciudad).join(', ')}`);
+            
+            const metricasDisciplina = calcularMetricasDisciplina(clasesDisciplina, disciplinaId, sicloId);
+            
+            // Obtener valores reales del instructor para estos factores
+            const participacionEventos = true; // Por defecto, se puede ajustar según la lógica del negocio
+            const cumpleLineamientos = true; // Por defecto, se puede ajustar según la lógica del negocio
+            
+            // Crear métricas completas con los valores reales del instructor
+            const metricasCompletas = {
+              ...metricasDisciplina,
+              participacionEventos,
+              cumpleLineamientos,
+            };
+            
+            logs.push(`📊 Métricas calculadas para ${disciplina.nombre}: ocupación ${metricasDisciplina.ocupacionPromedio}%, clases ${metricasDisciplina.totalClases}, locales ${metricasDisciplina.totalLocales}, dobleteos ${metricasDisciplina.totalDobleteos}, horarios no prime ${metricasDisciplina.horariosNoPrime}, participación eventos: ${participacionEventos}, cumple lineamientos: ${cumpleLineamientos}`);
+          
+          // Determinar categoría usando la fórmula
+          categoriaInstructor = determinarCategoria(formula, metricasCompletas);
+          logs.push(`🎭 Categoría recalculada: ${categoriaInstructor}`);
+          
+          // GUARDAR O ACTUALIZAR LA CATEGORÍA EN LA BD
+          try {
+            // Verificar si ya existe una categoría para esta disciplina
+            const categoriaExistente = instructor.categorias?.find(
+              (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
+            );
+            
+            if (categoriaExistente) {
+              // Actualizar categoría existente
+              await prisma.categoriaInstructor.update({
+                where: { id: categoriaExistente.id },
+                data: {
+                  categoria: categoriaInstructor,
+                  metricas: metricasCompletas,
+                  esManual: false,
+                },
+              });
+              logs.push(`✅ Categoría actualizada en BD: ID ${categoriaExistente.id}`);
+              
+              // Actualizar en memoria
+              const index = instructor.categorias.findIndex(c => c.id === categoriaExistente.id);
+              if (index !== -1) {
+                instructor.categorias[index] = {
+                  ...categoriaExistente,
+                  categoria: categoriaInstructor,
+                  metricas: metricasCompletas,
+                };
+              }
+            } else {
+              // Crear nueva categoría
+              const nuevaCategoria = await prisma.categoriaInstructor.create({
+                data: {
+                  instructorId: instructor.id,
+                  disciplinaId: disciplinaId,
+                  periodoId: periodoId,
+                  categoria: categoriaInstructor,
+                  esManual: false,
+                  metricas: metricasCompletas,
+                },
+              });
+              logs.push(`✅ Nueva categoría creada en BD: ID ${nuevaCategoria.id}`);
+              
+              // Agregar a memoria
+              if (!instructor.categorias) instructor.categorias = [];
+              instructor.categorias.push(nuevaCategoria);
+            }
+          } catch (error) {
+            logs.push(`❌ Error al guardar/actualizar categoría: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+            categoriaInstructor = "INSTRUCTOR" as const;
+          }
         }
 
         logs.push(`\n🔄 Procesando ${clasesDisciplina.length} clases de ${disciplina.nombre}...`);
@@ -572,6 +645,75 @@ export async function POST(req: Request) {
       logs.push(`─`.repeat(60));
     }
 
+    // RECALCULAR TODAS LAS CATEGORÍAS PARA ASEGURAR CONSISTENCIA
+    logs.push(`\n🔄 RECALCULANDO TODAS LAS CATEGORÍAS PARA CONSISTENCIA...`);
+    
+    for (const instructor of instructoresConClases) {
+      logs.push(`\n👤 Recalculando categorías para instructor ${instructor.id} - ${instructor.nombre}`);
+      
+      const clasesDelInstructor = instructor.clases as Clase[];
+      const disciplinasUnicas = [...new Set(clasesDelInstructor.map(clase => clase.disciplinaId))];
+      
+      for (const disciplinaId of disciplinasUnicas) {
+        const disciplina = disciplinasDb.find((d) => d.id === disciplinaId);
+        if (!disciplina || !mostrarCategoriaVisual(disciplina.nombre)) {
+          logs.push(`⏭️ Saltando disciplina ${disciplina?.nombre || disciplinaId} (sin categorización visual)`);
+          continue;
+        }
+        
+        const formula = formulas.find((f) => f.disciplinaId === disciplinaId && f.periodoId === periodoId);
+        if (!formula) {
+          logs.push(`❌ No hay fórmula para disciplina ${disciplina.nombre}`);
+          continue;
+        }
+        
+        const clasesDisciplina = clasesDelInstructor.filter((c) => c.disciplinaId === disciplinaId);
+        const metricasDisciplina = calcularMetricasDisciplina(clasesDisciplina, disciplinaId, sicloId);
+        
+        // Crear métricas completas con valores por defecto
+        const metricasCompletas = {
+          ...metricasDisciplina,
+          participacionEventos: true, // Por defecto
+          cumpleLineamientos: true, // Por defecto
+        };
+        
+        const categoriaCalculada = determinarCategoria(formula, metricasCompletas);
+        
+        // Verificar si ya existe una categoría para esta disciplina
+        const categoriaExistente = instructor.categorias?.find(
+          (c) => c.disciplinaId === disciplinaId && c.periodoId === periodoId,
+        );
+        
+        if (categoriaExistente) {
+          if (categoriaExistente.categoria !== categoriaCalculada) {
+            logs.push(`🔄 Actualizando categoría de ${disciplina.nombre}: ${categoriaExistente.categoria} -> ${categoriaCalculada}`);
+            await prisma.categoriaInstructor.update({
+              where: { id: categoriaExistente.id },
+              data: {
+                categoria: categoriaCalculada,
+                metricas: metricasCompletas,
+                esManual: false,
+              },
+            });
+          } else {
+            logs.push(`✅ Categoría de ${disciplina.nombre} ya está actualizada: ${categoriaCalculada}`);
+          }
+        } else {
+          logs.push(`➕ Creando nueva categoría para ${disciplina.nombre}: ${categoriaCalculada}`);
+          await prisma.categoriaInstructor.create({
+            data: {
+              instructorId: instructor.id,
+              disciplinaId: disciplinaId,
+              periodoId: periodoId,
+              categoria: categoriaCalculada,
+              esManual: false,
+              metricas: metricasCompletas,
+            },
+          });
+        }
+      }
+    }
+    
     logs.push(`\n🎉 PROCESO COMPLETADO EXITOSAMENTE`);
     logs.push(`📊 RESUMEN GENERAL DEL PROCESO:`);
     logs.push(`👥 Total instructores procesados: ${instructoresConClases.length}`);
