@@ -123,33 +123,34 @@ export default function CoversPage() {
   const [isJustificacionDialogOpen, setIsJustificacionDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   
-        // Formularios
-   const [createForm, setCreateForm] = useState({
-     instructorOriginalId: 0,
-     disciplinaId: 0,
-     periodoId: 0,
-     fecha: '',
-     hora: '',
-     claseId: '',
-     comentarios: '',
-     cambioDeNombre: '',
-   })
+  // Formularios
+  const [createForm, setCreateForm] = useState({
+    instructorOriginalId: 0,
+    instructorReemplazoId: 0,
+    disciplinaId: 0,
+    periodoId: 0,
+    fecha: '',
+    hora: '',
+    claseId: '',
+    comentarios: '',
+    cambioDeNombre: '',
+  })
   
-     const [editForm, setEditForm] = useState({
-     instructorOriginalId: 0,
-     instructorReemplazoId: 0,
-     disciplinaId: 0,
-     periodoId: 0,
-     fecha: '',
-     hora: '',
-     claseId: '',
-     justificacion: 'PENDIENTE' as StatusCover,
-     pagoBono: false,
-     pagoFullHouse: false,
-     comentarios: '',
-     cambioDeNombre: '',
-   })
-  
+  const [editForm, setEditForm] = useState({
+    instructorOriginalId: 0,
+    instructorReemplazoId: 0,
+    disciplinaId: 0,
+    periodoId: 0,
+    fecha: '',
+    hora: '',
+    claseId: '',
+    justificacion: 'PENDIENTE' as StatusCover,
+    pagoBono: false,
+    pagoFullHouse: false,
+    comentarios: '',
+    cambioDeNombre: '',
+  })
+
   const [justificacionForm, setJustificacionForm] = useState({
     justificacion: 'PENDIENTE' as StatusCover,
     comentarios: '',
@@ -191,9 +192,16 @@ export default function CoversPage() {
   // Cargar clases cuando se selecciona un periodo
   useEffect(() => {
     if (selectedPeriodo !== 'all' && typeof selectedPeriodo === 'number') {
-      fetchClases({ periodoId: selectedPeriodo })
+      fetchClases({ periodoId: selectedPeriodo, limit: 500 })
     }
   }, [selectedPeriodo, fetchClases])
+
+  // Cargar clases cuando se cambia el periodo en el formulario de creación
+  useEffect(() => {
+    if (createForm.periodoId && createForm.periodoId !== 0) {
+      fetchClases({ periodoId: createForm.periodoId, limit: 500 })
+    }
+  }, [createForm.periodoId, fetchClases])
 
   // Limpiar campo de clase cuando se cambia el periodo en el formulario de creación
   useEffect(() => {
@@ -249,7 +257,7 @@ export default function CoversPage() {
     try {
       await crearCover({
         instructorOriginalId: createForm.instructorOriginalId,
-        instructorReemplazoId: user.id,
+        instructorReemplazoId: createForm.instructorReemplazoId,
         disciplinaId: createForm.disciplinaId,
         periodoId: createForm.periodoId,
         fecha: new Date(createForm.fecha),
@@ -354,6 +362,7 @@ export default function CoversPage() {
   const resetCreateForm = () => {
     setCreateForm({
       instructorOriginalId: 0,
+      instructorReemplazoId: 0,
       disciplinaId: 0,
       periodoId: 0,
       fecha: '',
@@ -363,6 +372,22 @@ export default function CoversPage() {
       cambioDeNombre: '',
     })
     setOpenCreateClaseSearch(false)
+  }
+
+  const openCreateDialog = () => {
+    // Resetear el formulario y cargar clases del periodo seleccionado
+    resetCreateForm()
+    
+    // Si es instructor, pre-seleccionar como instructor de reemplazo
+    if (isInstructor && user?.id) {
+      setCreateForm(prev => ({ ...prev, instructorReemplazoId: user.id }))
+    }
+    
+    if (selectedPeriodo !== 'all' && typeof selectedPeriodo === 'number') {
+      setCreateForm(prev => ({ ...prev, periodoId: selectedPeriodo }))
+      fetchClases({ periodoId: selectedPeriodo, limit: 500 })
+    }
+    setIsCreateDialogOpen(true)
   }
 
      const openEditDialog = async (cover: Cover) => {
@@ -384,7 +409,7 @@ export default function CoversPage() {
      
      // Cargar clases del periodo si no están cargadas
      if (cover.periodoId && !clases.some(c => c.periodoId === cover.periodoId)) {
-       await fetchClases({ periodoId: cover.periodoId })
+       await fetchClases({ periodoId: cover.periodoId, limit: 500 })
      }
      
      setIsEditDialogOpen(true)
@@ -462,7 +487,7 @@ export default function CoversPage() {
            </p>
         </div>
         
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={openCreateDialog}>
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Cover
         </Button>
@@ -705,171 +730,210 @@ export default function CoversPage() {
           </DialogHeader>
           
           <form onSubmit={handleCreateSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="instructorOriginal">Instructor Original</Label>
-              <Select
-                value={createForm.instructorOriginalId.toString()}
-                onValueChange={(value) => setCreateForm(prev => ({ ...prev, instructorOriginalId: parseInt(value) }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona instructor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {instructores.map(instructor => (
-                    <SelectItem key={instructor.id} value={instructor.id.toString()}>
-                      {instructor.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="instructorOriginal">Instructor Original *</Label>
+                <Select
+                  value={createForm.instructorOriginalId.toString()}
+                  onValueChange={(value) => setCreateForm(prev => ({ ...prev, instructorOriginalId: parseInt(value) }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona instructor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instructores.map(instructor => (
+                      <SelectItem key={instructor.id} value={instructor.id.toString()}>
+                        {instructor.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="instructorReemplazo">Instructor Reemplazo *</Label>
+                <Select
+                  value={createForm.instructorReemplazoId ? createForm.instructorReemplazoId.toString() : ''}
+                  onValueChange={(value) => setCreateForm(prev => ({ ...prev, instructorReemplazoId: parseInt(value) }))}
+                  required
+                  disabled={isInstructor}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona instructor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {instructores.map(instructor => (
+                      <SelectItem key={instructor.id} value={instructor.id.toString()}>
+                        {instructor.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isInstructor && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Se ha seleccionado automáticamente tu usuario como instructor de reemplazo
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="disciplina">Disciplina</Label>
-              <Select
-                value={createForm.disciplinaId.toString()}
-                onValueChange={(value) => setCreateForm(prev => ({ ...prev, disciplinaId: parseInt(value) }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona disciplina" />
-                </SelectTrigger>
-                <SelectContent>
-                  {disciplinas.map(disciplina => (
-                    <SelectItem key={disciplina.id} value={disciplina.id.toString()}>
-                      {disciplina.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="disciplina">Disciplina *</Label>
+                <Select
+                  value={createForm.disciplinaId.toString()}
+                  onValueChange={(value) => setCreateForm(prev => ({ ...prev, disciplinaId: parseInt(value) }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona disciplina" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {disciplinas.map(disciplina => (
+                      <SelectItem key={disciplina.id} value={disciplina.id.toString()}>
+                        {disciplina.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <Label htmlFor="periodo">Período</Label>
-              <Select
-                value={createForm.periodoId.toString()}
-                onValueChange={(value) => setCreateForm(prev => ({ ...prev, periodoId: parseInt(value) }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona período" />
-                </SelectTrigger>
-                <SelectContent>
-                  {periodos.map(periodo => (
-                    <SelectItem key={periodo.id} value={periodo.id.toString()}>
-                      P{periodo.numero}-{periodo.año}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div>
+                <Label htmlFor="periodo">Período *</Label>
+                <Select
+                  value={createForm.periodoId.toString()}
+                  onValueChange={(value) => setCreateForm(prev => ({ ...prev, periodoId: parseInt(value) }))}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periodos.map(periodo => (
+                      <SelectItem key={periodo.id} value={periodo.id.toString()}>
+                        P{periodo.numero}-{periodo.año}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
                          <div className="grid grid-cols-2 gap-4">
                <div>
-                 <Label htmlFor="fecha">Fecha</Label>
-                 <Popover>
-                   <PopoverTrigger asChild>
-                     <Button
-                       variant="outline"
-                       className="w-full justify-start text-left font-normal"
-                     >
-                       <CalendarIcon className="mr-2 h-4 w-4" />
-                       {createForm.fecha ? format(new Date(createForm.fecha), 'dd/MM/yyyy', { locale: es }) : 'Selecciona fecha'}
-                     </Button>
-                   </PopoverTrigger>
-                   <PopoverContent className="w-auto p-0" align="start">
-                     <Calendar
-                       mode="single"
-                       selected={createForm.fecha ? new Date(createForm.fecha) : undefined}
-                       onSelect={(date) => {
-                         if (date) {
-                           setCreateForm(prev => ({ 
-                             ...prev, 
-                             fecha: format(date, 'yyyy-MM-dd') 
-                           }))
-                         }
-                       }}
-                       disabled={(date) => date < new Date('1900-01-01')}
-                       initialFocus
-                     />
-                   </PopoverContent>
-                 </Popover>
+                 <Label htmlFor="fecha">Fecha *</Label>
+                 <Input
+                   type="date"
+                   id="fecha"
+                   value={createForm.fecha}
+                   onChange={(e) => setCreateForm(prev => ({ ...prev, fecha: e.target.value }))}
+                   required
+                   className="w-full"
+                   min="1900-01-01"
+                   max="2100-12-31"
+                 />
+                 <p className="text-xs text-muted-foreground mt-1">
+                   Selecciona la fecha del cover usando el selector nativo del navegador
+                 </p>
+                 {!createForm.fecha && (
+                   <p className="text-sm text-red-500 mt-1">La fecha es requerida</p>
+                 )}
                </div>
                <div>
-                 <Label htmlFor="hora">Hora</Label>
+                 <Label htmlFor="hora">Hora *</Label>
                  <Input
                    type="time"
                    value={createForm.hora}
                    onChange={(e) => setCreateForm(prev => ({ ...prev, hora: e.target.value }))}
                    required
+                   className="w-full"
                  />
                </div>
              </div>
 
             <div>
               <Label htmlFor="claseId">Clase a Enlazar (opcional)</Label>
-              {selectedPeriodo !== 'all' && typeof selectedPeriodo === 'number' ? (
-                <Popover open={openCreateClaseSearch} onOpenChange={setOpenCreateClaseSearch}>
-                  <PopoverTrigger asChild>
+              <p className="text-sm text-muted-foreground mb-2">
+                Selecciona una clase existente para enlazar este cover. Esto es opcional pero recomendado para mejor seguimiento.
+              </p>
+              {createForm.periodoId && createForm.periodoId !== 0 ? (
+                <div className="space-y-2">
+                  <Popover open={openCreateClaseSearch} onOpenChange={setOpenCreateClaseSearch}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openCreateClaseSearch}
+                        className="w-full justify-between"
+                        disabled={isLoadingClases}
+                      >
+                        {createForm.claseId ? getClaseDisplayText(createForm.claseId) : "Seleccionar clase..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[500px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar clase por ID, instructor o disciplina..." />
+                        <CommandList 
+                          className="max-h-[300px] overflow-y-auto"
+                          onWheel={(e) => {
+                            e.preventDefault()
+                            const target = e.currentTarget
+                            target.scrollTop += e.deltaY
+                          }}
+                        >
+                          <CommandEmpty>
+                            {isLoadingClases ? "Cargando clases..." : "No se encontraron clases en este periodo."}
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {clases.filter(clase => clase.periodoId === createForm.periodoId).map((clase) => {
+                              const instructor = instructores.find(i => i.id === clase.instructorId)
+                              const disciplina = disciplinas.find(d => d.id === clase.disciplinaId)
+                              return (
+                                <CommandItem
+                                  key={clase.id}
+                                  value={`${clase.id} ${instructor?.nombre || ''} ${disciplina?.nombre || ''}`}
+                                  onSelect={() => {
+                                    setCreateForm(prev => ({ ...prev, claseId: clase.id.toString() }))
+                                    setOpenCreateClaseSearch(false)
+                                  }}
+                                  className="cursor-pointer"
+                                >
+                                  <Check
+                                    className={`mr-2 h-4 w-4 ${
+                                      createForm.claseId === clase.id.toString() ? "opacity-100" : "opacity-0"
+                                    }`}
+                                  />
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="font-medium truncate">ID: {clase.id}</span>
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {instructor?.nombre || 'Sin instructor'} • {disciplina?.nombre || 'Sin disciplina'}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(clase.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {createForm.claseId && (
                     <Button
                       variant="outline"
-                      role="combobox"
-                      aria-expanded={openCreateClaseSearch}
-                      className="w-full justify-between"
-                      disabled={isLoadingClases}
+                      size="sm"
+                      onClick={() => setCreateForm(prev => ({ ...prev, claseId: '' }))}
+                      className="w-full"
                     >
-                      {createForm.claseId ? getClaseDisplayText(createForm.claseId) : "Seleccionar clase..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      <X className="h-4 w-4 mr-2" />
+                      Desenlazar clase
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[500px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar clase por ID, instructor o disciplina..." />
-                      <CommandList 
-                        className="max-h-[300px] overflow-y-auto"
-                        onWheel={(e) => {
-                          e.preventDefault()
-                          const target = e.currentTarget
-                          target.scrollTop += e.deltaY
-                        }}
-                      >
-                        <CommandEmpty>
-                          {isLoadingClases ? "Cargando clases..." : "No se encontraron clases en este periodo."}
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {clases.map((clase) => {
-                            const instructor = instructores.find(i => i.id === clase.instructorId)
-                            const disciplina = disciplinas.find(d => d.id === clase.disciplinaId)
-                            return (
-                              <CommandItem
-                                key={clase.id}
-                                value={`${clase.id} ${instructor?.nombre || ''} ${disciplina?.nombre || ''}`}
-                                onSelect={() => {
-                                  setCreateForm(prev => ({ ...prev, claseId: clase.id.toString() }))
-                                  setOpenCreateClaseSearch(false)
-                                }}
-                                className="cursor-pointer"
-                              >
-                                <Check
-                                  className={`mr-2 h-4 w-4 ${
-                                    createForm.claseId === clase.id.toString() ? "opacity-100" : "opacity-0"
-                                  }`}
-                                />
-                                <div className="flex flex-col min-w-0 flex-1">
-                                  <span className="font-medium truncate">ID: {clase.id}</span>
-                                  <span className="text-xs text-muted-foreground truncate">
-                                    {instructor?.nombre || 'Sin instructor'} • {disciplina?.nombre || 'Sin disciplina'}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {format(new Date(clase.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
-                                  </span>
-                                </div>
-                              </CommandItem>
-                            )
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                  )}
+                </div>
               ) : (
                 <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
                   Selecciona un periodo para buscar clases disponibles
@@ -893,7 +957,7 @@ export default function CoversPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={!createForm.instructorOriginalId || !createForm.disciplinaId || !createForm.periodoId || !createForm.fecha || !createForm.hora}
+                disabled={!createForm.instructorOriginalId || !createForm.instructorReemplazoId || !createForm.disciplinaId || !createForm.periodoId || !createForm.fecha || !createForm.hora}
               >
                 Crear Cover
               </Button>
@@ -1029,9 +1093,19 @@ export default function CoversPage() {
               </DialogDescription>
             </DialogHeader>
             
+            {/* Mensaje informativo para instructores */}
+            {isInstructor && user?.id === editForm.instructorReemplazoId && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-800">
+                  <strong>Nota:</strong> Estás editando tu propio cover como instructor de reemplazo. 
+                  Algunos campos están restringidos por seguridad.
+                </p>
+              </div>
+            )}
+            
             <div className="space-y-4">
               {/* Información básica */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className={`grid gap-4 ${(isAdmin || (isInstructor && user?.id !== editForm.instructorReemplazoId)) ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 <div>
                   <Label htmlFor="instructorOriginal">Instructor Original</Label>
                   <Select
@@ -1052,25 +1126,28 @@ export default function CoversPage() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label htmlFor="instructorReemplazo">Instructor Reemplazo</Label>
-                  <Select
-                    value={editForm.instructorReemplazoId.toString()}
-                    onValueChange={(value) => setEditForm(prev => ({ ...prev, instructorReemplazoId: parseInt(value) }))}
-                    disabled={!isAdmin}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona instructor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {instructores.map(instructor => (
-                        <SelectItem key={instructor.id} value={instructor.id.toString()}>
-                          {instructor.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Solo mostrar instructor de reemplazo para admins o cuando no es el instructor de reemplazo */}
+                {(isAdmin || (isInstructor && user?.id !== editForm.instructorReemplazoId)) && (
+                  <div>
+                    <Label htmlFor="instructorReemplazo">Instructor Reemplazo</Label>
+                    <Select
+                      value={editForm.instructorReemplazoId.toString()}
+                      onValueChange={(value) => setEditForm(prev => ({ ...prev, instructorReemplazoId: parseInt(value) }))}
+                      disabled={!isAdmin}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona instructor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {instructores.map(instructor => (
+                          <SelectItem key={instructor.id} value={instructor.id.toString()}>
+                            {instructor.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1116,112 +1193,118 @@ export default function CoversPage() {
               {/* Fecha y hora */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="fecha">Fecha</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {editForm.fecha ? format(new Date(editForm.fecha), 'dd/MM/yyyy', { locale: es }) : 'Selecciona fecha'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={editForm.fecha ? new Date(editForm.fecha) : undefined}
-                        onSelect={(date) => {
-                          if (date) {
-                            setEditForm(prev => ({ 
-                              ...prev, 
-                              fecha: format(date, 'yyyy-MM-dd') 
-                            }))
-                          }
-                        }}
-                        disabled={(date) => date < new Date('1900-01-01')}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label htmlFor="fecha">Fecha *</Label>
+                  <Input
+                    type="date"
+                    id="fecha"
+                    value={editForm.fecha}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, fecha: e.target.value }))}
+                    required
+                    className="w-full"
+                    min="1900-01-01"
+                    max="2100-12-31"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Selecciona la fecha del cover usando el selector nativo del navegador
+                  </p>
+                  {!editForm.fecha && (
+                    <p className="text-sm text-red-500 mt-1">La fecha es requerida</p>
+                  )}
                 </div>
                 <div>
-                  <Label htmlFor="hora">Hora</Label>
+                  <Label htmlFor="hora">Hora *</Label>
                   <Input
                     type="time"
                     value={editForm.hora}
                     onChange={(e) => setEditForm(prev => ({ ...prev, hora: e.target.value }))}
                     required
+                    className="w-full"
                   />
                 </div>
               </div>
 
               <div>
                 <Label htmlFor="claseId">Clase a Enlazar (opcional)</Label>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Selecciona una clase existente para enlazar este cover. Esto es opcional pero recomendado para mejor seguimiento.
+                </p>
                 {editForm.periodoId && editForm.periodoId !== 0 ? (
-                  <Popover open={openEditClaseSearch} onOpenChange={setOpenEditClaseSearch}>
-                    <PopoverTrigger asChild>
+                  <div className="space-y-2">
+                    <Popover open={openEditClaseSearch} onOpenChange={setOpenEditClaseSearch}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openEditClaseSearch}
+                          className="w-full justify-between"
+                          disabled={isLoadingClases}
+                        >
+                          {editForm.claseId ? getClaseDisplayText(editForm.claseId) : "Seleccionar clase..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[500px] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Buscar clase por ID, instructor o disciplina..." />
+                          <CommandList 
+                            className="max-h-[300px] overflow-y-auto"
+                            onWheel={(e) => {
+                              e.preventDefault()
+                              const target = e.currentTarget
+                              target.scrollTop += e.deltaY
+                            }}
+                          >
+                            <CommandEmpty>
+                              {isLoadingClases ? "Cargando clases..." : "No se encontraron clases en este periodo."}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {clases.filter(clase => clase.periodoId === editForm.periodoId).map((clase) => {
+                                const instructor = instructores.find(i => i.id === clase.instructorId)
+                                const disciplina = disciplinas.find(d => d.id === clase.disciplinaId)
+                                return (
+                                  <CommandItem
+                                    key={clase.id}
+                                    value={`${clase.id} ${instructor?.nombre || ''} ${disciplina?.nombre || ''}`}
+                                    onSelect={() => {
+                                      setEditForm(prev => ({ ...prev, claseId: clase.id.toString() }))
+                                      setOpenEditClaseSearch(false)
+                                    }}
+                                    className="cursor-pointer"
+                                  >
+                                    <Check
+                                      className={`mr-2 h-4 w-4 ${
+                                        editForm.claseId === clase.id.toString() ? "opacity-100" : "opacity-0"
+                                      }`}
+                                    />
+                                    <div className="flex flex-col min-w-0 flex-1">
+                                      <span className="font-medium truncate">ID: {clase.id}</span>
+                                      <span className="text-xs text-muted-foreground truncate">
+                                        {instructor?.nombre || 'Sin instructor'} • {disciplina?.nombre || 'Sin disciplina'}
+                                      </span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(clase.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
+                                      </span>
+                                    </div>
+                                  </CommandItem>
+                                )
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    {editForm.claseId && (
                       <Button
                         variant="outline"
-                        role="combobox"
-                        aria-expanded={openEditClaseSearch}
-                        className="w-full justify-between"
-                        disabled={isLoadingClases}
+                        size="sm"
+                        onClick={() => setEditForm(prev => ({ ...prev, claseId: '' }))}
+                        className="w-full"
                       >
-                        {editForm.claseId ? getClaseDisplayText(editForm.claseId) : "Seleccionar clase..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        <X className="h-4 w-4 mr-2" />
+                        Desenlazar clase
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[500px] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Buscar clase por ID, instructor o disciplina..." />
-                        <CommandList 
-                          className="max-h-[300px] overflow-y-auto"
-                          onWheel={(e) => {
-                            e.preventDefault()
-                            const target = e.currentTarget
-                            target.scrollTop += e.deltaY
-                          }}
-                        >
-                          <CommandEmpty>
-                            {isLoadingClases ? "Cargando clases..." : "No se encontraron clases en este periodo."}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {clases.map((clase) => {
-                              const instructor = instructores.find(i => i.id === clase.instructorId)
-                              const disciplina = disciplinas.find(d => d.id === clase.disciplinaId)
-                              return (
-                                <CommandItem
-                                  key={clase.id}
-                                  value={`${clase.id} ${instructor?.nombre || ''} ${disciplina?.nombre || ''}`}
-                                  onSelect={() => {
-                                    setEditForm(prev => ({ ...prev, claseId: clase.id.toString() }))
-                                    setOpenEditClaseSearch(false)
-                                  }}
-                                  className="cursor-pointer"
-                                >
-                                  <Check
-                                    className={`mr-2 h-4 w-4 ${
-                                      editForm.claseId === clase.id.toString() ? "opacity-100" : "opacity-0"
-                                    }`}
-                                  />
-                                  <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="font-medium truncate">ID: {clase.id}</span>
-                                    <span className="text-xs text-muted-foreground truncate">
-                                      {instructor?.nombre || 'Sin instructor'} • {disciplina?.nombre || 'Sin disciplina'}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {format(new Date(clase.fecha), 'dd/MM/yyyy HH:mm', { locale: es })}
-                                    </span>
-                                  </div>
-                                </CommandItem>
-                              )
-                            })}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
                     Selecciona un periodo para buscar clases disponibles
