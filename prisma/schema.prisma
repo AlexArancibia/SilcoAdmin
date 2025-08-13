@@ -301,7 +301,7 @@ model Brandeo {
  
 
   // Restricción de unicidad para evitar duplicados en el mismo periodo
-  @@unique([numero, periodoId])
+ 
 }
 
 // Nueva tabla para el sistema de theme rides
@@ -320,7 +320,7 @@ model ThemeRide {
   periodo      Periodo    @relation(fields: [periodoId], references: [id])
 
   // Restricción de unicidad para evitar duplicados en el mismo periodo
-  @@unique([numero, periodoId])
+ 
 }
 
 // Nueva tabla para el sistema de workshops

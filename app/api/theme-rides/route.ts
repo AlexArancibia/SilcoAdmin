@@ -130,22 +130,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificar que no existe un theme ride con el mismo número en el mismo periodo
-    const themeRideExistente = await prisma.themeRide.findUnique({
-      where: {
-        numero_periodoId: {
-          numero,
-          periodoId,
-        },
-      },
-    });
-    if (themeRideExistente) {
-      return NextResponse.json(
-        { error: "Ya existe un theme ride con este número en el periodo especificado" },
-        { status: 409 }
-      );
-    }
-
     // Crear el theme ride
     const themeRide = await prisma.themeRide.create({
       data: {

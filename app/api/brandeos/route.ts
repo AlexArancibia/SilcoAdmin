@@ -130,22 +130,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificar que no existe un brandeo con el mismo número en el mismo periodo
-    const brandeoExistente = await prisma.brandeo.findUnique({
-      where: {
-        numero_periodoId: {
-          numero,
-          periodoId,
-        },
-      },
-    });
-    if (brandeoExistente) {
-      return NextResponse.json(
-        { error: "Ya existe un brandeo con este número en el periodo especificado" },
-        { status: 409 }
-      );
-    }
-
     // Crear el brandeo
     const brandeo = await prisma.brandeo.create({
       data: {
