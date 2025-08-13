@@ -564,7 +564,7 @@ export default function PenalizacionesPage() {
         </Badge>
       </TableCell>
       <TableCell>
-        {getDisciplinaName(penalizacion.disciplinaId)}
+        {getDisciplinaName(penalizacion.disciplinaId ?? undefined)}
       </TableCell>
  
       <TableCell>
@@ -709,7 +709,7 @@ export default function PenalizacionesPage() {
           </div>
           <div className="space-y-1">
             <Label className="text-muted-foreground text-sm">Disciplina</Label>
-            <p className="font-medium">{getDisciplinaName(penalizacionSeleccionada.disciplinaId)}</p>
+            <p className="font-medium">{getDisciplinaName(penalizacionSeleccionada.disciplinaId ?? undefined)}</p>
           </div>
  
           <div className="space-y-1">

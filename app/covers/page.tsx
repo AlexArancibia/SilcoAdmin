@@ -462,12 +462,10 @@ export default function CoversPage() {
            </p>
         </div>
         
-        {isInstructor && (
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nuevo Cover
-          </Button>
-        )}
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nuevo Cover
+        </Button>
       </div>
 
       {/* Filtros */}
