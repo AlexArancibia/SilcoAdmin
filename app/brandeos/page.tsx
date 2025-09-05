@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useBrandeoStore } from "@/store/useBrandeoStore";
 import { useInstructoresStore } from "@/store/useInstructoresStore";
 import { usePeriodosStore } from "@/store/usePeriodosStore";
@@ -17,8 +17,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit, Trash2, Eye, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, Check, ChevronsUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { performanceMonitor } from "@/utils/performance-monitor";
+import { PerformanceDebugPanel } from "@/components/debug/performance-debug-panel";
 
 export default function BrandeosPage() {
   const { toast } = useToast();
@@ -58,6 +60,8 @@ export default function BrandeosPage() {
   const [instructorSearchEdit, setInstructorSearchEdit] = useState("");
   const [openCreateInstructor, setOpenCreateInstructor] = useState(false);
   const [openEditInstructor, setOpenEditInstructor] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Estados del formulario
   const [formData, setFormData] = useState({
@@ -67,45 +71,78 @@ export default function BrandeosPage() {
     comentarios: "",
   });
 
-  // Cargar datos iniciales
+  // Cargar datos iniciales de forma optimizada
   useEffect(() => {
-    fetchBrandeos();
-  }, []);
+    const loadInitialData = async () => {
+      await performanceMonitor.measureAsync('load-brandeos', () => 
+        fetchBrandeos({ page: currentPage, limit: pageSize })
+      );
+    };
+    
+    loadInitialData();
+  }, [currentPage, pageSize, fetchBrandeos]);
 
-  // Cargar instructores si no están disponibles
+  // Cargar instructores si no están disponibles (con caché)
   useEffect(() => {
     if (instructores.length === 0 && !isLoadingInstructores) {
-      fetchInstructores();
+      performanceMonitor.measureAsync('load-instructores', () => fetchInstructores());
     }
   }, [instructores.length, isLoadingInstructores, fetchInstructores]);
 
-  // Cargar periodos si no están disponibles
+  // Cargar periodos si no están disponibles (con caché)
   useEffect(() => {
     if (periodos.length === 0 && !isLoadingPeriodos) {
-      fetchPeriodos();
+      performanceMonitor.measureAsync('load-periodos', () => fetchPeriodos());
     }
   }, [periodos.length, isLoadingPeriodos, fetchPeriodos]);
 
+  // Filtrar brandeos (optimizado con useCallback)
+  const handleSearch = useCallback(() => {
+    performanceMonitor.measure('search-brandeos', () => {
+      const params: any = { page: 1, limit: pageSize };
+      if (searchTerm) params.busqueda = searchTerm;
+      if (selectedPeriodo && selectedPeriodo !== "all") params.periodoId = selectedPeriodo;
+      if (selectedInstructor && selectedInstructor !== "all") params.instructorId = selectedInstructor;
+      
+      setCurrentPage(1);
+      fetchBrandeos(params);
+    });
+  }, [searchTerm, selectedPeriodo, selectedInstructor, pageSize, fetchBrandeos]);
 
-
-
-
-  // Filtrar brandeos
-  const handleSearch = () => {
-    const params: any = {};
-    if (searchTerm) params.busqueda = searchTerm;
-    if (selectedPeriodo && selectedPeriodo !== "all") params.periodoId = selectedPeriodo;
-    if (selectedInstructor && selectedInstructor !== "all") params.instructorId = selectedInstructor;
-    
-    fetchBrandeos(params);
-  };
-
-  // Limpiar filtros
-  const clearFilters = () => {
+  // Limpiar filtros (optimizado con useCallback)
+  const clearFilters = useCallback(() => {
     setSearchTerm("");
     setSelectedPeriodo("all");
     setSelectedInstructor("all");
-    fetchBrandeos();
+    setCurrentPage(1);
+    fetchBrandeos({ page: 1, limit: pageSize });
+  }, [pageSize, fetchBrandeos]);
+
+  // Navegación de páginas (optimizado con useCallback)
+  const goToPage = useCallback((page: number) => {
+    if (page < 1 || (pagination && page > pagination.totalPages)) return;
+    setCurrentPage(page);
+    const params: any = { page, limit: pageSize };
+    if (searchTerm) params.busqueda = searchTerm;
+    if (selectedPeriodo && selectedPeriodo !== "all") params.periodoId = selectedPeriodo;
+    if (selectedInstructor && selectedInstructor !== "all") params.instructorId = selectedInstructor;
+    fetchBrandeos(params);
+  }, [searchTerm, selectedPeriodo, selectedInstructor, pageSize, pagination, fetchBrandeos]);
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => pagination && goToPage(pagination.totalPages);
+  const goToNextPage = () => pagination && goToPage(currentPage + 1);
+  const goToPrevPage = () => goToPage(currentPage - 1);
+
+  // Cambiar tamaño de página
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    const params: any = { page: 1, limit: newSize };
+    if (searchTerm) params.busqueda = searchTerm;
+    if (selectedPeriodo && selectedPeriodo !== "all") params.periodoId = selectedPeriodo;
+    if (selectedInstructor && selectedInstructor !== "all") params.instructorId = selectedInstructor;
+    fetchBrandeos(params);
   };
 
   // Abrir diálogo de creación
@@ -203,29 +240,37 @@ export default function BrandeosPage() {
     }
   };
 
-  // Obtener nombre del instructor
-  const getInstructorName = (instructorId: number) => {
+  // Obtener nombre del instructor (optimizado con useMemo)
+  const getInstructorName = useCallback((instructorId: number) => {
     const instructor = instructores.find(i => i.id === instructorId);
     return instructor ? instructor.nombre : "Desconocido";
-  };
+  }, [instructores]);
 
-  // Obtener información del periodo
-  const getPeriodoInfo = (periodoId: number) => {
+  // Obtener información del periodo (optimizado con useMemo)
+  const getPeriodoInfo = useCallback((periodoId: number) => {
     const periodo = periodos.find(p => p.id === periodoId);
     return periodo ? `P${periodo.numero} - ${periodo.año}` : "Desconocido";
-  };
+  }, [periodos]);
 
-  // Filtrar instructores por búsqueda
-  const getFilteredInstructors = (searchTerm: string) => {
+  // Filtrar instructores por búsqueda (optimizado con useMemo)
+  const getFilteredInstructors = useCallback((searchTerm: string) => {
     if (!searchTerm) return instructores;
     return instructores.filter(instructor =>
       instructor.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       instructor.nombreCompleto?.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  };
+  }, [instructores]);
+
+  // Memoizar el estado de carga general
+  const isLoading = useMemo(() => 
+    loading || isLoadingInstructores || isLoadingPeriodos, 
+    [loading, isLoadingInstructores, isLoadingPeriodos]
+  );
 
   return (
     <div className="container mx-auto py-6 space-y-6">
+      {/* Panel de Debug de Rendimiento */}
+      <PerformanceDebugPanel />
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -337,7 +382,14 @@ export default function BrandeosPage() {
                 Cancelar
               </Button>
               <Button onClick={handleCreate} disabled={loading}>
-                {loading ? "Creando..." : "Crear"}
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creando...
+                  </>
+                ) : (
+                  "Crear"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -410,7 +462,7 @@ export default function BrandeosPage() {
         <CardHeader>
           <CardTitle>Brandeos</CardTitle>
           <CardDescription>
-            {pagination && `Mostrando ${brandeos.length} de ${pagination.total} brandeos`}
+            {pagination && `Mostrando ${brandeos.length} de ${pagination.total} brandeos (Página ${currentPage} de ${pagination.totalPages})`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -433,16 +485,26 @@ export default function BrandeosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading ? (
+                {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8">
-                      Cargando...
+                      <div className="flex items-center justify-center space-x-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Cargando brandeos...</span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : brandeos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8">
-                      No se encontraron brandeos
+                      <div className="flex flex-col items-center space-y-2">
+                        <div className="text-muted-foreground">No se encontraron brandeos</div>
+                        {searchTerm || selectedPeriodo !== "all" || selectedInstructor !== "all" ? (
+                          <Button variant="outline" size="sm" onClick={clearFilters}>
+                            Limpiar filtros
+                          </Button>
+                        ) : null}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -575,7 +637,14 @@ export default function BrandeosPage() {
                                   Cancelar
                                 </Button>
                                 <Button onClick={handleUpdate} disabled={loading}>
-                                  {loading ? "Actualizando..." : "Actualizar"}
+                                  {loading ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Actualizando...
+                                    </>
+                                  ) : (
+                                    "Actualizar"
+                                  )}
                                 </Button>
                               </DialogFooter>
                             </DialogContent>
@@ -612,9 +681,57 @@ export default function BrandeosPage() {
                 )}
               </TableBody>
             </Table>
-          </div>
+                    </div>
         </CardContent>
       </Card>
+
+      {/* Paginación */}
+      {pagination && pagination.totalPages > 1 && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">
+                  Mostrando {((currentPage - 1) * pageSize) + 1} a {Math.min(currentPage * pageSize, pagination.total)} de {pagination.total} resultados
+                </span>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Select value={pageSize.toString()} onValueChange={(value) => handlePageSizeChange(parseInt(value))}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm" onClick={goToFirstPage} disabled={currentPage === 1}>
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={goToPrevPage} disabled={currentPage === 1}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <span className="text-sm text-muted-foreground px-2">
+                    Página {currentPage} de {pagination.totalPages}
+                  </span>
+                  
+                  <Button variant="outline" size="sm" onClick={goToNextPage} disabled={currentPage === pagination.totalPages}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={goToLastPage} disabled={currentPage === pagination.totalPages}>
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 } 

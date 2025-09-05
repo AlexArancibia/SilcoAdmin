@@ -151,10 +151,10 @@ export async function POST(req: Request) {
       // CALCULAR BONOS DE BRANDEOS, THEME RIDES Y WORKSHOPS
       logs.push(`\n🏆 CALCULANDO BONOS ADICIONALES...`);
       
-      // 3. Calcular bono de brandeos (número de brandeos x S/.15)
+      // 3. Calcular bono de brandeos (número de brandeos x S/.5)
       const totalBrandeos = brandeosDelInstructor.reduce((total, brandeo) => total + brandeo.numero, 0);
-      const bonoBrandeos = totalBrandeos * 15;
-      logs.push(`🏆 Brandeos: ${totalBrandeos} x S/.15 = S/.${bonoBrandeos}`);
+      const bonoBrandeos = totalBrandeos * 5;
+      logs.push(`🏆 Brandeos: ${totalBrandeos} x S/.5 = S/.${bonoBrandeos}`);
       
       // 4. Calcular bono de theme rides (número de theme rides x S/.30)
       const totalThemeRides = themeRidesDelInstructor.reduce((total, themeRide) => total + themeRide.numero, 0);

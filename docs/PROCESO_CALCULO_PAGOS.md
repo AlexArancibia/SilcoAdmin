@@ -175,7 +175,7 @@ categoriaInstructor = determinarCategoria(formula, metricasCompletas);
 
 ### 2. Brandeos
 ```
-🏆 Brandeos: 3 x S/.15 = S/.45
+🏆 Brandeos: 3 x S/.5 = S/.15
 ```
 
 ### 3. Theme Rides
@@ -209,7 +209,7 @@ categoriaInstructor = determinarCategoria(formula, metricasCompletas);
 ```
 💰 Monto base (clases): 1,250.00
 💰 Reajuste: 0.00
-💰 Total bonos: 465.00 (Bono: 0.00, Cover: 160.00, Brandeo: 45.00, Theme Ride: 60.00, Workshop: 50.00, Versus: 150.00)
+💰 Total bonos: 435.00 (Bono: 0.00, Cover: 160.00, Brandeo: 15.00, Theme Ride: 60.00, Workshop: 50.00, Versus: 150.00)
 ```
 
 ### 2. Penalizaciones

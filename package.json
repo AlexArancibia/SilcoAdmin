@@ -7,7 +7,9 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "test:performance": "node scripts/performance-test.js",
+    "test:performance:ci": "node scripts/performance-test.js --iterations 3 --timeout 60000"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",
