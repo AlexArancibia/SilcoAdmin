@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react"
-import { Users, BookOpen, Calendar, DollarSign, BarChart3, TrendingUp, Clock, Building, MapPin } from "lucide-react"
+import { Users, BookOpen, Calendar, DollarSign, BarChart3, TrendingUp, Clock, Building, MapPin, RefreshCw } from "lucide-react"
 
 import { formatCurrency, COLORS } from "../../utils/format-utils"
 import {
@@ -17,6 +17,8 @@ import {
 import { StatCard } from "./stat-card"
 import { DashboardChart } from "./dashboard-chart"
 import { useStatsStore } from "@/store/useStatsStore"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 interface GeneralTabProps {
   periodoFilter?: {
@@ -47,24 +49,16 @@ export function GeneralTab({
   const [lastFetchedPeriod, setLastFetchedPeriod] = useState<string | null>(null)
   const hasFetchedRef = useRef<string | null>(null)
 
-  // Load stats when component mounts or period changes
-  useEffect(() => {
-    console.log('[GeneralTab] useEffect triggered with periodoFilter:', periodoFilter)
-    
-    // Only fetch if we have a valid period filter and haven't fetched for this period yet
+  // Manual load stats function
+  const handleLoadStats = () => {
     if (periodoFilter) {
       const periodKey = JSON.stringify(periodoFilter)
-      if (hasFetchedRef.current !== periodKey) {
-        console.log('[GeneralTab] Fetching stats for new period:', periodKey)
-        hasFetchedRef.current = periodKey
-        setLastFetchedPeriod(periodKey)
-        fetchAllStats(periodoFilter)
-      } else {
-        console.log('[GeneralTab] Already fetched for this period, skipping')
-      }
+      console.log('[GeneralTab] Manual load stats for period:', periodKey)
+      hasFetchedRef.current = periodKey
+      setLastFetchedPeriod(periodKey)
+      fetchAllStats(periodoFilter)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodoFilter])
+  }
 
   // Prepare chart data
   const disciplinasData = classStats?.porDisciplina.slice(0, 5).map((d) => ({
@@ -145,6 +139,26 @@ export function GeneralTab({
 
   return (
     <>
+      {/* Load Stats Button */}
+      <Card className="mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Estadísticas del Período</CardTitle>
+          <CardDescription>
+            {periodoFilter ? `Cargar estadísticas para ${getPeriodoNombre()}` : "Selecciona un período para cargar estadísticas"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            onClick={handleLoadStats}
+            disabled={!periodoFilter || isLoading}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Cargando estadísticas...' : 'Cargar Estadísticas'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* KPI Cards */}
       <div className="grid-auto-fit gap-4">
         {/* Instructores */}

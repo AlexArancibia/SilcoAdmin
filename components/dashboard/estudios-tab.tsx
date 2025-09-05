@@ -1,14 +1,14 @@
 "use client"
 
 import React, { useState, useMemo, useEffect, useRef } from "react"
-import { Search, Download, FileSpreadsheet, ArrowUpDown, PieChart } from "lucide-react"
+import { Search, Download, FileSpreadsheet, ArrowUpDown, PieChart, RefreshCw } from "lucide-react"
 import { formatCurrency } from "../../utils/format-utils"
 import { exportToExcel } from "../../utils/excel-utils"
 import { COLORS } from "../../utils/format-utils"
 
 // UI Components
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
@@ -45,24 +45,16 @@ export function EstudiosTab({
     fetchVenueStats,
   } = useStatsStore()
 
-  // Load venue stats when component mounts or period changes
-  useEffect(() => {
-    console.log('[EstudiosTab] useEffect triggered with periodoFilter:', periodoFilter)
-    
-    // Only fetch if we have a valid period filter and haven't fetched for this period yet
+  // Manual load stats function
+  const handleLoadStats = () => {
     if (periodoFilter) {
       const periodKey = JSON.stringify(periodoFilter)
-      if (hasFetchedRef.current !== periodKey) {
-        console.log('[EstudiosTab] Fetching venue stats for new period:', periodKey)
-        hasFetchedRef.current = periodKey
-        setLastFetchedPeriod(periodKey)
-        fetchVenueStats(periodoFilter)
-      } else {
-        console.log('[EstudiosTab] Already fetched for this period, skipping')
-      }
+      console.log('[EstudiosTab] Manual load venue stats for period:', periodKey)
+      hasFetchedRef.current = periodKey
+      setLastFetchedPeriod(periodKey)
+      fetchVenueStats(periodoFilter)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [periodoFilter])
+  }
 
   // Debug: Log venue stats when they change
   useEffect(() => {
@@ -306,6 +298,26 @@ export function EstudiosTab({
 
   return (
     <div className="space-y-8">
+      {/* Load Stats Button */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Estadísticas de Estudios</CardTitle>
+          <CardDescription>
+            {periodoFilter ? `Cargar estadísticas de estudios para ${getPeriodoNombre()}` : "Selecciona un período para cargar estadísticas de estudios"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            onClick={handleLoadStats}
+            disabled={!periodoFilter || isLoading}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {isLoading ? 'Cargando estadísticas...' : 'Cargar Estadísticas de Estudios'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Primera tabla: Tabla General */}
       <Card>
         <CardHeader>
