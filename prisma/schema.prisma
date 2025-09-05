@@ -15,7 +15,7 @@ model Usuario {
   nombre    String
   email     String   @unique
   password  String
-  rol       String   // SUPER_ADMIN, ADMIN, USUARIO
+  rol       String   // SUPER_ADMIN, ADMIN, MANAGER, OPERADOR, USUARIO, RH
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

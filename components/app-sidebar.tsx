@@ -23,9 +23,9 @@ import { ModeToggle } from "./mode-toggle"
 import { type EstadoPago, Rol, type PagoInstructor } from "@/types/schema"
 
 const protectedRoutes = {
-  "/covers": [Rol.MANAGER, "instructor"],
-  "/penalizaciones": [Rol.MANAGER],
-  "/brandeos": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.RH],
+  "/covers": [Rol.OPERADOR, "instructor"],
+  "/penalizaciones": [Rol.MANAGER, Rol.OPERADOR],
+  "/brandeos": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.MANAGER, Rol.RH],
   "/theme-rides": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.RH],
   "/workshops": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.RH],
   "/": [Rol.SUPER_ADMIN, Rol.ADMIN, Rol.USUARIO],
@@ -121,6 +121,8 @@ export function AppSidebar() {
         router.push(`/instructores/${user?.id}`)
       } else {
         if (user?.rol === Rol.MANAGER) {
+          router.push("/brandeos")
+        } else if (user?.rol === Rol.OPERADOR) {
           router.push("/covers")
         } else if (user?.rol === Rol.RH) {
           router.push("/brandeos")
@@ -132,7 +134,12 @@ export function AppSidebar() {
     }
 
     // Redirect manager if trying to access unauthorized routes
-    if (user?.rol === Rol.MANAGER && !pathname.startsWith("/covers") && !pathname.startsWith("/penalizaciones")) {
+    if (user?.rol === Rol.MANAGER && !pathname.startsWith("/brandeos") && !pathname.startsWith("/penalizaciones")) {
+      router.push("/brandeos")
+    }
+
+    // Redirect operador if trying to access unauthorized routes
+    if (user?.rol === Rol.OPERADOR && !pathname.startsWith("/covers") && !pathname.startsWith("/penalizaciones")) {
       router.push("/covers")
     }
 
@@ -183,6 +190,7 @@ export function AppSidebar() {
   const isAdmin = () => user?.rol === Rol.ADMIN
   const isSuperAdmin = () => user?.rol === Rol.SUPER_ADMIN
   const isManager = () => user?.rol === Rol.MANAGER
+  const isOperador = () => user?.rol === Rol.OPERADOR
   const isRH = () => user?.rol === Rol.RH
   const isInstructor = () => userType === "instructor"
 
@@ -239,19 +247,19 @@ export function AppSidebar() {
 
         <SidebarContent className="px-2">
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-semibold text-white/70">ADMINISTRACIÓN</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-semibold text-white/70">GESTIÓN</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    tooltip="Covers"
-                    isActive={isActive("/covers")}
+                    tooltip="Brandeos"
+                    isActive={isActive("/brandeos")}
                     className={claseitem}
                   >
-                    <Link href="/covers">
-                      <UserCog className="h-5 w-5" />
-                      <span>Covers</span>
+                    <Link href="/brandeos">
+                      <Award className="h-5 w-5" />
+                      <span>Brandeos</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -353,6 +361,81 @@ export function AppSidebar() {
                     <Link href="/workshops">
                       <GraduationCap className="h-5 w-5" />
                       <span>Workshops</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter className="p-4 border-t border-border/40">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={handleLogout}
+                className="hover:bg-destructive/10 text-accent font-bold hover:text-destructive transition-colors duration-200"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Cerrar Sesión</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+    )
+  }
+
+  // OPERADOR-specific sidebar (only shows Covers and Penalizaciones)
+  if (isOperador()) {
+    return (
+      <Sidebar variant="sidebar" collapsible="icon" className="bg-primary border-r">
+        <SidebarHeader className="px-5 pt-3.5 pb-3.5 border-b border-border/40">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-left">
+              {isCollapsed ? (
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">
+                  S
+                </div>
+              ) : (
+                <div className="flex justify-between items-center w-full">
+                  <h1 className="text-xl font-bold items-start text-white">Siclo Admin</h1>
+                  <ModeToggle />
+                </div>
+              )}
+            </div>
+          </div>
+        </SidebarHeader>
+
+        <SidebarContent className="px-2">
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-semibold text-white/70">OPERACIONES</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Covers"
+                    isActive={isActive("/covers")}
+                    className={claseitem}
+                  >
+                    <Link href="/covers">
+                      <UserCog className="h-5 w-5" />
+                      <span>Covers</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Penalizaciones"
+                    isActive={isActive("/penalizaciones")}
+                    className={claseitem}
+                  >
+                    <Link href="/penalizaciones">
+                      <ShieldAlert className="h-5 w-5" />
+                      <span>Penalizaciones</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

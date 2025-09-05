@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,14 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ArrowUpDown, Calendar, Download, Eye, FileText, Printer, Calculator, RefreshCw, HelpCircle } from "lucide-react"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
+// Pagination imports removed
 import { usePagosStore } from "@/store/usePagosStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
@@ -31,8 +24,6 @@ import { useToast } from "@/components/ui/use-toast"
 
 export function PagosTable() {
   const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
 
   const {
@@ -69,11 +60,7 @@ export function PagosTable() {
     }
   }, [instructores.length, periodos.length, fetchInstructores, fetchPeriodos])
 
-  const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams)
-    params.set('page', newPage.toString())
-    router.push(`${pathname}?${params.toString()}`)
-  }
+  // handlePageChange removed - no pagination
 
   // Función para recalcular un pago específico
   const recalcularPago = async (pagoInstructor: PagoInstructor) => {
@@ -142,49 +129,7 @@ export function PagosTable() {
     }
   }
 
-  // Función para generar páginas visibles con ellipsis cuando sea necesario
-  const getVisiblePages = () => {
-    if (!pagination || pagination.totalPages <= 1) return []
-
-    const current = pagination.page
-    const total = pagination.totalPages
-    const pages: (number | string)[] = []
-
-    if (total <= 7) {
-      // Si hay 7 páginas o menos, mostrar todas
-      for (let i = 1; i <= total; i++) {
-        pages.push(i)
-      }
-    } else {
-      // Siempre mostrar la primera página
-      pages.push(1)
-
-      if (current <= 4) {
-        // Si estamos cerca del inicio
-        for (let i = 2; i <= 5; i++) {
-          pages.push(i)
-        }
-        pages.push('...')
-        pages.push(total)
-      } else if (current >= total - 3) {
-        // Si estamos cerca del final
-        pages.push('...')
-        for (let i = total - 4; i <= total; i++) {
-          pages.push(i)
-        }
-      } else {
-        // Si estamos en el medio
-        pages.push('...')
-        for (let i = current - 1; i <= current + 1; i++) {
-          pages.push(i)
-        }
-        pages.push('...')
-        pages.push(total)
-      }
-    }
-
-    return pages
-  }
+  // getVisiblePages removed - no pagination
 
   // Helper functions
   const getNombrePeriodo = (periodoId: number): string => {
@@ -263,34 +208,13 @@ export function PagosTable() {
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="text-foreground font-medium">
-                <Button
-                  variant="ghost"
-                  onClick={() => router.push(`${pathname}?sort=instructorId`)}
-                  className="text-foreground group"
-                >
-                  Instructor
-                  <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                </Button>
+                Instructor
               </TableHead>
               <TableHead className="text-foreground font-medium">
-                <Button
-                  variant="ghost"
-                  onClick={() => router.push(`${pathname}?sort=periodoId`)}
-                  className="text-foreground group"
-                >
-                  Periodo
-                  <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                </Button>
+                Periodo
               </TableHead>
               <TableHead className="text-foreground font-medium">
-                <Button
-                  variant="ghost"
-                  onClick={() => router.push(`${pathname}?sort=monto`)}
-                  className="text-foreground group"
-                >
-                  Monto Base
-                  <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                </Button>
+                Monto Base
               </TableHead>
               <TableHead className="text-foreground font-medium">
                 <div className="flex items-center gap-1">
@@ -312,14 +236,7 @@ export function PagosTable() {
               <TableHead className="text-foreground font-medium">Retención</TableHead>
               <TableHead className="text-foreground font-medium">Total</TableHead>
               <TableHead className="text-foreground font-medium">
-                <Button
-                  variant="ghost"
-                  onClick={() => router.push(`${pathname}?sort=estado`)}
-                  className="text-primary group"
-                >
-                  Estado
-                  <ArrowUpDown className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4 opacity-50 group-hover:opacity-100 transition-opacity" />
-                </Button>
+                Estado
               </TableHead>
               <TableHead className="text-right text-foreground font-medium">Acciones</TableHead>
             </TableRow>
@@ -599,56 +516,7 @@ export function PagosTable() {
           </div>
         </div>
 
-        {pagination && pagination.totalPages > 1 && (
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    if (pagination.hasPrev) {
-                      handlePageChange(pagination.page - 1)
-                    }
-                  }}
-                  className={!pagination.hasPrev ? "pointer-events-none opacity-50" : ""}
-                />
-              </PaginationItem>
-
-              {getVisiblePages().map((page, index) => (
-                <PaginationItem key={index}>
-                  {page === "..." ? (
-                    <span className="mx-1 px-2">...</span>
-                  ) : (
-                    <PaginationLink
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        handlePageChange(Number(page))
-                      }}
-                      isActive={pagination.page === page}
-                    >
-                      {page}
-                    </PaginationLink>
-                  )}
-                </PaginationItem>
-              ))}
-
-              <PaginationItem>
-                <PaginationNext
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    if (pagination.hasNext) {
-                      handlePageChange(pagination.page + 1)
-                    }
-                  }}
-                  className={!pagination.hasNext ? "pointer-events-none opacity-50" : ""}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
+        {/* Pagination removed - showing all items */}
       </CardContent>
     </Card>
   )

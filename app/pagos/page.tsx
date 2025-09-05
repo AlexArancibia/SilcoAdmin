@@ -23,8 +23,8 @@ import { usePagosStore } from "@/store/usePagosStore"
 // Component that uses useSearchParams - will be wrapped in Suspense
 function PagosContent() {
   const searchParams = useSearchParams();
-  const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
-  const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!) : 20;
+  const page = 1; // Always page 1 since we're not using pagination
+  const limit = 1000; // Load all items
   const estado = (searchParams.get("estado") as EstadoPago) || undefined;
   const instructorId = searchParams.get("instructorId") ? parseInt(searchParams.get("instructorId")!) : undefined;
   const periodoId = searchParams.get("periodoId") ? parseInt(searchParams.get("periodoId")!) : undefined;
@@ -168,47 +168,41 @@ function PagosContent() {
     }
   }
 
+  // Single effect to handle all data fetching
   useEffect(() => {
-    // Build query params with support for period ranges
-    const queryParams: any = { page, limit, estado, instructorId, busqueda }
-    
-    // Handle period parameters (prioritize individual period over range)
-    if (periodoId) {
-      queryParams.periodoId = periodoId
-    } else if (periodoInicio || periodoFin) {
-      if (periodoInicio) queryParams.periodoInicio = periodoInicio
-      if (periodoFin) queryParams.periodoFin = periodoFin
+    const fetchData = async () => {
+      // Build query params with support for period ranges
+      const queryParams: any = { page, limit, estado, instructorId, busqueda }
+      
+      // Handle period parameters (prioritize individual period over range)
+      if (periodoId) {
+        queryParams.periodoId = periodoId
+      } else if (periodoInicio || periodoFin) {
+        if (periodoInicio) queryParams.periodoInicio = periodoInicio
+        if (periodoFin) queryParams.periodoFin = periodoFin
+      } else if (rangoSeleccionado) {
+        // Use the selected period range if no URL period parameters
+        if (rangoSeleccionado[0] === rangoSeleccionado[1]) {
+          queryParams.periodoId = rangoSeleccionado[0]
+        } else {
+          queryParams.periodoInicio = rangoSeleccionado[0]
+          queryParams.periodoFin = rangoSeleccionado[1]
+        }
+      }
+      
+      // Only fetch pagos if we have period parameters
+      if (queryParams.periodoId || queryParams.periodoInicio || queryParams.periodoFin) {
+        await fetchPagos(queryParams)
+      }
     }
-    
-    // Only fetch pagos if we have period parameters
-    // This prevents fetching all periods when the page first loads
-    if (periodoId || periodoInicio || periodoFin) {
-      fetchPagos(queryParams)
-    }
-  }, [page, limit, estado, instructorId, periodoId, periodoInicio, periodoFin, busqueda, fetchPagos])
+
+    fetchData()
+  }, [page, limit, estado, instructorId, periodoId, periodoInicio, periodoFin, busqueda, rangoSeleccionado, fetchPagos])
 
   useEffect(() => {
     if (periodos.length === 0) fetchPeriodos()
     if (instructores.length === 0) fetchInstructores()
   }, [fetchPeriodos, fetchInstructores])
-
-  // Wait for period selection and then fetch pagos if no period parameters in URL
-  useEffect(() => {
-    // Only fetch pagos if there are no period parameters in the URL and we have a selected period
-    if (!periodoId && !periodoInicio && !periodoFin && rangoSeleccionado) {
-      const queryParams: any = { page, limit, estado, instructorId, busqueda }
-      
-      // Use the selected period range
-      if (rangoSeleccionado[0] === rangoSeleccionado[1]) {
-        queryParams.periodoId = rangoSeleccionado[0]
-      } else {
-        queryParams.periodoInicio = rangoSeleccionado[0]
-        queryParams.periodoFin = rangoSeleccionado[1]
-      }
-      
-      fetchPagos(queryParams)
-    }
-  }, [rangoSeleccionado, page, limit, estado, instructorId, busqueda, fetchPagos, periodoId, periodoInicio, periodoFin])
 
   // Wrapper function for setting selected period in dialogs
   const handleSetSelectedPeriodoId = (periodoId: number | null) => {
@@ -244,7 +238,7 @@ function PagosContent() {
         />
 
         <Suspense
-          key={`${page}-${limit}-${estado}-${instructorId}-${periodoId}-${busqueda}`}
+          key={`${limit}-${estado}-${instructorId}-${periodoId}-${busqueda}`}
           fallback={
             <Card>
               <CardHeader>

@@ -28,28 +28,42 @@ const users = [
     id: "1",
     name: "Admin Principal",
     email: "admin@siclo.com",
-    role: "admin",
+    role: "SUPER_ADMIN",
     status: "active",
   },
   {
     id: "2",
     name: "Gerente Financiero",
     email: "finanzas@siclo.com",
-    role: "manager",
+    role: "MANAGER",
     status: "active",
   },
   {
     id: "3",
-    name: "Asistente Administrativo",
-    email: "asistente@siclo.com",
-    role: "user",
+    name: "Operador de Covers",
+    email: "operador@siclo.com",
+    role: "OPERADOR",
     status: "active",
   },
   {
     id: "4",
+    name: "Asistente Administrativo",
+    email: "asistente@siclo.com",
+    role: "USUARIO",
+    status: "active",
+  },
+  {
+    id: "5",
+    name: "Recursos Humanos",
+    email: "rh@siclo.com",
+    role: "RH",
+    status: "active",
+  },
+  {
+    id: "6",
     name: "Contador",
     email: "contador@siclo.com",
-    role: "user",
+    role: "USUARIO",
     status: "inactive",
   },
 ]
@@ -141,14 +155,17 @@ export function UserManagement() {
                     <Label htmlFor="role" className="text-right">
                       Rol
                     </Label>
-                    <Select defaultValue={selectedUser?.role || "user"}>
+                    <Select defaultValue={selectedUser?.role || "USUARIO"}>
                       <SelectTrigger className="col-span-3">
                         <SelectValue placeholder="Seleccionar rol" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="manager">Gerente</SelectItem>
-                        <SelectItem value="user">Usuario</SelectItem>
+                        <SelectItem value="SUPER_ADMIN">Super Administrador</SelectItem>
+                        <SelectItem value="ADMIN">Administrador</SelectItem>
+                        <SelectItem value="MANAGER">Gerente</SelectItem>
+                        <SelectItem value="OPERADOR">Operador</SelectItem>
+                        <SelectItem value="USUARIO">Usuario</SelectItem>
+                        <SelectItem value="RH">Recursos Humanos</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -207,9 +224,21 @@ export function UserManagement() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={user.role === "admin" ? "default" : user.role === "manager" ? "outline" : "secondary"}
+                        variant={
+                          user.role === "SUPER_ADMIN" ? "default" : 
+                          user.role === "ADMIN" ? "destructive" :
+                          user.role === "MANAGER" ? "outline" : 
+                          user.role === "OPERADOR" ? "secondary" :
+                          user.role === "RH" ? "default" :
+                          "secondary"
+                        }
                       >
-                        {user.role === "admin" ? "Administrador" : user.role === "manager" ? "Gerente" : "Usuario"}
+                        {user.role === "SUPER_ADMIN" ? "Super Admin" : 
+                         user.role === "ADMIN" ? "Administrador" : 
+                         user.role === "MANAGER" ? "Gerente" : 
+                         user.role === "OPERADOR" ? "Operador" :
+                         user.role === "RH" ? "Recursos Humanos" :
+                         "Usuario"}
                       </Badge>
                     </TableCell>
                     <TableCell>

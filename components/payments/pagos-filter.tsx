@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { PeriodSelector } from "@/components/period-selector"
 import { usePeriodosStore } from "@/store/usePeriodosStore"
 import { useInstructoresStore } from "@/store/useInstructoresStore"
+import type { EstadoPago } from "@/types/schema"
 import { 
   User, 
   CreditCard,
@@ -61,9 +62,10 @@ export function PagosFilter({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  // isPaginationChange removed - no pagination
 
-  const [page, setPage] = useState(initialPage || 1)
-  const [limit, setLimit] = useState(initialLimit || 20)
+  const [page, setPage] = useState(1) // Always page 1 - no pagination
+  const [limit, setLimit] = useState(1000) // Load all items
   const [estado, setEstado] = useState(initialEstado)
   const [instructorId, setInstructorId] = useState(initialInstructorId)
   const [busqueda, setBusqueda] = useState(initialBusqueda)
@@ -77,9 +79,10 @@ export function PagosFilter({
   // Calculate active filters count
   const activeFiltersCount = [debouncedBusqueda, estado, instructorId, rangoSeleccionado].filter(Boolean).length
 
-  // Auto-apply filters function
+  // Auto-apply filters function (no pagination)
   const applyFilters = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString())
+    // Always set page to 1 since we're not using pagination
     params.set("page", "1")
 
     // Handle text filters
@@ -88,7 +91,7 @@ export function PagosFilter({
     // Handle select filters
     if (estado && estado !== 'all') params.set("estado", estado); else params.delete("estado")
     if (instructorId && instructorId.toString() !== 'all') params.set("instructorId", String(instructorId)); else params.delete("instructorId")
-    if (limit !== 20) params.set("limit", String(limit)); else params.delete("limit")
+    // Don't set limit since we're loading all items
 
     // Handle period filters
     const periodoParams = getPeriodoQueryParams()
@@ -104,23 +107,30 @@ export function PagosFilter({
     }
 
     router.push(`${pathname}?${params.toString()}`)
-  }, [debouncedBusqueda, estado, instructorId, limit, rangoSeleccionado, getPeriodoQueryParams, router, pathname, searchParams])
+  }, [debouncedBusqueda, estado, instructorId, rangoSeleccionado, getPeriodoQueryParams, router, pathname, searchParams])
 
-  // Auto-apply filters when values change
+  // Auto-apply filters when values change (no pagination)
   useEffect(() => {
-    applyFilters()
-  }, [applyFilters])
+    // Only apply filters if other parameters have actually changed
+    const hasFilterChanges = debouncedBusqueda !== (searchParams.get("busqueda") || undefined) ||
+                            estado !== (searchParams.get("estado") as EstadoPago || undefined) ||
+                            instructorId !== (searchParams.get("instructorId") ? parseInt(searchParams.get("instructorId")!) : undefined)
+    
+    if (hasFilterChanges) {
+      applyFilters()
+    }
+  }, [debouncedBusqueda, estado, instructorId, rangoSeleccionado, applyFilters, searchParams])
 
   // Update period parameters when period selection changes
   useEffect(() => {
     if (rangoSeleccionado) {
-      applyFilters()
+      applyFilters() // Apply filters when period changes
     }
   }, [rangoSeleccionado, applyFilters])
 
   const handleReset = () => {
     setPage(1)
-    setLimit(20)
+    setLimit(1000) // Load all items
     setEstado(undefined)
     setInstructorId(undefined)
     setBusqueda(undefined)
@@ -287,27 +297,7 @@ export function PagosFilter({
             </Select>
           </div>
 
-          {/* Items Per Page */}
-          <div className="relative col-span-2">
-            <FileText className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground z-10" />
-            <Select
-              value={limit.toString()}
-              onValueChange={(value) => setLimit(Number(value))}
-            >
-              <SelectTrigger className={cn(
-                "pl-7 h-9 text-sm border-border/50 focus:border-primary",
-                limit !== 20 && "border-primary/30 bg-primary/5"
-              )}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="5">5</SelectItem>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Items Per Page removed - showing all items */}
         </div>
       </CardContent>
     </Card>
