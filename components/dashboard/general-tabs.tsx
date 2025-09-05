@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Users, BookOpen, Calendar, DollarSign, BarChart3, TrendingUp, Clock, Building, MapPin } from "lucide-react"
 
 import { formatCurrency, COLORS } from "../../utils/format-utils"
@@ -31,6 +31,8 @@ export function GeneralTab({
   periodoFilter,
   getPeriodoNombre,
 }: GeneralTabProps) {
+  console.log('[GeneralTab] Component rendering with periodoFilter:', periodoFilter)
+  
   const {
     generalStats,
     instructorStats,
@@ -41,9 +43,26 @@ export function GeneralTab({
     fetchAllStats,
   } = useStatsStore()
 
+  // Track if we've already fetched for this period
+  const [lastFetchedPeriod, setLastFetchedPeriod] = useState<string | null>(null)
+  const hasFetchedRef = useRef<string | null>(null)
+
   // Load stats when component mounts or period changes
   useEffect(() => {
-    fetchAllStats(periodoFilter)
+    console.log('[GeneralTab] useEffect triggered with periodoFilter:', periodoFilter)
+    
+    // Only fetch if we have a valid period filter and haven't fetched for this period yet
+    if (periodoFilter) {
+      const periodKey = JSON.stringify(periodoFilter)
+      if (hasFetchedRef.current !== periodKey) {
+        console.log('[GeneralTab] Fetching stats for new period:', periodKey)
+        hasFetchedRef.current = periodKey
+        setLastFetchedPeriod(periodKey)
+        fetchAllStats(periodoFilter)
+      } else {
+        console.log('[GeneralTab] Already fetched for this period, skipping')
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodoFilter])
 

@@ -74,9 +74,24 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
   error: null,
 
   fetchPeriodos: async () => {
+    const startTime = performance.now()
+    console.log('[PeriodosStore] ⏱️ fetchPeriodos called')
+    
+    const { periodos, isLoading } = get()
+    
+    // Check if we already have periodos and we're not currently loading
+    if (periodos.length > 0 && !isLoading) {
+      console.log(`[PeriodosStore] ⏭️ fetchPeriodos skipped - periodos already loaded (${periodos.length} items) - ${(performance.now() - startTime).toFixed(2)}ms`)
+      return
+    }
+    
+    console.log(`[PeriodosStore] 📡 fetchPeriodos proceeding with fetch at ${new Date().toISOString()}`)
     set({ isLoading: true, error: null });
     try {
+      console.log(`[PeriodosStore] 🌐 Making API request to get all periodos`)
+      const apiStartTime = performance.now()
       const periodos = await periodosApi.getPeriodos();
+      const apiEndTime = performance.now()
       
       // Calcular periodoActual
       const hoy = new Date();
@@ -123,6 +138,8 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
       }
   
       // Actualizar el estado
+      const totalTime = performance.now() - startTime
+      console.log(`[PeriodosStore] ✅ Successfully obtained ${periodos.length} periodos - API: ${(apiEndTime - apiStartTime).toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`)
       set({
         periodos,
         periodoActual,
@@ -133,6 +150,8 @@ export const usePeriodosStore = create<PeriodosState>((set, get) => ({
       });
       
     } catch (error) {
+      const totalTime = performance.now() - startTime
+      console.error(`[PeriodosStore] ❌ Error fetching periodos after ${totalTime.toFixed(2)}ms:`, error)
       set({
         error: error instanceof Error ? error.message : "Error desconocido al obtener periodos",
         isLoading: false,

@@ -130,6 +130,7 @@ interface StatsStore {
   isLoading: boolean
   error: string | null
   lastUpdated: Date | null
+  lastParams: StatsQueryParams | null
   
   // Actions
   fetchGeneralStats: (params?: StatsQueryParams) => Promise<void>
@@ -155,9 +156,25 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
   isLoading: false,
   error: null,
   lastUpdated: null,
+  lastParams: null,
 
   // Actions
   fetchGeneralStats: async (params) => {
+    const startTime = performance.now()
+    console.log(`[StatsStore] ⏱️ fetchGeneralStats called with params:`, params)
+    
+    const { lastParams, generalStats, lastUpdated } = get()
+    
+    // Check if we already have data for these params and it's recent (less than 5 minutes)
+    const isRecentData = lastUpdated && (Date.now() - lastUpdated.getTime()) < 5 * 60 * 1000
+    const sameParams = JSON.stringify(params) === JSON.stringify(lastParams)
+    
+    if (generalStats && isRecentData && sameParams) {
+      console.log(`[StatsStore] ⏭️ fetchGeneralStats skipped - data is recent and params match (${(performance.now() - startTime).toFixed(2)}ms)`)
+      return
+    }
+    
+    console.log(`[StatsStore] 📡 fetchGeneralStats proceeding with fetch at ${new Date().toISOString()}`)
     set({ isLoading: true, error: null })
     
     try {
@@ -166,98 +183,195 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
       if (params?.periodoInicio) queryParams.set('periodoInicio', params.periodoInicio.toString())
       if (params?.periodoFin) queryParams.set('periodoFin', params.periodoFin.toString())
       
+      console.log(`[StatsStore] 🌐 Making request to /api/statistics/general with params: ${queryParams.toString()}`)
+      const apiStartTime = performance.now()
       const response = await fetch(`/api/statistics/general?${queryParams}`)
+      const apiEndTime = performance.now()
+      
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
       
       const generalStats = await response.json()
-      set({ generalStats, lastUpdated: new Date() })
+      const totalTime = performance.now() - startTime
+      console.log(`[StatsStore] ✅ fetchGeneralStats completed successfully - API: ${(apiEndTime - apiStartTime).toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`)
+      set({ generalStats, lastUpdated: new Date(), lastParams: params })
     } catch (error) {
+      const totalTime = performance.now() - startTime
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
       set({ error: errorMessage })
-      console.error('Error fetching general stats:', error)
+      console.error(`[StatsStore] ❌ Error fetching general stats after ${totalTime.toFixed(2)}ms:`, error)
     } finally {
       set({ isLoading: false })
     }
   },
 
   fetchInstructorStats: async (params) => {
+    const startTime = performance.now()
+    console.log(`[StatsStore] ⏱️ fetchInstructorStats called with params:`, params)
+    
+    const { lastParams, instructorStats, lastUpdated } = get()
+    
+    // Check if we already have data for these params and it's recent (less than 5 minutes)
+    const isRecentData = lastUpdated && (Date.now() - lastUpdated.getTime()) < 5 * 60 * 1000
+    const sameParams = JSON.stringify(params) === JSON.stringify(lastParams)
+    
+    if (instructorStats && isRecentData && sameParams) {
+      console.log(`[StatsStore] ⏭️ fetchInstructorStats skipped - data is recent and params match (${(performance.now() - startTime).toFixed(2)}ms)`)
+      return
+    }
+    
+    console.log(`[StatsStore] 📡 fetchInstructorStats proceeding with fetch at ${new Date().toISOString()}`)
+    
     try {
       const queryParams = new URLSearchParams()
       if (params?.periodoId) queryParams.set('periodoId', params.periodoId.toString())
       if (params?.periodoInicio) queryParams.set('periodoInicio', params.periodoInicio.toString())
       if (params?.periodoFin) queryParams.set('periodoFin', params.periodoFin.toString())
       
+      console.log(`[StatsStore] 🌐 Making request to /api/statistics/instructors with params: ${queryParams.toString()}`)
+      const apiStartTime = performance.now()
       const response = await fetch(`/api/statistics/instructors?${queryParams}`)
+      const apiEndTime = performance.now()
+      
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
       
       const instructorStats = await response.json()
-      set({ instructorStats, lastUpdated: new Date() })
+      const totalTime = performance.now() - startTime
+      console.log(`[StatsStore] ✅ fetchInstructorStats completed successfully - API: ${(apiEndTime - apiStartTime).toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`)
+      set({ instructorStats, lastUpdated: new Date(), lastParams: params })
     } catch (error) {
+      const totalTime = performance.now() - startTime
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
       set({ error: errorMessage })
-      console.error('Error fetching instructor stats:', error)
+      console.error(`[StatsStore] ❌ Error fetching instructor stats after ${totalTime.toFixed(2)}ms:`, error)
     }
   },
 
   fetchClassStats: async (params) => {
+    const startTime = performance.now()
+    console.log(`[StatsStore] ⏱️ fetchClassStats called with params:`, params)
+    
+    const { lastParams, classStats, lastUpdated } = get()
+    
+    // Check if we already have data for these params and it's recent (less than 5 minutes)
+    const isRecentData = lastUpdated && (Date.now() - lastUpdated.getTime()) < 5 * 60 * 1000
+    const sameParams = JSON.stringify(params) === JSON.stringify(lastParams)
+    
+    if (classStats && isRecentData && sameParams) {
+      console.log(`[StatsStore] ⏭️ fetchClassStats skipped - data is recent and params match (${(performance.now() - startTime).toFixed(2)}ms)`)
+      return
+    }
+    
+    console.log(`[StatsStore] 📡 fetchClassStats proceeding with fetch at ${new Date().toISOString()}`)
+    
     try {
       const queryParams = new URLSearchParams()
       if (params?.periodoId) queryParams.set('periodoId', params.periodoId.toString())
       if (params?.periodoInicio) queryParams.set('periodoInicio', params.periodoInicio.toString())
       if (params?.periodoFin) queryParams.set('periodoFin', params.periodoFin.toString())
       
+      console.log(`[StatsStore] 🌐 Making request to /api/statistics/classes with params: ${queryParams.toString()}`)
+      const apiStartTime = performance.now()
       const response = await fetch(`/api/statistics/classes?${queryParams}`)
+      const apiEndTime = performance.now()
+      
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
       
       const classStats = await response.json()
-      set({ classStats, lastUpdated: new Date() })
+      const totalTime = performance.now() - startTime
+      console.log(`[StatsStore] ✅ fetchClassStats completed successfully - API: ${(apiEndTime - apiStartTime).toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`)
+      set({ classStats, lastUpdated: new Date(), lastParams: params })
     } catch (error) {
+      const totalTime = performance.now() - startTime
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
       set({ error: errorMessage })
-      console.error('Error fetching class stats:', error)
+      console.error(`[StatsStore] ❌ Error fetching class stats after ${totalTime.toFixed(2)}ms:`, error)
     }
   },
 
   fetchVenueStats: async (params) => {
+    const startTime = performance.now()
+    console.log(`[StatsStore] ⏱️ fetchVenueStats called with params:`, params)
+    
+    const { lastParams, venueStats, lastUpdated } = get()
+    
+    // Check if we already have data for these params and it's recent (less than 5 minutes)
+    const isRecentData = lastUpdated && (Date.now() - lastUpdated.getTime()) < 5 * 60 * 1000
+    const sameParams = JSON.stringify(params) === JSON.stringify(lastParams)
+    
+    if (venueStats && isRecentData && sameParams) {
+      console.log(`[StatsStore] ⏭️ fetchVenueStats skipped - data is recent and params match (${(performance.now() - startTime).toFixed(2)}ms)`)
+      return
+    }
+    
+    console.log(`[StatsStore] 📡 fetchVenueStats proceeding with fetch at ${new Date().toISOString()}`)
+    
     try {
       const queryParams = new URLSearchParams()
       if (params?.periodoId) queryParams.set('periodoId', params.periodoId.toString())
       if (params?.periodoInicio) queryParams.set('periodoInicio', params.periodoInicio.toString())
       if (params?.periodoFin) queryParams.set('periodoFin', params.periodoFin.toString())
       
+      console.log(`[StatsStore] 🌐 Making request to /api/statistics/venues with params: ${queryParams.toString()}`)
+      const apiStartTime = performance.now()
       const response = await fetch(`/api/statistics/venues?${queryParams}`)
+      const apiEndTime = performance.now()
+      
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
       
       const venueStats = await response.json()
-      set({ venueStats, lastUpdated: new Date() })
+      const totalTime = performance.now() - startTime
+      console.log(`[StatsStore] ✅ fetchVenueStats completed successfully - API: ${(apiEndTime - apiStartTime).toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`)
+      set({ venueStats, lastUpdated: new Date(), lastParams: params })
     } catch (error) {
+      const totalTime = performance.now() - startTime
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
       set({ error: errorMessage })
-      console.error('Error fetching venue stats:', error)
+      console.error(`[StatsStore] ❌ Error fetching venue stats after ${totalTime.toFixed(2)}ms:`, error)
     }
   },
 
   fetchAllStats: async (params) => {
+    const startTime = performance.now()
+    console.log(`[StatsStore] ⏱️ fetchAllStats called with params:`, params)
+    
+    const { lastParams, lastUpdated } = get()
+    
+    // Check if we already have recent data for these params
+    const isRecentData = lastUpdated && (Date.now() - lastUpdated.getTime()) < 5 * 60 * 1000
+    const sameParams = JSON.stringify(params) === JSON.stringify(lastParams)
+    
+    if (isRecentData && sameParams) {
+      console.log(`[StatsStore] ⏭️ fetchAllStats skipped - data is recent and params match (${(performance.now() - startTime).toFixed(2)}ms)`)
+      return
+    }
+    
+    console.log(`[StatsStore] 📡 fetchAllStats proceeding with fetch at ${new Date().toISOString()}`)
     set({ isLoading: true, error: null })
     
     try {
+      console.log(`[StatsStore] 🚀 Starting parallel fetch of all stats`)
+      const parallelStartTime = performance.now()
       await Promise.all([
         get().fetchGeneralStats(params),
         get().fetchInstructorStats(params),
         get().fetchClassStats(params),
         get().fetchVenueStats(params),
       ])
+      const parallelEndTime = performance.now()
+      const totalTime = performance.now() - startTime
+      console.log(`[StatsStore] ✅ fetchAllStats completed successfully - Parallel: ${(parallelEndTime - parallelStartTime).toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`)
     } catch (error) {
+      const totalTime = performance.now() - startTime
       // Individual errors are handled in each fetch function
-      console.error('Error fetching all stats:', error)
+      console.error(`[StatsStore] ❌ Error fetching all stats after ${totalTime.toFixed(2)}ms:`, error)
     } finally {
       set({ isLoading: false })
     }
@@ -265,6 +379,7 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
 
   // Reset
   resetStats: () => {
+    console.log('[StatsStore] resetStats called - clearing all stats data')
     set({
       generalStats: null,
       instructorStats: null,
@@ -272,6 +387,7 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
       venueStats: null,
       error: null,
       lastUpdated: null,
+      lastParams: null,
     })
   },
 

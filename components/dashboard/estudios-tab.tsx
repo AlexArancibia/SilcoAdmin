@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useState, useMemo, useEffect, useRef } from "react"
 import { Search, Download, FileSpreadsheet, ArrowUpDown, PieChart } from "lucide-react"
 import { formatCurrency } from "../../utils/format-utils"
 import { exportToExcel } from "../../utils/excel-utils"
@@ -30,8 +30,12 @@ export function EstudiosTab({
   getPeriodoNombre,
   formatFecha,
 }: EstudiosTabProps) {
+  console.log('[EstudiosTab] Component rendering with periodoFilter:', periodoFilter)
+  
   const [searchTerm, setSearchTerm] = useState("")
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "ascending" | "descending" } | null>(null)
+  const [lastFetchedPeriod, setLastFetchedPeriod] = useState<string | null>(null)
+  const hasFetchedRef = useRef<string | null>(null)
 
   
   const {
@@ -43,8 +47,20 @@ export function EstudiosTab({
 
   // Load venue stats when component mounts or period changes
   useEffect(() => {
-    console.log('Fetching venue stats with filter:', periodoFilter)
-    fetchVenueStats(periodoFilter)
+    console.log('[EstudiosTab] useEffect triggered with periodoFilter:', periodoFilter)
+    
+    // Only fetch if we have a valid period filter and haven't fetched for this period yet
+    if (periodoFilter) {
+      const periodKey = JSON.stringify(periodoFilter)
+      if (hasFetchedRef.current !== periodKey) {
+        console.log('[EstudiosTab] Fetching venue stats for new period:', periodKey)
+        hasFetchedRef.current = periodKey
+        setLastFetchedPeriod(periodKey)
+        fetchVenueStats(periodoFilter)
+      } else {
+        console.log('[EstudiosTab] Already fetched for this period, skipping')
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodoFilter])
 

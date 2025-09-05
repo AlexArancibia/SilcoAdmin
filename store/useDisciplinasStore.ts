@@ -24,11 +24,30 @@ export const useDisciplinasStore = create<DisciplinasState>((set, get) => ({
   error: null,
 
   fetchDisciplinas: async () => {
+    const startTime = performance.now()
+    console.log(`[DisciplinasStore] ⏱️ fetchDisciplinas called`)
+    
+    const { disciplinas, isLoading } = get()
+    
+    // Check if we already have disciplinas and we're not currently loading
+    if (disciplinas.length > 0 && !isLoading) {
+      console.log(`[DisciplinasStore] ⏭️ fetchDisciplinas skipped - disciplinas already loaded (${disciplinas.length} items) - ${(performance.now() - startTime).toFixed(2)}ms`)
+      return
+    }
+    
+    console.log(`[DisciplinasStore] 📡 fetchDisciplinas proceeding with fetch at ${new Date().toISOString()}`)
     set({ isLoading: true, error: null })
     try {
+      console.log(`[DisciplinasStore] 🌐 Making API request to get all disciplinas`)
+      const apiStartTime = performance.now()
       const disciplinas = await disciplinasApi.getDisciplinas()
+      const apiEndTime = performance.now()
+      const totalTime = performance.now() - startTime
+      console.log(`[DisciplinasStore] ✅ Successfully obtained ${disciplinas.length} disciplinas - API: ${(apiEndTime - apiStartTime).toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`)
       set({ disciplinas, isLoading: false })
     } catch (error) {
+      const totalTime = performance.now() - startTime
+      console.error(`[DisciplinasStore] ❌ Error fetching disciplinas after ${totalTime.toFixed(2)}ms:`, error)
       set({
         error: error instanceof Error ? error.message : "Error desconocido al obtener disciplinas",
         isLoading: false,

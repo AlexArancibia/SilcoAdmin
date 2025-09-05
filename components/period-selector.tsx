@@ -24,10 +24,20 @@ export function PeriodSelector() {
   const [tempStart, setTempStart] = useState<number | null>(null)
   const [tempEnd, setTempEnd] = useState<number | null>(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
 
   useEffect(() => {
-    fetchPeriodos()
-  }, [fetchPeriodos])
+    console.log('[PeriodSelector] useEffect triggered - checking if need to fetch periodos')
+    
+    // Only fetch if we haven't fetched yet and don't have periodos
+    if (!hasFetched && periodos.length === 0) {
+      console.log('[PeriodSelector] Fetching periodos for the first time')
+      setHasFetched(true)
+      fetchPeriodos()
+    } else {
+      console.log('[PeriodSelector] Skipping fetch - already fetched or have periodos')
+    }
+  }, [fetchPeriodos, hasFetched, periodos.length])
 
   const formatFecha = (fecha: Date | string) => {
     const fechaObj = new Date(fecha)

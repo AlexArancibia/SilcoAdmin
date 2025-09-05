@@ -25,15 +25,30 @@ export const useInstructoresStore = create<InstructoresState>((set, get) => ({
   error: null,
 
   fetchInstructores: async () => {
-    console.log(`[InstructoresStore] Iniciando fetchInstructores`)
+    const startTime = performance.now()
+    console.log(`[InstructoresStore] ⏱️ fetchInstructores called`)
+    
+    const { instructores, isLoading } = get()
+    
+    // Check if we already have instructores and we're not currently loading
+    if (instructores.length > 0 && !isLoading) {
+      console.log(`[InstructoresStore] ⏭️ fetchInstructores skipped - instructores already loaded (${instructores.length} items) - ${(performance.now() - startTime).toFixed(2)}ms`)
+      return
+    }
+    
+    console.log(`[InstructoresStore] 📡 fetchInstructores proceeding with fetch at ${new Date().toISOString()}`)
     set({ isLoading: true, error: null })
     try {
-      console.log(`[InstructoresStore] Realizando petición a la API para obtener todos los instructores`)
+      console.log(`[InstructoresStore] 🌐 Making API request to get all instructores`)
+      const apiStartTime = performance.now()
       const instructores = await instructoresApi.getInstructores()
-      console.log(`[InstructoresStore] Respuesta exitosa, obtenidos ${instructores.length} instructores`)
+      const apiEndTime = performance.now()
+      const totalTime = performance.now() - startTime
+      console.log(`[InstructoresStore] ✅ Successfully obtained ${instructores.length} instructores - API: ${(apiEndTime - apiStartTime).toFixed(2)}ms, Total: ${totalTime.toFixed(2)}ms`)
       set({ instructores, isLoading: false })
     } catch (error) {
-      console.error(`[InstructoresStore] Error al obtener instructores:`, error)
+      const totalTime = performance.now() - startTime
+      console.error(`[InstructoresStore] ❌ Error fetching instructores after ${totalTime.toFixed(2)}ms:`, error)
       set({
         error: error instanceof Error ? error.message : "Error desconocido al obtener instructores",
         isLoading: false,
