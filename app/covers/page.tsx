@@ -159,7 +159,7 @@ export default function CoversPage() {
   // Determinar si es instructor
   const { userType } = useAuthStore()
   const isInstructor = userType === 'instructor'
-  const isAdmin = ['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(user?.rol || '')
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'OPERADOR'].includes(user?.rol || '')
  
 
   // Cargar datos iniciales
