@@ -127,9 +127,21 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "La justificacion debe ser PENDIENTE, APROBADO o RECHAZADO" }, { status: 400 })
     }
 
-    // Validate fecha if provided
+    // Validate fecha if provided - manejar correctamente las fechas para evitar problemas de zona horaria
     if (parsedBody.fecha) {
-      const fecha = new Date(parsedBody.fecha)
+      let fecha: Date
+      if (typeof parsedBody.fecha === 'string') {
+        // Si es una fecha en formato YYYY-MM-DD, crear la fecha en zona horaria local
+        if (/^\d{4}-\d{2}-\d{2}$/.test(parsedBody.fecha)) {
+          const [year, month, day] = parsedBody.fecha.split('-').map(Number)
+          fecha = new Date(year, month - 1, day) // month - 1 porque Date usa 0-indexado
+        } else {
+          fecha = new Date(parsedBody.fecha)
+        }
+      } else {
+        fecha = new Date(parsedBody.fecha)
+      }
+      
       if (isNaN(fecha.getTime())) {
         return NextResponse.json({ error: "La fecha debe ser válida" }, { status: 400 })
       }

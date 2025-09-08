@@ -28,8 +28,8 @@ export class CoversApi extends ApiClient {
     return this.post<typeof cover, Cover>("/covers", cover)
   }
 
-  async updateCover(id: number, cover: Partial<Cover>): Promise<Cover> {
-    return this.put<Partial<Cover>, Cover>(`/covers/${id}`, cover)
+  async updateCover(id: number, cover: Partial<Cover & { fecha?: string | Date }>): Promise<Cover> {
+    return this.put<Partial<Cover & { fecha?: string | Date }>, Cover>(`/covers/${id}`, cover)
   }
 
   async deleteCover(id: number): Promise<{ success: boolean }> {

@@ -260,7 +260,7 @@ export default function CoversPage() {
         instructorReemplazoId: createForm.instructorReemplazoId,
         disciplinaId: createForm.disciplinaId,
         periodoId: createForm.periodoId,
-        fecha: new Date(createForm.fecha),
+        fecha: createForm.fecha, // Enviar como string para evitar problemas de zona horaria
         hora: createForm.hora,
         claseId: createForm.claseId || undefined,
         comentarios: createForm.comentarios || undefined,
@@ -316,7 +316,7 @@ export default function CoversPage() {
      try {
        await actualizarCover(coverSeleccionado.id, {
          ...editForm,
-         fecha: editForm.fecha ? new Date(editForm.fecha) : undefined,
+         fecha: editForm.fecha as any, // Enviar como string para evitar problemas de zona horaria
          claseId: editForm.claseId || undefined,
          comentarios: editForm.comentarios || undefined,
          cambioDeNombre: editForm.cambioDeNombre || undefined,
