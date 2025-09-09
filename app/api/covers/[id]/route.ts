@@ -83,45 +83,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "ID debe ser un número válido" }, { status: 400 })
     }
 
-    // Verificar autenticación y permisos
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Token de autorización requerido' }, { status: 401 })
-    }
-
-    const token = authHeader.split(' ')[1]
-    const { getUserFromToken } = await import('@/lib/api/auth-api')
-    const user = await getUserFromToken(token)
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Token inválido o expirado' }, { status: 401 })
-    }
-
     const body = await request.json().catch(() => {
       throw new Error("El cuerpo de la solicitud no es un JSON válido")
     })
 
     if (!body) {
       return NextResponse.json({ error: "El cuerpo de la solicitud está vacío" }, { status: 400 })
-    }
-
-    // Verificar permisos para operaciones de justificación (aprobar/rechazar)
-    if (body.justificacion && ['APROBADO', 'RECHAZADO'].includes(body.justificacion)) {
-      // Solo MANAGER, ADMIN, SUPER_ADMIN pueden aprobar/rechazar covers
-      if (user.userType === 'usuario' && user.rol && !['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(user.rol)) {
-        return NextResponse.json(
-          { error: 'No tienes permisos para aprobar o rechazar covers. Solo los managers, administradores y super administradores pueden realizar esta operación.' },
-          { status: 403 }
-        )
-      }
-      
-      // Los instructores no pueden aprobar/rechazar covers
-      if (user.userType === 'instructor') {
-        return NextResponse.json(
-          { error: 'Los instructores no pueden aprobar o rechazar covers.' },
-          { status: 403 }
-        )
-      }
     }
 
     // Check if cover exists

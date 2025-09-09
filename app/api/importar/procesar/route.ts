@@ -402,8 +402,8 @@ async function crearClaseRegular(clase: any, instructorId: number, disciplinaId:
       lugares: clase.lugares || 0,
       reservasPagadas: clase.reservasPagadas || 0,
       esVersus: clase.esInstructorVS,
-      pais: "México",
-      ciudad: "Ciudad de México"
+      pais: "Perú",
+      ciudad: "Lima"
     }
   })
 } 
