@@ -178,10 +178,12 @@ async function procesarImportacion(configuracion: ConfiguracionFinalImportacion)
         // Crear la clase
         if (clase.esInstructorVS && clase.instructoresVS) {
           // Clase VS individual - crear una sola clase
+          console.log(`Creando clase VS para instructor: ${clase.instructor}, instructores VS: ${clase.instructoresVS.join(', ')}, vsNum: ${clase.instructoresVS.length}`)
           await crearClaseRegular(clase, instructorId, disciplinaId, configuracion.periodoId, clase.semana, fecha)
           clasesCreadas++
         } else {
           // Clase regular
+          console.log(`Creando clase regular para instructor: ${clase.instructor}`)
           await crearClaseRegular(clase, instructorId, disciplinaId, configuracion.periodoId, clase.semana, fecha)
           clasesCreadas++
         }
@@ -402,6 +404,7 @@ async function crearClaseRegular(clase: any, instructorId: number, disciplinaId:
       lugares: clase.lugares || 0,
       reservasPagadas: clase.reservasPagadas || 0,
       esVersus: clase.esInstructorVS,
+      vsNum: clase.esInstructorVS && clase.instructoresVS ? clase.instructoresVS.length : null,
       pais: "Perú",
       ciudad: "Lima"
     }
