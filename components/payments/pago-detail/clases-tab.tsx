@@ -141,7 +141,11 @@ export function ClassesTab({
       if (isNaN(dateObj.getTime())) {
         throw new Error('Fecha inválida')
       }
-      return dateObj.toLocaleTimeString('es-PE', { 
+      
+      // Add 5 hours to the time
+      const dateWithAddedHours = new Date(dateObj.getTime() + (5 * 60 * 60 * 1000))
+      
+      return dateWithAddedHours.toLocaleTimeString('es-PE', { 
         hour: '2-digit', 
         minute: '2-digit', 
         hour12: false, 
